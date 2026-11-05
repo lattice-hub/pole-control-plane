@@ -14723,10 +14723,12 @@ OrbStack，完成真实 MySQL/API、Console 与集群运行态验收。
 - [x] specification 全部业务代码整合远端已有develop更新，推送 f1d3771e58700ebf38b7e05cfa103fea664fb926；Go/Rust/Node/Python合同验证通过，不发tag或Release。
 - [x] control-plane 固定远端协议伪版本，去除相邻目录依赖；统一配置渲染检查改为读取Go实际依赖的测试向量，支持独立检出。
 - [x] 候选Go全量、前端干净安装/构建及相关契约、Helm检查与暂存边界复查。
-- [ ] control-plane 提交推送develop并核对远端hash，保留本地产物及原工作区。
+- [x] control-plane 提交推送develop并核对远端hash，保留本地产物及原工作区。
 
 ### Review：develop提交候选
 
 - 控制面候选634个业务文件，排除621个本地输出/缓存/consoleassets变动；源码占位文件保留。环境资源检查同步统一目录API、Inspect授权及删除边界，配置向量从Go实际依赖获取。
 - 固定远端协议 `v0.1.0-ALPHA.48.0.20261105165333-f1d3771e5870`，独立候选 GOWORK=off Go全量测试、npm ci/release build、统一配置/读写roundtrip/发布动作/dirty、认证边界/编辑抽屉/环境资源检查通过；Helm lint通过。diff whitespace检查通过。
 - 全仓tsc仍有既有共享组件/治理类型错误，未以Vite构建通过替代类型检查；依赖审计既有问题保留。暂存秘密扫描唯一告警为测试用base64分页游标，人工确认不是凭据。无发版tag、Release、镜像推送或本轮再次部署。
+
+- 远端复查：control-plane业务提交 `271b48aa87f8326eb25448ebf58ae92860b2a15c`，specification提交 `f1d3771e58700ebf38b7e05cfa103fea664fb926`，均已通过 `git ls-remote origin refs/heads/develop` 核对；本轮没有再次部署。

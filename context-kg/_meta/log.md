@@ -2134,3 +2134,5 @@ sources: 0
 
 - 用户明确扩大提交范围至两个仓库当前全部业务改动，排除本地产物/临时文件。通过显式清单隔离候选，不混入截图、Demo输出、缓存或本地consoleassets；保留源码占位文件。
 - specification 已推送 f1d3771e58700ebf38b7e05cfa103fea664fb926；控制面将协议绑定到该远端固定伪版本，测试向量从Go实际依赖定位，避免隐式相邻工作区依赖。
+
+- control-plane业务提交271b48aa87f8326eb25448ebf58ae92860b2a15c已非强推develop并核对远端，specification f1d3771e58700ebf38b7e05cfa103fea664fb926已同步。独立候选Go全量/npm构建与相关检查通过；全仓tsc既有错误保留。
