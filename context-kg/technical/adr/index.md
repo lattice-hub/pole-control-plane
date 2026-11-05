@@ -1,0 +1,30 @@
+# 架构决策
+
+- [A2A Agent Registry 功能设计](adr-a2a-agent-registry.md) - A2A Agent Registry 功能设计与分期。
+- [ADR：Agent 与 MCP 逻辑定义及环境实例显式关联](adr-ai-resource-environment-binding.md) - Agent/MCP 逻辑定义、环境实例与调用作用域。
+- [ADR：配置中心多灰度发布与 spec 契约适配](adr-config-gray-release-spec-contract.md) - 配置中心多灰度发布与 specification 契约适配。
+- [ADR：配置模板与环境组合版本客户端渲染](adr-config-template-client-rendering.md) - 模板与 Value 原子环境版本及客户端渲染。
+- [ADR：配置模板标签与敏感 Value 加密](adr-config-template-labels-sensitive-values.md) - 模板目录标签与逐参数 Value 加密存储。
+- [ADR：配置中心统一模板与 values 及多协议兼容](adr-config-template-values-unification.md) - 统一定义发布、原生本地渲染、唯一 Discover、多灰度、事务存储及只读兼容 profile；记录实现和剩余验收。
+- [ADR：Console Agent 资源变更工作台](adr-console-agent-resource-workbench.md) - Pole Agent 真实 LLM/MCP 运行时与资源确认待发布。
+- [Console Fluent UI v9 设计系统迁移](adr-console-fluent-ui-design-system.md) - Console Fluent UI v9 设计系统与复合查询交互规范。
+- [Console、Limiter 源码归属与前端嵌入制品](adr-console-limiter-source-layout-and-embedded-web.md) - Console/Limiter 源码归属与前端嵌入制品。
+- [ADR：Console OIDC 用户来源与企业目录同步](adr-console-oidc-identity-source.md) - Console OIDC 用户来源与目录同步。
+- [ADR：全局环境晋升拓扑与跨资源 Bundle](adr-environment-promotion-topology.md) - 全局晋升 DAG、lane 回归与跨资源 Bundle。
+- [ADR：治理请求参数采集与动态消费](adr-governance-request-parameter-capture.md) - 治理请求参数采集与动态限流、路由消费边界。
+- [ADR：治理规则统一存储与缓存更新](adr-governance-rule-unified-storage.md) - 治理规则按环境统一存储、发布与授权。
+- [实例主动健康检查设计](adr-instance-active-healthcheck.md) - Console 实例 TCP/HTTP 主动健康检查。
+- [Kubernetes 生产部署基线](adr-kubernetes-production-deployment.md) - 通用 Helm、ACK 适配、原生 Secret、GHCR 与 OSS 备份基线。
+- [ADR：Pebble 本地 protobuf value cache](adr-local-pebble-protobuf-value-cache.md) - Pebble 本地缓存与 .pole_data 布局。
+- [ADR：逻辑服务与环境服务显式关联](adr-logical-service-environment-binding.md) - 控制面逻辑服务与环境服务显式关联。
+- [ADR：服务调用鉴权采用托管身份与子规则请求匹配](adr-managed-service-identity-authentication.md) - 托管身份、短期凭证与 Header 兼容模式。
+- [官方内置插件与用户扩展 Registry](adr-plugin-extension-registry.md) - 官方插件装配、隔离与销毁契约。
+- [ADR：Pole 自身能力自动注册与自管理闭环](adr-pole-self-management-control-loop.md) - Pole 自身 MCP/A2A 注册、Prompt 自动应用与系统身份协调。
+- [通用配额租约与流式限流](adr-quota-lease-streaming-rate-limit.md) - 请求数/Token/并发场景配置、可调窗口、请求前预留、流中累计消费、结算归还与 Console 运行态。
+- [ADR：RPC-first 治理范围与外部资源集成边界](adr-rpc-first-governance-scope.md) - RPC-first 治理范围与消息、存储、任务集成边界。
+- [四协议服务契约上报、发现与可视化](adr-service-contract-reporting-and-visualization.md) - 四协议契约与 Dubbo 原生元数据适配。
+- [ADR：多源 Skill Marketplace、不可变 Bundle 与 CLI 安装边界](adr-skill-marketplace-federation.md) - 多源 Skill、Bundle 与 CLI 边界。
+- [ADR：统一系统配置与动态生效](adr-system-configuration-control-plane.md) - 64 项字段级配置策略、协议默认环境热切换、desired/effective 状态与实例回执。
+- [ADR：业务环境与 Pole 系统空间类型化](adr-system-namespace-kind.md) - 业务环境与 Pole 内部系统空间类型化。
+- [统一进程模式与 Pole Limiter 集成](adr-unified-process-mode-and-limiter-integration.md) - 单一制品、多进程模式与 Limiter 独立部署边界。
+- [可观测性](observability/) - OTel 平台与 SDK 观测设计。

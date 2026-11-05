@@ -876,6 +876,7 @@ func fetchExpandInstanceRows(rows *sql.Rows) ([]*svctypes.Instance, error) {
 	var out []*svctypes.Instance
 	var item svctypes.ExpandInstanceStore
 	var instance svctypes.InstanceStore
+	var metadataStr string
 	item.ServiceInstance = &instance
 	progress := 0
 	for rows.Next() {
@@ -888,11 +889,13 @@ func fetchExpandInstanceRows(rows *sql.Rows) ([]*svctypes.Instance, error) {
 			&instance.Weight, &instance.EnableHealthCheck, &instance.LogicSet, &instance.Region,
 			&instance.Zone, &instance.Campus, &instance.Priority, &instance.Revision, &instance.Flag,
 			&instance.CheckType, &instance.TTL, &item.ServiceName, &item.Namespace,
-			&instance.CreateTime, &instance.ModifyTime)
+			&instance.CreateTime, &instance.ModifyTime, &metadataStr)
 		if err != nil {
 			log.Errorf("[Store][database] fetch instance rows err: %s", err.Error())
 			return nil, err
 		}
+		instance.Meta = make(map[string]string)
+		_ = json.Unmarshal([]byte(metadataStr), &instance.Meta)
 		out = append(out, svctypes.ExpandStore2Instance(&item))
 	}
 

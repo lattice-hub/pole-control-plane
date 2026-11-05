@@ -3,21 +3,21 @@ package config
 import (
 	"time"
 
+	"github.com/pole-io/pole-server/pkg/compatibility"
 	"github.com/pole-io/pole-server/pkg/systemconfig"
 	"github.com/pole-io/pole-server/pkg/workloadcredential"
 )
 
-const defaultConfigContentMaxLength int64 = 20000
-
-func NewSystemSettingsProvider(cfg *Config) (systemconfig.EffectiveProvider, error) {
+func NewSystemSettingsProvider(cfg *Config, compatibilityResolvers ...*compatibility.Resolver) (systemconfig.EffectiveProvider, error) {
+	resolver := compatibility.NewNamespaceResolver("dev", "dev")
+	if len(compatibilityResolvers) > 0 && compatibilityResolvers[0] != nil {
+		resolver = compatibilityResolvers[0]
+	}
 	sources := cfg.SystemConfigSources.Clone()
 	if cfg.Naming.AutoCreate == nil {
 		sources.MarkCompiledDefault("naming.autoCreate")
 	}
 	healthcheckSourceDefaults(cfg, sources)
-	if cfg.Config.ContentMaxLength <= 0 {
-		sources.MarkCompiledDefault("config.contentMaxLength")
-	}
 	if cfg.Cache.DiffTime == 0 {
 		sources.MarkCompiledDefault("cache.diffTime")
 	}
@@ -38,12 +38,6 @@ func NewSystemSettingsProvider(cfg *Config) (systemconfig.EffectiveProvider, err
 			minCheckInterval: value.MinCheckInterval, maxCheckInterval: value.MaxCheckInterval,
 			clientCheckInterval: value.ClientCheckInterval, clientCheckTTL: value.ClientCheckTtl,
 		}
-	}
-	contentMaxLength := func() any {
-		if cfg.Config.ContentMaxLength <= 0 {
-			return defaultConfigContentMaxLength
-		}
-		return cfg.Config.ContentMaxLength
 	}
 	cacheDiffTime := func() any {
 		if cfg.Cache.DiffTime == 0 {
@@ -84,7 +78,6 @@ func NewSystemSettingsProvider(cfg *Config) (systemconfig.EffectiveProvider, err
 		serverSetting("server.naming.healthcheck.client_check_interval", "naming", "客户端检查周期", "naming.healthcheck.clientCheckInterval", systemconfig.ValueTypeDuration, systemconfig.RestartRequired, systemconfig.SensitivityPublic, func() any { return healthcheckConfig().clientCheckInterval }),
 		serverSetting("server.naming.healthcheck.client_check_ttl", "naming", "客户端检查 TTL", "naming.healthcheck.clientCheckTtl", systemconfig.ValueTypeDuration, systemconfig.RestartRequired, systemconfig.SensitivityPublic, func() any { return healthcheckConfig().clientCheckTTL }),
 		serverSetting("server.config.open", "config", "配置中心开关", "config.open", systemconfig.ValueTypeBoolean, systemconfig.RestartRequired, systemconfig.SensitivityPublic, func() any { return cfg.Config.Open }),
-		serverSetting("server.config.content_max_length", "config", "配置内容长度上限", "config.contentMaxLength", systemconfig.ValueTypeInteger, systemconfig.RestartRequired, systemconfig.SensitivityPublic, contentMaxLength),
 		serverSetting("server.cache.diff_time", "cache", "增量同步回溯窗口", "cache.diffTime", systemconfig.ValueTypeDuration, systemconfig.RestartRequired, systemconfig.SensitivityPublic, cacheDiffTime),
 		serverSetting("server.store.name", "storage", "存储插件", "store.name", systemconfig.ValueTypeString, systemconfig.BootstrapOnly, systemconfig.SensitivityInternal, func() any { return cfg.Store.Name }),
 		serverSetting("server.store.dsn", "storage", "数据库连接", "store.option.master.dns", systemconfig.ValueTypeSecret, systemconfig.BootstrapOnly, systemconfig.SensitivitySecret, func() any { return systemconfig.LookupValue(cfg.Store.Option, "master", "dns") }),
@@ -115,9 +108,28 @@ func NewSystemSettingsProvider(cfg *Config) (systemconfig.EffectiveProvider, err
 		serverSetting("server.workload_credential.ttl", "workload-credential", "凭证 TTL", "workloadCredential.ttl", systemconfig.ValueTypeDuration, systemconfig.RestartRequired, systemconfig.SensitivityPublic, workloadTTL),
 		serverSetting("server.workload_credential.clock_skew", "workload-credential", "时钟偏差容忍", "workloadCredential.clockSkew", systemconfig.ValueTypeDuration, systemconfig.RestartRequired, systemconfig.SensitivityPublic, workloadClockSkew),
 		serverSetting("server.workload_credential.bundle_ttl", "workload-credential", "公钥包 TTL", "workloadCredential.bundleTTL", systemconfig.ValueTypeDuration, systemconfig.RestartRequired, systemconfig.SensitivityPublic, workloadBundleTTL),
+		compatibilitySetting(compatibility.NacosPublicNamespaceTargetKey, "Nacos public 默认环境",
+			func() any { return resolver.Current().NacosPublicTarget }, resolver),
+		compatibilitySetting(compatibility.EurekaDefaultNamespaceKey, "Eureka 缺省环境",
+			func() any { return resolver.Current().EurekaDefaultTarget }, resolver),
 	}
 	systemconfig.ApplyEditPolicies(registrations, serverSystemSettingPolicies())
 	return systemconfig.NewRegistry(registrations, sources)
+}
+
+func compatibilitySetting(key, label string, value func() any,
+	resolver *compatibility.Resolver) systemconfig.Registration {
+	return systemconfig.Registration{
+		Definition: systemconfig.SettingDefinition{
+			Key: key, Component: systemconfig.ComponentServer, Domain: compatibility.Domain,
+			Label: label, ValueType: systemconfig.ValueTypeString,
+			ApplyMode: systemconfig.GuardedHotReload, Sensitivity: systemconfig.SensitivityPublic,
+			Owner: "pole-server",
+		},
+		Value:  value,
+		Source: func() systemconfig.SourceDescriptor { return resolver.Current().Source },
+		Status: func() string { return resolver.Current().ApplyStatus },
+	}
 }
 
 func serverSystemSettingPolicies() map[string]systemconfig.EditPolicy {
@@ -143,6 +155,17 @@ func serverSystemSettingPolicies() map[string]systemconfig.EditPolicy {
 
 		"server.namespace.auto_create": restart("未找到命名空间时是否自动创建。", systemconfig.Validation{}),
 
+		compatibility.NacosPublicNamespaceTargetKey: {
+			Editable: true, Reason: "校验目标环境后受控热切换",
+			Description: "Nacos 空 namespaceId 或 public 映射到的 Pole BUSINESS 环境。",
+			Validation:  systemconfig.Validation{Required: true},
+		},
+		compatibility.EurekaDefaultNamespaceKey: {
+			Editable: true, Reason: "校验目标环境后受控热切换",
+			Description: "Eureka 请求未携带 x-namespace 时使用的 Pole BUSINESS 环境。",
+			Validation:  systemconfig.Validation{Required: true},
+		},
+
 		"server.naming.auto_create":                       restart("未找到服务时是否自动创建。", systemconfig.Validation{}),
 		"server.naming.healthcheck.open":                  restart("是否启用服务实例健康检查调度。", systemconfig.Validation{}),
 		"server.naming.healthcheck.service":               restart("承担健康检查任务的内部服务名称。", required),
@@ -152,9 +175,8 @@ func serverSystemSettingPolicies() map[string]systemconfig.EditPolicy {
 		"server.naming.healthcheck.client_check_interval": restart("客户端心跳健康检查周期。", duration("1s", "10m")),
 		"server.naming.healthcheck.client_check_ttl":      restart("客户端心跳失效判定 TTL。", duration("1s", "1h")),
 
-		"server.config.open":               restart("是否开放配置中心服务。", systemconfig.Validation{}),
-		"server.config.content_max_length": restart("单个配置文件允许的最大内容长度。", positive(1)),
-		"server.cache.diff_time":           restart("增量缓存同步时向前回溯的时间窗口。", duration("1s", "10m")),
+		"server.config.open":     restart("是否开放配置中心服务。", systemconfig.Validation{}),
+		"server.cache.diff_time": restart("增量缓存同步时向前回溯的时间窗口。", duration("1s", "10m")),
 
 		"server.store.name": locked("存储插件属于自举岛", "存储插件必须在读取动态配置之前完成初始化。"),
 		"server.store.dsn":  locked("数据库连接属于自举 Secret", "数据库连接只通过部署期 Secret 或静态配置提供。"),

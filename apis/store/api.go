@@ -43,8 +43,8 @@ type Store interface {
 	NamespaceStore
 	// DiscoverStore Service Registration Discovery Module Storage Interface
 	DiscoverStore
-	// ConfigFileModuleStore Configure the central module storage interface
-	ConfigFileModuleStore
+	// UnifiedConfigInventory 统一配置的环境归属和统计。
+	UnifiedConfigInventory
 	// GovernanceStore Governance Rule center module storage interface
 	GovernanceStore
 	// ClientStore Client the central module storage interface

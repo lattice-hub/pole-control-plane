@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { createRateLimits, deleteRateLimit, deleteRateLimitRelease, describeLimitRules, DescribeLimitRulesRequest, describeOneLimitRules, describeRateLimitVersions, DescribeRateLimitVersionsRequest, LimitType, modifyRateLimits, publishRateLimit, RateLimitView, rateLimitViewToRequest, rollbackRateLimit } from 'services/ratelimit';
 import { RuleRelease } from 'services/types';
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 
 // 定义规则接口（大规则 + 子规则列表）
 export interface RateLimitRuleState {

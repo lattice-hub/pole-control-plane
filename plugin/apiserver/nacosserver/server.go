@@ -25,6 +25,8 @@ import (
 	"github.com/pole-io/pole-server/apis/apiserver"
 	connlimit "github.com/pole-io/pole-server/pkg/common/conn/limit"
 	"github.com/pole-io/pole-server/pkg/common/secure"
+	"github.com/pole-io/pole-server/pkg/compatibility"
+	compatconfig "github.com/pole-io/pole-server/pkg/compatibility/config"
 	"github.com/pole-io/pole-server/pkg/config"
 	"github.com/pole-io/pole-server/pkg/namespace"
 	"github.com/pole-io/pole-server/pkg/service"
@@ -56,8 +58,7 @@ type NacosServer struct {
 	namespaceSvr      namespace.NamespaceOperateServer
 	discoverSvr       service.DiscoverServer
 	originDiscoverSvr service.DiscoverServer
-	configSvr         config.ConfigCenterServer
-	originConfigSvr   config.ConfigCenterServer
+	configSvr         compatconfig.Discoverer
 	healthSvr         *healthcheck.Server
 
 	v1Svr *nacosv1.NacosV1Server
@@ -99,7 +100,12 @@ func (n *NacosServer) Initialize(ctx context.Context, option map[string]interfac
 			TrustedCAFile: cfg.TLS.TrustedCAFile,
 		}
 	}
-	model.ConvertPolarisNamespaceVal = cfg.DefaultNamespace
+	resolver, ok := compatibility.ResolverFromContext(ctx)
+	if !ok {
+		resolver = compatibility.NewNamespaceResolver(cfg.DefaultNamespace, "dev")
+	}
+	resolver.ConfigureNacosStatic(cfg.DefaultNamespace)
+	model.SetNamespaceResolver(resolver)
 	return nil
 }
 
@@ -166,15 +172,10 @@ func (n *NacosServer) initPolarisResource() error {
 		return err
 	}
 
-	n.configSvr, err = config.GetServer()
+	n.configSvr, err = config.GetUnifiedService()
 	if err != nil {
 		return err
 	}
-	n.originConfigSvr, err = config.GetOriginServer()
-	if err != nil {
-		return err
-	}
-
 	n.userSvr, err = authapi.GetUserServer()
 	if err != nil {
 		return err
@@ -198,7 +199,7 @@ func (n *NacosServer) prepareRun() error {
 		nacosv1.WithTLS(n.tlsInfo),
 		nacosv1.WithNamespaceSvr(n.namespaceSvr),
 		nacosv1.WithDiscoverSvr(n.discoverSvr, n.originDiscoverSvr, n.healthSvr),
-		nacosv1.WithConfigSvr(n.configSvr, n.originConfigSvr),
+		nacosv1.WithConfigSvr(n.configSvr),
 		nacosv1.WithAuthSvr(n.userSvr),
 	)
 	if err != nil {
@@ -210,7 +211,7 @@ func (n *NacosServer) prepareRun() error {
 		nacosv2.WithTLS(n.tlsInfo),
 		nacosv2.WithNamespaceSvr(n.namespaceSvr),
 		nacosv2.WithDiscoverSvr(n.discoverSvr, n.originDiscoverSvr, n.healthSvr),
-		nacosv2.WithConfigSvr(n.configSvr, n.originConfigSvr),
+		nacosv2.WithConfigSvr(n.configSvr),
 		nacosv2.WithAuthSvr(n.userSvr),
 	)
 	if err != nil {

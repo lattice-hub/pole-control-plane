@@ -33,6 +33,47 @@ export const RateLimitResourceMap = RateLimitResourceOptions.reduce((acc, curr) 
     return acc
 }, {} as Record<string, string>)
 
+export interface QuotaLeaseCounterView {
+    counterKey: number
+    labels?: string
+    durationMs: number
+    accounting: 'CONSUMABLE' | 'OCCUPANCY' | string
+    limit: number
+    reserved: number
+    consumed: number
+    returned: number
+    available: number
+}
+
+export interface QuotaLeaseView {
+    id: string
+    clientKey: number
+    status: 'ACTIVE' | 'SETTLED' | 'EXPIRED' | string
+    sequence: number
+    expiresAt: number
+    terminalAt?: number
+    namespace: string
+    service: string
+    counters: QuotaLeaseCounterView[]
+}
+
+export interface QuotaLeaseSnapshot {
+    generatedAt: number
+    summary: {
+        activeCount: number
+        settledCount: number
+        expiredCount: number
+        activeReserved: number
+        activeConsumed: number
+        recentlyReturned: number
+    }
+    leases: QuotaLeaseView[]
+}
+
+export function describeQuotaLeases(params: { namespace?: string; service?: string }) {
+    return getApiRequest<QuotaLeaseSnapshot>({ action: '/limiter/v1/quota-leases', data: params })
+}
+
 // 限流类型，支持LOCAL（单机限流）, GLOBAL（分布式限流）
 export enum LimitType {
     GLOBAL = 'GLOBAL',
@@ -299,8 +340,8 @@ export interface LimitTriggerView {
 export interface RateLimit {
     id?: string
     name: string
-    service: string
     namespace: string
+    callee: RateLimitServiceScope
     priority?: number
     type: LimitType
     rules: LimitTrigger[]
@@ -319,8 +360,8 @@ export interface RateLimit {
 export interface RateLimitView {
     id?: string
     name: string
-    service: string
     namespace: string
+    callee: RateLimitServiceScope
     priority?: number
     type: LimitType
     rules: LimitTriggerView[]
@@ -333,6 +374,11 @@ export interface RateLimitView {
     metadata?: Record<string, string>
     editable?: boolean
     deleteable?: boolean
+}
+
+export interface RateLimitServiceScope {
+    namespace: string
+    service: string
 }
 
 export interface RateLimitRule {
@@ -567,8 +613,8 @@ function itemToRateLimitView(item: RateLimit | RateLimitRule): RateLimitView {
         return {
             id: r.id,
             name: r.name,
-            service: r.service,
             namespace: r.namespace,
+            callee: r.callee || { namespace: '', service: '' },
             priority: r.priority,
             type: normalizeLimitType(r.type),
             rules: (r.rules || []).map(triggerToView),
@@ -587,8 +633,8 @@ function itemToRateLimitView(item: RateLimit | RateLimitRule): RateLimitView {
     return {
         id: leg.id,
         name: leg.name,
-        service: leg.service,
         namespace: leg.namespace,
+        callee: { namespace: leg.namespace, service: leg.service },
         type: normalizeLimitType(leg.type),
         rules: [ruleToTriggerView(leg)],
         revision: leg.revision,
@@ -673,8 +719,8 @@ export interface CreateLimitRuleRequest {
 export interface CreateRateLimitRequest {
     id?: string
     name: string
-    service: string
     namespace: string
+    callee: RateLimitServiceScope
     priority?: number
     type: LimitType
     disable?: boolean
@@ -723,8 +769,8 @@ export function rateLimitViewToRequest(v: RateLimitView): CreateRateLimitRequest
     return {
         id: v.id,
         name: v.name,
-        service: v.service,
         namespace: v.namespace,
+        callee: v.callee,
         priority: v.priority,
         type: v.type,
         disable: v.disable,

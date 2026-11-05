@@ -34,7 +34,7 @@ const (
 )
 
 const (
-	DefaultNamespace            = "default"
+	DefaultNamespace            = "dev"
 	DefaultRefreshInterval      = 10
 	DefaultDetailExpireInterval = 60
 	// DefaultEnableSelfPreservation whether to enable preservation mechanism

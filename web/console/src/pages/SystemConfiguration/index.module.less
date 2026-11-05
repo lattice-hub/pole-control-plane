@@ -106,7 +106,7 @@
 }
 
 .componentTabActive {
-  color: var(--app-brand);
+  color: var(--app-brand-foreground);
 
   &::after {
     opacity: 1;
@@ -234,7 +234,7 @@
 .managedDrawer {
   display: grid;
   gap: 20px;
-  padding-bottom: 16px;
+  padding: 20px 28px 24px;
 
   > header {
     padding-bottom: 18px;
@@ -369,7 +369,7 @@
 
     ins {
       overflow: hidden;
-      color: var(--app-brand);
+      color: var(--app-brand-foreground);
       text-decoration: none;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -427,7 +427,7 @@
 .agentDrawer {
   display: grid;
   gap: 0;
-  padding-bottom: 12px;
+  padding: 20px 28px 24px;
 }
 
 .agentDrawerIntro {
@@ -485,7 +485,7 @@
     font-weight: 600;
 
     b {
-      border-color: var(--app-brand);
+      border-color: var(--app-brand-foreground);
       background: var(--app-brand);
       color: var(--colorNeutralForegroundOnBrand);
     }
@@ -513,7 +513,7 @@
     place-items: center;
     border-radius: 6px;
     background: color-mix(in srgb, var(--app-brand) 10%, transparent);
-    color: var(--app-brand);
+    color: var(--app-brand-foreground);
   }
 
   strong {
@@ -600,7 +600,7 @@
 
     > svg {
       flex: 0 0 auto;
-      color: var(--app-brand);
+      color: var(--app-brand-foreground);
     }
   }
 
@@ -941,7 +941,7 @@
   place-items: center;
   border-radius: 9px;
   background: color-mix(in srgb, var(--app-brand) 12%, var(--app-surface));
-  color: var(--app-brand);
+  color: var(--app-brand-foreground);
 
   svg {
     width: 22px;
@@ -1087,7 +1087,7 @@
   }
 
   &:hover {
-    border-color: var(--app-brand);
+    border-color: var(--app-brand-foreground);
   }
 }
 
@@ -1104,7 +1104,7 @@
 
 .agentDraftAction {
   flex: 0 0 auto;
-  color: var(--app-brand);
+  color: var(--app-brand-foreground);
   font-size: 12px;
   font-weight: 600;
 }
@@ -1488,7 +1488,7 @@
 
 .domainNavItemActive {
   background: color-mix(in srgb, var(--app-brand) 11%, transparent);
-  color: var(--app-brand);
+  color: var(--app-brand-foreground);
 
   &::before {
     position: absolute;
@@ -1835,8 +1835,16 @@
 
   .agentEditorSteps {
     span {
-      font-size: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      font-size: 12px;
+      line-height: 18px;
+
+      &::after { display: none; }
     }
+
+    b { flex: 0 0 24px; }
   }
 
   .agentFormGrid {
@@ -1862,4 +1870,8 @@
       }
     }
   }
+}
+
+@media (max-width: 640px) {
+  .managedDrawer, .agentDrawer { padding: 18px; }
 }

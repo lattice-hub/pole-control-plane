@@ -131,10 +131,13 @@ type Subscriber struct {
 	Ip          string
 	Port        int
 	NamespaceId string
-	Group       string
-	Service     string
-	Cluster     string
-	Type        PushType
+	// WireNamespace pins the namespace alias used when the subscription was
+	// created, so a later dynamic default switch does not reinterpret it.
+	WireNamespace string
+	Group         string
+	Service       string
+	Cluster       string
+	Type          PushType
 }
 
 func (s Subscriber) ResourceInfo() string {

@@ -9,6 +9,7 @@ const root = process.cwd();
 const sourcePath = path.join(root, 'src/pages/Governance/RateLimit/rateLimitEditorUtils.ts');
 const editorPath = path.join(root, 'src/pages/Governance/RateLimit/RateLimitEditor.tsx');
 const stylePath = path.join(root, 'src/pages/Governance/RateLimit/RateLimitEditor.module.less');
+const runtimePath = path.join(root, 'src/pages/Governance/RateLimit/QuotaLeaseRuntime.tsx');
 
 if (!fs.existsSync(sourcePath)) {
   throw new Error(`missing helper: ${sourcePath}`);
@@ -19,10 +20,14 @@ if (!fs.existsSync(editorPath)) {
 if (!fs.existsSync(stylePath)) {
   throw new Error(`missing style: ${stylePath}`);
 }
+if (!fs.existsSync(runtimePath)) {
+  throw new Error(`missing quota lease runtime: ${runtimePath}`);
+}
 
 const source = fs.readFileSync(sourcePath, 'utf8');
 const editorSource = fs.readFileSync(editorPath, 'utf8');
 const styleSource = fs.readFileSync(stylePath, 'utf8');
+const runtimeSource = fs.readFileSync(runtimePath, 'utf8');
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ES2020,
@@ -41,7 +46,7 @@ const baseDraft = {
   id: 'rl-1',
   name: 'spec-check-ratelimit',
   namespace: 'spec-governance',
-  service: 'spec-gateway',
+  callee: { namespace: 'spec-runtime', service: 'spec-gateway' },
   type: 'GLOBAL',
   priority: 15,
   disable: false,
@@ -81,6 +86,7 @@ const baseDraft = {
 
 const payload = utils.buildRateLimitSubmitPayload(baseDraft);
 assert.equal(payload.name, 'spec-check-ratelimit');
+assert.deepEqual(payload.callee, { namespace: 'spec-runtime', service: 'spec-gateway' });
 assert.equal(payload.type, 'GLOBAL');
 assert.equal(payload.disable, false);
 assert.deepEqual(payload.metadata, { owner: 'codex', scenario: 'sample' });
@@ -145,6 +151,16 @@ const concurrencyRule = {
 };
 assert.equal(utils.describeRuleThreshold(concurrencyRule), '50 并发');
 
+const tokenRule = {
+  ...baseDraft.rules[0],
+  resource: 'TOKEN',
+  amounts: [{ validDuration: 60, validDurationUnit: 's', maxAmount: 120000 }],
+};
+assert.equal(utils.describeRuleThreshold(tokenRule), '120000 Token / 60s');
+assert.deepEqual(utils.validateRateLimitDraft({ ...baseDraft, rules: [{ ...tokenRule, amounts: [{ ...tokenRule.amounts[0], maxAmount: 0 }] }] }).map((item) => item.message), [
+  '规则[1] 最大 Token 数必须大于 0',
+]);
+
 assert.deepEqual(utils.validateRateLimitDraft(baseDraft), []);
 
 const invalidDraft = {
@@ -197,6 +213,26 @@ assert.match(editorSource, /const relation = trigger\.matchMode \|\| MatchLogic\
 assert.match(editorSource, /relation=\{relation\}/);
 assert.match(editorSource, /relationEditable/);
 assert.match(editorSource, /onRelationChange=\{\(value\) => updateRule\(ruleIdx, \{ matchMode: value as MatchLogic \}\)\}/);
+assert.match(editorSource, /请求数 · 默认 1 秒/);
+assert.match(editorSource, /Token 数 · 默认 60 秒/);
+assert.doesNotMatch(editorSource, /title: 'RPM'/);
+assert.doesNotMatch(editorSource, /value=\{RateLimitResource\.QPS\}>\{RateLimitResourceMap/);
+assert.match(editorSource, /\? '并发上限' : '阈值窗口'/);
+assert.match(editorSource, /流式 TPM 使用 Quota Lease/);
+assert.match(editorSource, /预留成功后不会在响应流中再次触发配额 429/);
+assert.doesNotMatch(editorSource, /shared\.verdictDeny/);
+assert.match(editorSource, /className=\{styles\.strategyNote\}/);
+assert.match(editorSource, /请求前校验/);
+assert.match(editorSource, /QuotaLeaseRuntime namespace=\{rateLimit\.callee\.namespace\} service=\{rateLimit\.callee\.service\}/);
+assert.match(runtimeSource, /当前预留/);
+assert.match(runtimeSource, /流中已使用/);
+assert.match(runtimeSource, /最近归还/);
+assert.match(runtimeSource, /TTL 回收/);
+assert.match(runtimeSource, /window\.setInterval\(load, 5000\)/);
 assert.match(styleSource, /:global\(\.fluent-tag-input\),/);
+assert.match(styleSource, /:global\(\.fui-Combobox\),/);
+assert.match(styleSource, /:global\(\.fui-Combobox__input\) \{[\s\S]*?max-width: 100%;[\s\S]*?min-width: 0;[\s\S]*?width: 100%;/);
+assert.match(styleSource, /> \* \{[\s\S]*?max-width: 100%;[\s\S]*?min-width: 0;/);
+assert.match(styleSource, /\.interfaceGrid \{[\s\S]*?min-width: 720px;/);
 
 console.log('ratelimit editor utils verification passed');

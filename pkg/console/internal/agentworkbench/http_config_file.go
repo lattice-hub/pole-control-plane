@@ -3,18 +3,26 @@ package agentworkbench
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
+	configv1 "github.com/pole-io/specification/source/go/api/v1/config"
+	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 )
 
-const executeSuccessCode uint32 = 200000
+const executeSuccessCode uint32 = uint32(apimodel.Code_ExecuteSuccess)
+
 const downstreamFailureCode uint32 = 502001
+
+const maxConfigResponseBytes = 4 << 20
 
 type UpstreamError struct {
 	Code      uint32
@@ -63,103 +71,97 @@ func (p *HTTPConfigFilePort) requestContext(ctx context.Context) (context.Contex
 	return context.WithTimeout(ctx, time.Duration(p.timeout.Load()))
 }
 
+// GetConfigFile 从统一管理状态读取完整草稿；Workbench 只展示可安全编辑的 UTF-8 正文。
 func (p *HTTPConfigFilePort) GetConfigFile(ctx context.Context, actor Actor, ref ResourceRef) (ConfigFile, string, error) {
-	ctx, cancel := p.requestContext(ctx)
-	defer cancel()
-	query := url.Values{}
-	query.Set("namespace", ref.Namespace)
-	query.Set("group", ref.Group)
-	query.Set("name", ref.Name)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.baseURL+"/config/v1/files/detail?"+query.Encode(), nil)
+	key := &configv1.ConfigKey{Environment: ref.Namespace, Group: ref.Group, Name: ref.Name}
+	state, requestID, err := p.post(ctx, actor, "/config/v1/state", &configv1.GetStateRequest{Key: key})
 	if err != nil {
-		return ConfigFile{}, "", err
+		return ConfigFile{}, requestID, err
 	}
-	setActorHeaders(req, actor)
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return ConfigFile{}, "", newDownstreamFailure("request pole-server config file: "+err.Error(), "")
+	draft := state.GetDraft()
+	if !proto.Equal(state.GetKey(), key) || (draft != nil && !proto.Equal(draft.GetKey(), key)) {
+		return ConfigFile{}, requestID, newDownstreamFailure("pole-server config state does not match requested key", requestID)
 	}
-	defer resp.Body.Close()
-	requestID := resp.Header.Get("X-Request-Id")
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return ConfigFile{}, requestID, newDownstreamFailure("read pole-server config response: "+err.Error(), requestID)
+	if draft == nil || draft.GetDefinition() == nil {
+		return ConfigFile{}, requestID, ErrSensitiveResource
 	}
-	var envelope struct {
-		Code uint32          `json:"code"`
-		Info string          `json:"info"`
-		Data json.RawMessage `json:"data"`
+	content := draft.GetDefinition().GetContent()
+	if !utf8.Valid(content) || bytes.IndexByte(content, 0) >= 0 {
+		return ConfigFile{}, requestID, ErrSensitiveResource
 	}
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return ConfigFile{}, requestID, newDownstreamFailure("decode pole-server config response: "+err.Error(), requestID)
-	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices || envelope.Code != executeSuccessCode {
-		return ConfigFile{}, requestID, &UpstreamError{Code: envelope.Code, Info: envelope.Info, RequestID: requestID, Status: resp.StatusCode}
-	}
-	var wire struct {
-		ConfigFile
-		EncryptAlgoSnake string `json:"encrypt_algo"`
-	}
-	if err := json.Unmarshal(envelope.Data, &wire); err != nil {
-		return ConfigFile{}, requestID, newDownstreamFailure("decode pole-server config file: "+err.Error(), requestID)
-	}
-	if wire.EncryptAlgo == "" {
-		wire.EncryptAlgo = wire.EncryptAlgoSnake
-	}
-	return cloneConfigFile(wire.ConfigFile), requestID, nil
+	return ConfigFile{
+		Namespace: ref.Namespace, Group: ref.Group, Name: ref.Name,
+		Content: string(content), Format: draft.GetDefinition().GetFormat(),
+		DraftRevision: draft.GetRevision(),
+		Definition:    proto.Clone(draft.GetDefinition()).(*configv1.ConfigDefinition),
+	}, requestID, nil
 }
 
+// UpdateConfigFile 仅替换正文并以读取时的草稿 revision 做服务端原子 CAS。
 func (p *HTTPConfigFilePort) UpdateConfigFile(ctx context.Context, actor Actor, file ConfigFile) (string, error) {
+	if file.Definition == nil || !utf8.ValidString(file.Content) || strings.IndexByte(file.Content, 0) >= 0 {
+		return "", ErrSensitiveResource
+	}
+	definition := proto.Clone(file.Definition).(*configv1.ConfigDefinition)
+	definition.Content = []byte(file.Content)
+	key := &configv1.ConfigKey{Environment: file.Namespace, Group: file.Group, Name: file.Name}
+	_, requestID, err := p.post(ctx, actor, "/config/v1/draft", &configv1.SaveDraftRequest{
+		Key: key, Definition: definition, ExpectedDraftRevision: file.DraftRevision,
+	})
+	return requestID, err
+}
+
+// post 使用标准 protobuf JSON 编解码 Response 和 Any；失败不读取业务 data。
+func (p *HTTPConfigFilePort) post(ctx context.Context, actor Actor, path string, request proto.Message) (*configv1.ConfigState, string, error) {
 	ctx, cancel := p.requestContext(ctx)
 	defer cancel()
-	payload, err := json.Marshal([]ConfigFile{file})
+	payload, err := protojson.Marshal(request)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, p.baseURL+"/config/v1/files", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+path, bytes.NewReader(payload))
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	setActorHeaders(req, actor)
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return "", newDownstreamFailure("update pole-server config file: "+err.Error(), "")
+		return nil, "", newDownstreamFailure("request pole-server configuration: "+err.Error(), "")
 	}
 	defer resp.Body.Close()
 	requestID := resp.Header.Get("X-Request-Id")
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxConfigResponseBytes+1))
 	if err != nil {
-		return requestID, newDownstreamFailure("read pole-server update response: "+err.Error(), requestID)
+		return nil, requestID, newDownstreamFailure("read pole-server configuration response: "+err.Error(), requestID)
 	}
-	var envelope struct {
-		Code      uint32 `json:"code"`
-		Info      string `json:"info"`
-		Responses []struct {
-			Code uint32 `json:"code"`
-			Info string `json:"info"`
-		} `json:"responses"`
+	if len(body) > maxConfigResponseBytes {
+		return nil, requestID, newDownstreamFailure("pole-server configuration response exceeds size limit", requestID)
 	}
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return requestID, newDownstreamFailure("decode pole-server update response: "+err.Error(), requestID)
+	var envelope apimodel.Response
+	if err := protojson.Unmarshal(body, &envelope); err != nil {
+		return nil, requestID, newDownstreamFailure("decode pole-server configuration response: "+err.Error(), requestID)
 	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices || envelope.Code != executeSuccessCode {
-		return requestID, &UpstreamError{Code: envelope.Code, Info: envelope.Info, RequestID: requestID, Status: resp.StatusCode}
+	statusSuccess := resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
+	codeSuccess := envelope.GetCode() == executeSuccessCode
+	if !statusSuccess && codeSuccess {
+		return nil, requestID, newDownstreamFailure("pole-server configuration response has inconsistent status", requestID)
 	}
-	if len(envelope.Responses) != 1 {
-		return requestID, newDownstreamFailure("pole-server update response must contain exactly one result", requestID)
+	if !statusSuccess || !codeSuccess {
+		return nil, requestID, &UpstreamError{Code: envelope.GetCode(), Info: envelope.GetInfo(), RequestID: requestID, Status: resp.StatusCode}
 	}
-	for _, item := range envelope.Responses {
-		if item.Code != executeSuccessCode {
-			return requestID, &UpstreamError{Code: item.Code, Info: item.Info, RequestID: requestID, Status: resp.StatusCode}
-		}
+	if envelope.GetData() == nil {
+		return nil, requestID, newDownstreamFailure("pole-server configuration response has no data", requestID)
 	}
-	return requestID, nil
+	var state configv1.ConfigState
+	if err := envelope.GetData().UnmarshalTo(&state); err != nil {
+		return nil, requestID, newDownstreamFailure("pole-server configuration response has invalid state: "+err.Error(), requestID)
+	}
+	return &state, requestID, nil
 }
 
 func setActorHeaders(req *http.Request, actor Actor) {
 	req.Header.Set("Authorization", actor.Token)
-	req.Header.Set("X-Pole-User", actor.UserID)
 	if actor.RequestID != "" {
 		req.Header.Set("X-Request-Id", actor.RequestID)
 	}

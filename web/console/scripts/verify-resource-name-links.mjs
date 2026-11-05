@@ -31,18 +31,15 @@ const serviceName = betweenColumns(read('src/pages/Discovery/Services/services.t
 assert(serviceName.includes('ResourceNameLink'), '服务名称必须是查看链接');
 assert(!serviceName.includes('comment') && !serviceName.includes('serviceMeta'), '服务名称列不能混入描述');
 
-const configGroupName = betweenColumns(read('src/pages/Configuration/Group/group.tsx'), 'name', 'namespaceCount');
-assert(configGroupName.includes('ResourceNameLink'), '配置分组名称必须是查看链接');
-
 const governanceName = betweenColumns(read('src/pages/Governance/Workbench/index.tsx'), 'name', 'typeLabel');
 assert(governanceName.includes('ResourceNameLink'), '治理规则名称必须是查看链接');
 assert(!governanceName.includes('condition') && !governanceName.includes('description'), '治理规则名称列不能混入条件或描述');
 
-const a2aName = betweenColumns(read('src/pages/AI/A2A/index.tsx'), 'name', 'endpoint');
+const a2aName = betweenColumns(read('src/pages/AI/A2A/index.tsx'), 'name', 'namespace');
 assert(a2aName.includes('ResourceNameLink'), 'A2A Agent 名称必须是查看链接');
 assert(!a2aName.includes('<Tag') && !a2aName.includes('namespace'), 'A2A Agent 名称列不能混入协议或命名空间');
 
-const mcpName = betweenColumns(read('src/pages/AI/Mcp/index.tsx'), 'name', 'endpoint');
+const mcpName = betweenColumns(read('src/pages/AI/Mcp/index.tsx'), 'name', 'namespace');
 assert(mcpName.includes('ResourceNameLink'), 'MCP Server 名称必须是查看链接');
 assert(!mcpName.includes('<Tag') && !mcpName.includes('namespace'), 'MCP Server 名称列不能混入协议、命名空间或后端摘要');
 

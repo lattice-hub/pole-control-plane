@@ -47,6 +47,7 @@ import (
 	api "github.com/pole-io/pole-server/pkg/common/api/v1"
 	"github.com/pole-io/pole-server/pkg/common/log"
 	"github.com/pole-io/pole-server/pkg/common/utils"
+	"github.com/pole-io/pole-server/pkg/common/utils/valid"
 	"github.com/pole-io/pole-server/pkg/common/version"
 	config_center "github.com/pole-io/pole-server/pkg/config"
 	"github.com/pole-io/pole-server/pkg/goverrule"
@@ -286,12 +287,7 @@ func parseConfDir(path string) string {
 // StartConfigCenterComponents 启动配置中心模块
 func StartConfigCenterComponents(ctx context.Context, cfg *boot_config.Config, s storeapi.Store,
 	cacheMgn *cache.CacheManager, userMgn auth.UserServer, strategyMgn auth.StrategyServer) error {
-	namespaceOperator, err := namespace.GetServer()
-	if err != nil {
-		return err
-	}
-	cfg.Config.Interceptors = config_center.GetChainOrder()
-	return config_center.Initialize(ctx, cfg.Config, s, cacheMgn, namespaceOperator)
+	return config_center.Initialize(ctx, cfg.Config, s, cacheMgn, userMgn, strategyMgn.GetAuthChecker())
 }
 
 // StartServers 启动server
@@ -355,6 +351,9 @@ func StopServers(servers []apiserver.Apiserver) {
 	if nil != selfHeathChecker {
 		selfHeathChecker.Stop()
 	}
+	// Deregistration uses the naming service batch controllers. Keep the API and
+	// service components alive until the asynchronous delete has completed.
+	SelfDeregister()
 	// sync stop servers
 	wg := &sync.WaitGroup{}
 	for _, s := range servers {
@@ -367,8 +366,6 @@ func StopServers(servers []apiserver.Apiserver) {
 		}(s, wg)
 	}
 	wg.Wait()
-	// deregister instances
-	SelfDeregister()
 }
 
 // StartBootstrapInOrder 开始进入启动加锁
@@ -587,7 +584,7 @@ func selfRegister(
 		Host:              host,
 		Port:              port,
 		Protocol:          protocol,
-		Version:           version.Get(),
+		Version:           selfRegistrationVersion(version.Get()),
 		EnableHealthCheck: true,
 		Isolate:           isolated,
 		HealthCheck: &apiservice.HealthCheck{
@@ -603,17 +600,29 @@ func selfRegister(
 	if api.CalcCode(resp) != 200 {
 		// 如果self之前注册过，那么可以忽略
 		if resp.GetCode() != api.ExistedResource {
-			return fmt.Errorf("%s", resp.GetInfo())
+			return fmt.Errorf(
+				"register instance service=%q namespace=%q host=%q port=%d protocol=%q: %s",
+				req.GetService(), req.GetNamespace(), req.GetHost(), req.GetPort(), req.GetProtocol(), resp.GetInfo())
 		}
 
 		resp = server.UpdateInstance(genContext(), req)
 		if api.CalcCode(resp) != 200 {
-			return fmt.Errorf("%s", resp.GetInfo())
+			return fmt.Errorf(
+				"update instance service=%q namespace=%q host=%q port=%d protocol=%q: %s",
+				req.GetService(), req.GetNamespace(), req.GetHost(), req.GetPort(), req.GetProtocol(), resp.GetInfo())
 		}
 	}
 	SelfServiceInstance = append(SelfServiceInstance, req)
 
 	return nil
+}
+
+func selfRegistrationVersion(value string) string {
+	runes := []rune(value)
+	if len(runes) <= valid.MaxDbInsVersionLength {
+		return value
+	}
+	return string(runes[:valid.MaxDbInsVersionLength])
 }
 
 // SelfDeregister Server退出的时候，自动反注册
@@ -625,7 +634,7 @@ func SelfDeregister() {
 	}
 	for _, req := range SelfServiceInstance {
 		log.Infof("Deregister the instance(%+v)", req)
-		if resp := namingServer.DeleteInstance(genContext(), req); api.CalcCode(resp) != 200 {
+		if resp := namingServer.ShutdownDeregisterInstance(genContext(), req); api.CalcCode(resp) != 200 {
 			// 遇到失败，继续反注册其他的实例
 			log.Errorf("Deregister instance error: %s", resp.GetInfo())
 		}

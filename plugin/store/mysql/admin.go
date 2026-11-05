@@ -491,37 +491,6 @@ func (m *adminStore) BatchCleanDeletedRules(rule string, timeout time.Duration, 
 	return uint32(rows), err
 }
 
-// BatchCleanDeletedConfigFiles batch clean soft deleted clients
-func (m *adminStore) BatchCleanDeletedConfigFiles(timeout time.Duration, batchSize uint32) (uint32, error) {
-	log.Infof("[Store][database] batch clean soft deleted config_files(%d)", batchSize)
-	var rows int64
-	err := m.master.processWithTransaction("batchCleanDeletedConfigFiles", func(tx *BaseTx) error {
-		mainStr := "delete from config_file where flag = 1 and mtime <= FROM_UNIXTIME(UNIX_TIMESTAMP(SYSDATE()) - ?) limit ?"
-		result, err := tx.Exec(mainStr, int32(timeout.Seconds()), batchSize)
-		if err != nil {
-			log.Errorf("[Store][database] batch clean soft deleted config_files(%d), err: %s", batchSize, err.Error())
-			return store.Error(err)
-		}
-
-		tRows, err := result.RowsAffected()
-		if err != nil {
-			log.Warnf("[Store][database] batch clean soft deleted config_files(%d), get RowsAffected err: %s",
-				batchSize, err.Error())
-			return store.Error(err)
-		}
-
-		if err := tx.Commit(); err != nil {
-			log.Errorf("[Store][database] batch clean soft deleted config_files(%d) commit tx err: %s",
-				batchSize, err.Error())
-			return err
-		}
-
-		rows = tRows
-		return nil
-	})
-	return uint32(rows), err
-}
-
 // BatchCleanDeletedServiceContracts batch clean soft deleted service_contract
 func (m *adminStore) BatchCleanDeletedServiceContracts(timeout time.Duration, batchSize uint32) (uint32, error) {
 	log.Infof("[Store][database] batch clean soft deleted service_contract(%d)", batchSize)
@@ -866,7 +835,6 @@ func (m *adminStore) BatchCleanWithChunks(tableName string, timeout time.Duratio
 		"instance":                true,
 		"service":                 true,
 		"client":                  true,
-		"config_file":             true,
 		"service_contract":        true,
 		"governance_rule":         true,
 		"governance_rule_release": true,
@@ -896,8 +864,6 @@ func (m *adminStore) BatchCleanWithChunks(tableName string, timeout time.Duratio
 			cleanedCount, err = m.BatchCleanDeletedServices(timeout, currentChunkSize)
 		case "client":
 			cleanedCount, err = m.BatchCleanDeletedClients(timeout, currentChunkSize)
-		case "config_file":
-			cleanedCount, err = m.BatchCleanDeletedConfigFiles(timeout, currentChunkSize)
 		case "service_contract":
 			cleanedCount, err = m.BatchCleanDeletedServiceContracts(timeout, currentChunkSize)
 		case "governance_rule", "governance_rule_release":

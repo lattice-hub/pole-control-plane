@@ -40,7 +40,7 @@ func Router(config *bootstrap.Config, assets fs.FS) {
 // NewRouter builds the console HTTP handler without starting a listener.
 func NewRouter(config *bootstrap.Config, assets fs.FS) *gin.Engine {
 	r := gin.Default()
-	r.Use(Cors())
+	r.Use(Cors(), handlers.RefreshJWTOnActivity(config))
 	staticAssets, err := fs.Sub(assets, "assets")
 	if err == nil {
 		r.StaticFS("/assets", http.FS(staticAssets))
@@ -77,6 +77,8 @@ func NewRouter(config *bootstrap.Config, assets fs.FS) *gin.Engine {
 	AgentRouter(r, config, workbench, agentRuntime)
 	// 指标监控接口
 	MetricsRouter(r, config)
+	// Limiter 租约运行态只通过 Console 认证代理暴露给产品界面。
+	LimiterRouter(r, config)
 	// OTel 可观测性查询接口，由 console 模块负责暴露。
 	ObservabilityRouter(r, config)
 	// 系统配置只读目录与当前有效值。
@@ -100,6 +102,7 @@ func isAPIPath(p string) bool {
 		"/ai/agent/v1/",
 		"/ai/agent/a2a/",
 		"/observability/v1/",
+		"/limiter/v1/",
 		"/system-config/v1/",
 		"/api/skill-marketplace",
 	}

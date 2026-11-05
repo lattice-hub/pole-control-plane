@@ -109,19 +109,7 @@ type DiscoveryMetric struct {
 	Labels   []attribute.KeyValue
 }
 
-func ResourceOfConfigFileList(group string) string {
-	return "CONFIG_FILE_LIST:" + group
-}
-
-func ResourceOfConfigFile(group, name string) string {
-	return "CONFIG_FILE:" + group + "/" + name
-}
-
 const (
-	ActionGetConfigFile                 = "GET_CONFIG_FILE"
-	ActionListConfigFiles               = "LIST_CONFIG_FILES"
-	ActionListConfigGroups              = "LIST_CONFIG_GROUPS"
-	ActionPublishConfigFile             = "PUBLISH_CONFIG_FILE"
 	ActionDiscoverInstance              = "DISCOVER_INSTANCE"
 	ActionDiscoverServices              = "DISCOVER_SERVICES"
 	ActionDiscoverServiceIdentity       = "DISCOVER_SERVICE_IDENTITY"
@@ -156,19 +144,4 @@ func (c ClientDiscoverMetric) String() string {
 	}
 	return fmt.Sprintf("%s|%s|%s|%s|%s|%s|%dms|%+v", c.ClientIP, c.Action, c.Namespace, c.Resource,
 		revision, time.Unix(c.Timestamp/1000, 0).Format(time.DateTime), c.CostTime, c.Success)
-}
-
-type ConfigMetricType string
-
-const (
-	ConfigGroupMetric ConfigMetricType = "config_group"
-	FileMetric        ConfigMetricType = "file"
-	ReleaseFileMetric ConfigMetricType = "release_file"
-)
-
-type ConfigMetrics struct {
-	Type    ConfigMetricType
-	Total   int64
-	Release int64
-	Labels  []attribute.KeyValue
 }

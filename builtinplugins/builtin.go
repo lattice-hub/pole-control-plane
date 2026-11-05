@@ -8,6 +8,7 @@ import (
 	ratelimittoken "github.com/pole-io/pole-server/plugin/access_control/ratelimit/token"
 	whitelistip "github.com/pole-io/pole-server/plugin/access_control/whitelist/ip"
 	"github.com/pole-io/pole-server/plugin/apiserver/apolloserver"
+	"github.com/pole-io/pole-server/plugin/apiserver/consulserver"
 	"github.com/pole-io/pole-server/plugin/apiserver/eurekaserver"
 	grpcdiscover "github.com/pole-io/pole-server/plugin/apiserver/grpcserver/discover"
 	"github.com/pole-io/pole-server/plugin/apiserver/httpserver"
@@ -42,6 +43,7 @@ var registrations = []struct {
 	{name: "rate-limit/token-bucket", register: ratelimittoken.Register},
 	{name: "whitelist/ip", register: whitelistip.Register},
 	{name: "api-server/apollo", register: apolloserver.Register},
+	{name: "api-server/consul", register: consulserver.Register},
 	{name: "api-server/eureka", register: eurekaserver.Register},
 	{name: "api-server/grpc", register: grpcdiscover.Register},
 	{name: "api-server/http", register: httpserver.Register},

@@ -62,7 +62,7 @@ func Start(parent context.Context, cfg Config) (*Running, error) {
 		case "grpc":
 			server, err = limitergrpc.Start(entry.Option, core, statics)
 		case "http":
-			server, err = limiterhttp.Start(entry.Option)
+			server, err = limiterhttp.Start(entry.Option, core)
 		}
 		if err != nil {
 			running.rollback()

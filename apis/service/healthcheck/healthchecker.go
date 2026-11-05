@@ -32,6 +32,12 @@ type CheckerPeer struct {
 	Port uint32
 }
 
+// CheckerPeerUpdater is implemented by distributed heartbeat checkers that
+// need the current pole.checker membership to route heartbeat records.
+type CheckerPeerUpdater interface {
+	SetCheckerPeers([]CheckerPeer) error
+}
+
 // ReportRequest report heartbeat request
 type ReportRequest struct {
 	QueryRequest

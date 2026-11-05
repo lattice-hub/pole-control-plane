@@ -1,0 +1,30 @@
+# ACK demo overlay. Apply after values-aliyun-prod.yaml so the cloud storage
+# defaults are reused while public ingress and backup remain opt-in.
+deploymentMode: full
+
+global:
+  clusterName: pole-ack-demo
+  environment: demo
+
+controlPlane:
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 4Gi
+
+console:
+  podDisruptionBudget:
+    enabled: false
+
+ingress:
+  enabled: false
+
+backup:
+  enabled: false
+
+# The current Terway eni-config explicitly disables NetworkPolicy enforcement.
+networkPolicy:
+  enabled: false

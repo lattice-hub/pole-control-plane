@@ -15,7 +15,6 @@ var (
 	resourceFieldNames = map[string]apisecurity.ResourceType{
 		"namespaces":           apisecurity.ResourceType_Namespaces,
 		"service":              apisecurity.ResourceType_Services,
-		"config_groups":        apisecurity.ResourceType_ConfigGroups,
 		"route_rules":          apisecurity.ResourceType_RouteRules,
 		"ratelimit_rules":      apisecurity.ResourceType_RateLimitRules,
 		"circuitbreaker_rules": apisecurity.ResourceType_CircuitBreakerRules,
@@ -45,12 +44,6 @@ var (
 				return reflect.ValueOf(&[]*apisecurity.StrategyResourceEntry{})
 			}
 			return reflect.ValueOf(&as.Services)
-		},
-		apisecurity.ResourceType_ConfigGroups: func(as *apisecurity.StrategyResources) reflect.Value {
-			if as.GetConfigGroups() == nil {
-				return reflect.ValueOf(&[]*apisecurity.StrategyResourceEntry{})
-			}
-			return reflect.ValueOf(&as.ConfigGroups)
 		},
 		apisecurity.ResourceType_RouteRules: func(as *apisecurity.StrategyResources) reflect.Value {
 			if as.GetRouteRules() == nil {
@@ -145,10 +138,6 @@ var (
 	}
 )
 
-type pbStringValue interface {
-	GetValue() string
-}
-
 // collectPrincipalEntry 将 Principal 转换为对应的 []authtypes.Principal 数组
 func collectPrincipalEntry(ruleID string, uType PrincipalType, res []*apisecurity.Principal) []Principal {
 	principals := make([]Principal, 0, len(res)+1)
@@ -176,13 +165,17 @@ func collectResourceEntry(ruleId string, resType apisecurity.ResourceType,
 
 	resEntries := make([]StrategyResource, 0, res.Len())
 	for i := 0; i < res.Len(); i++ {
-		item := res.Index(i).Elem()
-		resId := item.FieldByName("Id").Interface().(pbStringValue)
-		resName := item.FieldByName("Name").Interface().(pbStringValue)
+		entryValue := res.Index(i)
+		if entryValue.IsNil() {
+			continue
+		}
+		item := entryValue.Elem()
+		resID := item.FieldByName("Id").String()
+		resName := item.FieldByName("Name").String()
 		// 如果是添加的动作，那么需要进行归一化处理
 		if !delete {
 			// 归一化处理
-			if resId.GetValue() == "*" || resName.GetValue() == "*" {
+			if resID == "*" || resName == "*" {
 				return []StrategyResource{
 					{
 						StrategyID: ruleId,
@@ -196,7 +189,7 @@ func collectResourceEntry(ruleId string, resType apisecurity.ResourceType,
 		entry := StrategyResource{
 			StrategyID: ruleId,
 			ResType:    resType,
-			ResID:      resId.GetValue(),
+			ResID:      resID,
 		}
 
 		resEntries = append(resEntries, entry)

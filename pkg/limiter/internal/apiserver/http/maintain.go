@@ -29,7 +29,17 @@ func (h *Server) initMaintainHandler() {
 	maintain.Route(maintain.GET("/counters/total").To(h.GetCountersTotal))
 	maintain.Route(maintain.GET("/counters/keys").To(h.ListCountersKeys))
 	maintain.Route(maintain.GET("/counter/stat").To(h.GetCounterStat))
+	maintain.Route(maintain.GET("/quota-leases").To(h.GetQuotaLeases))
 	h.handler.Add(maintain)
+}
+
+func (h *Server) GetQuotaLeases(req *restful.Request, rsp *restful.Response) {
+	if h.core == nil {
+		_ = rsp.WriteErrorString(503, "limiter core is unavailable")
+		return
+	}
+	snapshot := h.core.QuotaLeaseSnapshot(req.QueryParameter("namespace"), req.QueryParameter("service"))
+	_ = rsp.WriteAsJson(snapshot)
 }
 
 // GetCountersTotal 获取本地缓存的counter个数

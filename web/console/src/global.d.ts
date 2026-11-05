@@ -51,3 +51,8 @@ declare interface ImportMeta {
     MODE: 'development' | 'test' | 'release' | 'mock' | 'site';
   };
 }
+
+declare module '*?worker' {
+  const WorkerConstructor: { new (options?: WorkerOptions): Worker };
+  export default WorkerConstructor;
+}

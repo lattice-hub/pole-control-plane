@@ -7,20 +7,37 @@ import ResourceNameLink from 'components/ResourceNameLink'
 import { ConfirmOperationButton, OperationButtonGroup } from 'components/OperationButton'
 import { deleteServices, describeServices, ServiceView } from 'services/service'
 import { openErrNotification, openInfoNotification } from 'utils/notifition'
+import ServiceEditor from './ServiceEditor'
 import style from './index.module.less'
 
 const pageSize = 10
 
-export default function SystemNamespaceServices({ namespace }: { namespace: string }) {
+export default function SystemNamespaceServices({ namespace, system = true }: { namespace: string, system?: boolean }) {
   const navigate = useNavigate()
   const [services, setServices] = React.useState<ServiceView[]>([])
   const [total, setTotal] = React.useState(0)
   const [page, setPage] = React.useState(1)
   const [keyword, setKeyword] = React.useState('')
-  const [loading, setLoading] = React.useState(false)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState('')
+  const [appliedKeyword, setAppliedKeyword] = React.useState('')
+  const [creatorVisit, setCreatorVisit] = React.useState<number | null>(null)
+  const [created, setCreated] = React.useState<{ visit: number; name: string } | null>(null)
+  const [loadedVisit, setLoadedVisit] = React.useState<number | null>(null)
+  const requestRef = React.useRef(0)
+  const visitRef = React.useRef({ namespace, system, generation: 0 })
+  if (visitRef.current.namespace !== namespace || visitRef.current.system !== system) {
+    visitRef.current = { namespace, system, generation: visitRef.current.generation + 1 }
+  }
+  const visit = visitRef.current.generation
+  const isCurrentVisit = () => visitRef.current.generation === visit
+  const createdName = created?.visit === visit ? created.name : ''
 
   const refresh = React.useCallback(async (nextPage = page) => {
+    if (!isCurrentVisit()) return
+    const request = ++requestRef.current
     setLoading(true)
+    setError('')
     try {
       const result = await describeServices({
         namespace,
@@ -28,33 +45,46 @@ export default function SystemNamespaceServices({ namespace }: { namespace: stri
         offset: (nextPage - 1) * pageSize,
         limit: pageSize,
       })
+      if (!isCurrentVisit() || request !== requestRef.current) return
       setServices(result.list)
       setTotal(result.totalCount)
-    } catch (error) {
-      openErrNotification('获取系统服务失败', error instanceof Error ? error.message : String(error))
+      setAppliedKeyword(keyword)
+      setLoadedVisit(visit)
+    } catch (reason) {
+      if (!isCurrentVisit() || request !== requestRef.current) return
+      setLoadedVisit(visit)
+      setError(reason instanceof Error ? reason.message : String(reason))
+      openErrNotification(`获取${system ? '系统' : '环境'}服务失败`, reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setLoading(false)
+      if (isCurrentVisit() && request === requestRef.current) setLoading(false)
     }
-  }, [keyword, namespace, page])
+  }, [keyword, namespace, page, system, visit])
 
   React.useEffect(() => {
+    setCreated(null)
+    setCreatorVisit(null)
+    setPage(1)
     void refresh(1)
-  }, [namespace])
+    return () => { requestRef.current += 1 }
+  }, [namespace, system])
 
   const remove = async (row: ServiceView) => {
+    if (!isCurrentVisit() || row.namespace !== namespace) return
     try {
       await deleteServices([{ id: row.id, namespace: row.namespace, name: row.name }])
-      openInfoNotification('删除成功', `系统服务 ${row.namespace}/${row.name} 已删除`)
+      if (!isCurrentVisit()) return
+      openInfoNotification('删除成功', `${system ? '系统' : '环境'}服务 ${row.namespace}/${row.name} 已删除`)
       await refresh()
     } catch (error) {
-      openErrNotification('删除系统服务失败', error instanceof Error ? error.message : String(error))
+      if (!isCurrentVisit()) return
+      openErrNotification(`删除${system ? '系统' : '环境'}服务失败`, error instanceof Error ? error.message : String(error))
     }
   }
 
   const columns = [
     {
       colKey: 'name',
-      title: '系统服务',
+      title: system ? '系统服务' : '环境服务',
       width: 280,
       cell: ({ row }: any) => (
         <ResourceNameLink
@@ -66,7 +96,7 @@ export default function SystemNamespaceServices({ namespace }: { namespace: stri
         />
       ),
     },
-    { colKey: 'namespace', title: '系统空间', width: 180 },
+    { colKey: 'namespace', title: system ? '系统空间' : '业务环境', width: 180 },
     {
       colKey: 'health',
       title: '健康实例',
@@ -82,14 +112,14 @@ export default function SystemNamespaceServices({ namespace }: { namespace: stri
         <OperationButtonGroup>
           <Button variant="text" onClick={() => navigate(
             `/discovery/service/instance?namespace=${encodeURIComponent(namespace)}`
-            + `&service=${encodeURIComponent(row.name)}`,
+            + `&service=${encodeURIComponent(row.name)}&tab=instances`,
           )}>查看实例</Button>
           <ConfirmOperationButton
             action="delete"
-            label="删除系统服务"
+            label={`删除${system ? '系统' : '环境'}服务`}
             disabled={row.deleteable === false}
             disabledLabel="无权限操作"
-            confirmContent={`确认删除系统服务 ${row.namespace}/${row.name} 吗？`}
+            confirmContent={`确认删除${system ? '系统' : '环境'}服务 ${row.namespace}/${row.name} 吗？`}
             onConfirm={() => void remove(row)}
           />
         </OperationButtonGroup>
@@ -102,19 +132,22 @@ export default function SystemNamespaceServices({ namespace }: { namespace: stri
       <ResourceToolbar
         density="compact"
         title={`${namespace} 服务`}
-        count={loading ? '正在同步列表' : `共 ${total} 条`}
+        count={loading || loadedVisit !== visit ? '正在同步列表' : error ? '加载失败' : `共 ${total} 条`}
         filters={(
           <>
-            <Input value={keyword} placeholder="搜索系统服务" onChange={setKeyword} />
+            <Input value={keyword} placeholder={`搜索${system ? '系统' : '环境'}服务`} onChange={setKeyword} />
             <Button variant="outline" onClick={() => { setPage(1); void refresh(1) }}>查询</Button>
+            {!system && <Button theme="primary" onClick={() => setCreatorVisit(visit)}>新建环境服务</Button>}
           </>
         )}
       />
+      {createdName && !system && <div className={style.onboarding}><div><strong>环境服务 {createdName} 已创建</strong><p>下一步在实例列表选择“新建实例”，注册后查看健康状态。</p></div><Button variant="outline" onClick={() => navigate(`/discovery/service/instance?namespace=${encodeURIComponent(namespace)}&service=${encodeURIComponent(createdName)}&tab=instances`)}>查看并注册实例</Button></div>}
+      {loadedVisit === visit && error && <p role="alert">服务列表加载失败：{error}。请重新查询。</p>}
       <section className={`${style.tableSurface} ${style.serviceTableSurface}`}>
         <Table
-          data={services}
+          data={loadedVisit !== visit || error ? [] : services}
           columns={columns}
-          loading={loading}
+          loading={loading || loadedVisit !== visit}
           rowKey="id"
           pagination={{
             current: page,
@@ -126,9 +159,12 @@ export default function SystemNamespaceServices({ namespace }: { namespace: stri
               void refresh(nextPage)
             },
           }}
-          empty="当前系统空间没有可见服务。"
+          empty={error ? '无法获取服务列表' : appliedKeyword ? '没有匹配的服务。' : `当前${system ? '系统空间' : '业务环境'}没有可见服务。`}
         />
       </section>
+      {!system && <ServiceEditor key={visit} op="create" visible={creatorVisit === visit} fixedNamespace={namespace}
+        onCreated={(service) => { if (!isCurrentVisit()) return; setCreated({ visit, name: service.name }); setPage(1); void refresh(1) }}
+        closeDrawer={() => { if (isCurrentVisit()) setCreatorVisit(null) }} />}
     </section>
   )
 }

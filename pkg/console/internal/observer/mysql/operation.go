@@ -3,6 +3,7 @@ package mysql
 import (
 	"strconv"
 
+	"github.com/pole-io/pole-server/apis/pkg/types"
 	"github.com/pole-io/pole-server/pkg/console/internal/common/model"
 )
 
@@ -123,6 +124,8 @@ func (o *OperationFetcher) GetHistory(filter map[string]string) ([]*model.Operat
 		); err != nil {
 			return nil, err
 		}
+		resource := types.Resource(record.ResourceType)
+		record.OperationDetail = types.SanitizeOperationDetail(resource, record.OperationDetail)
 		records = append(records, record)
 	}
 

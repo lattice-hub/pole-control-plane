@@ -348,15 +348,15 @@ func (rlc *rateLimitCache) QueryRateLimitRules(ctx context.Context, args *cachea
 
 	res := make([]*rules.RateLimit, 0, 8)
 	process := func(rule *rules.RateLimit) {
-		if hasService || hasNamespace {
+		if hasNamespace && args.Namespace != rule.Namespace {
+			return
+		}
+		if hasService {
 			serviceKey, ok := rlc.resolveRuleServiceKey(rule)
 			if !ok {
 				return
 			}
-			if hasService && args.Service != serviceKey.Name {
-				return
-			}
-			if hasNamespace && args.Namespace != serviceKey.Namespace {
+			if args.Service != serviceKey.Name {
 				return
 			}
 		}

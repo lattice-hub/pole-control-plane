@@ -74,6 +74,12 @@ const columns = (
                 <Space>
                     <OperationButton action="view" onClick={() => openUserDetail(row)} />
                     <OperationButton
+                        action="edit"
+                        disabled={row.editable === false}
+                        disabledLabel="无权限操作"
+                        onClick={() => operateUser('edit', 'user', row)}
+                    />
+                    <OperationButton
                         action="token"
                         disabled={row.editable === false}
                         disabledLabel="无权限操作"

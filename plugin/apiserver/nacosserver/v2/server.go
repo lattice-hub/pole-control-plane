@@ -353,6 +353,9 @@ func (h *NacosV2Server) GetPort() uint32 {
 
 // Stop stopping the gRPC server
 func (h *NacosV2Server) Stop() {
+	if h.configSvr != nil {
+		h.configSvr.Stop()
+	}
 	connlimit.RemoveLimitListener(h.GetProtocol())
 	if h.server != nil {
 		h.server.Stop()
@@ -430,7 +433,6 @@ func (h *NacosV2Server) ConvertContext(ctx context.Context) context.Context {
 		}
 	}
 
-	ctx = context.Background()
 	ctx = context.WithValue(ctx, types.ContextGrpcHeader, meta)
 	ctx = context.WithValue(ctx, types.ContextRequestId, requestID)
 	ctx = context.WithValue(ctx, types.ContextClientAddress, address)

@@ -1,0 +1,52 @@
+global:
+  clusterName: pole-ack-production
+  environment: production
+
+image:
+  repository: ghcr.io/lattice-hub/pole-control-plane
+  # Release automation publishes this public multi-architecture image. Pin digest in production.
+  tag: v1.0.0
+  digest: ""
+
+secrets:
+  create: false
+  existingSecret: pole-runtime-secrets
+
+controlPlane:
+  persistence:
+    storageClass: alicloud-disk-topology-alltype
+    size: 20Gi
+
+mysql:
+  persistence:
+    storageClass: alicloud-disk-topology-alltype
+    size: 100Gi
+
+greptimedb:
+  persistence:
+    storageClass: alicloud-disk-topology-alltype
+    size: 200Gi
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "true"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-enabled: "true"
+    alb.ingress.kubernetes.io/healthcheck-path: /admin/v1/server/functions
+  host: pole.example.com
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  timeZone: Asia/Shanghai
+  oss:
+    bucket: replace-with-pole-backup-bucket
+    endpoint: https://oss-cn-hangzhou-internal.aliyuncs.com
+    region: cn-hangzhou
+    prefix: pole
+
+networkPolicy:
+  enabled: true

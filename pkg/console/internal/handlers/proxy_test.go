@@ -18,6 +18,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -27,11 +28,73 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	globalotel "go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
 	bootstrap "github.com/pole-io/pole-server/pkg/console/config"
 	"github.com/pole-io/specification/source/go/api/v1/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestReverseProxyNoAuthPropagatesTraceContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousProvider := globalotel.GetTracerProvider()
+	previousPropagator := globalotel.GetTextMapPropagator()
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	globalotel.SetTracerProvider(provider)
+	globalotel.SetTextMapPropagator(propagation.TraceContext{})
+	t.Cleanup(func() {
+		globalotel.SetTracerProvider(previousProvider)
+		globalotel.SetTextMapPropagator(previousPropagator)
+	})
+
+	traceparent := make(chan string, 1)
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		traceparent <- req.Header.Get("traceparent")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	conf := &bootstrap.Config{}
+	conf.PoleServer.Address = backendAddress(backend.URL)
+	router := gin.New()
+	router.GET("/admin/v1/server/functions", ReverseProxyNoAuthForServer(&conf.PoleServer, conf))
+	console := httptest.NewServer(otelhttp.NewHandler(router, "console"))
+	defer console.Close()
+
+	ctx, parent := provider.Tracer("test").Start(context.Background(), "console request")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, console.URL+"/admin/v1/server/functions", nil)
+	require.NoError(t, err)
+	globalotel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+	rsp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer rsp.Body.Close()
+	parent.End()
+
+	assert.Equal(t, http.StatusOK, rsp.StatusCode)
+	assert.NotEmpty(t, <-traceparent)
+	spans := recorder.Ended()
+	require.Len(t, spans, 3)
+	var proxySpan sdktrace.ReadOnlySpan
+	var consoleSpan sdktrace.ReadOnlySpan
+	for _, span := range spans {
+		switch span.Name() {
+		case "proxy GET:/admin/v1/server/functions":
+			proxySpan = span
+		case "console":
+			consoleSpan = span
+		}
+	}
+	require.NotNil(t, proxySpan)
+	require.NotNil(t, consoleSpan)
+	assert.Equal(t, consoleSpan.SpanContext().SpanID(), proxySpan.Parent().SpanID())
+	assert.Equal(t, parent.SpanContext().TraceID(), proxySpan.SpanContext().TraceID())
+}
 
 func TestRefreshJWTAndParse(t *testing.T) {
 	conf := &bootstrap.Config{}
@@ -199,7 +262,7 @@ func TestReverseProxyForServerRefreshesJWTAfterBackendSuccess(t *testing.T) {
 	assert.Equal(t, "main", claims.Role)
 }
 
-func TestReverseProxyForServerClearsJWTAfterBackendUnauthorized(t *testing.T) {
+func TestReverseProxyForServerPreservesJWTAfterAuthorizationDenied(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -224,9 +287,37 @@ func TestReverseProxyForServerClearsJWTAfterBackendUnauthorized(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	assert.Empty(t, resp.Cookies())
+}
+
+func TestReverseProxyForServerClearsJWTAfterAuthenticationInvalidated(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"code":401004,"info":"token not exist"}`))
+	}))
+	defer backend.Close()
+
+	conf := testProxyConfig(backend.URL)
+	router := gin.New()
+	router.GET("/naming/v1/services", ReverseProxyForServer(&conf.PoleServer, conf))
+	console := httptest.NewServer(router)
+	defer console.Close()
+
+	req, err := http.NewRequest(http.MethodGet, console.URL+"/naming/v1/services", nil)
+	require.NoError(t, err)
+	req.AddCookie(testJWTCookie(t, "user1", "stale-token", conf))
+	req.Header.Set("x-pole-user", "user1")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	require.NotEmpty(t, resp.Cookies())
 	assert.Equal(t, "jwt", resp.Cookies()[0].Name)
-	assert.Equal(t, "", resp.Cookies()[0].Value)
+	assert.Empty(t, resp.Cookies()[0].Value)
 	assert.LessOrEqual(t, resp.Cookies()[0].MaxAge, 0)
 }
 

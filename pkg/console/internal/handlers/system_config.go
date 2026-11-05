@@ -1,15 +1,18 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/pole-io/pole-server/pkg/compatibility"
 	bootstrap "github.com/pole-io/pole-server/pkg/console/config"
 	"github.com/pole-io/pole-server/pkg/console/internal/agentworkbench"
 	"github.com/pole-io/pole-server/pkg/console/internal/common/api"
@@ -153,11 +156,12 @@ func GetSystemConfigurationDomain(config *bootstrap.Config, manager *systemsetti
 			writeSystemConfigurationSuccess(ctx, view)
 			return
 		}
-		if _, err := loadScopedSystemSettings(ctx, client, config, systemconfig.Component(component), domain); err != nil {
+		settings, err := loadScopedSystemSettings(ctx, client, config, systemconfig.Component(component), domain)
+		if err != nil {
 			writeSystemConfigurationError(ctx, http.StatusBadGateway, err)
 			return
 		}
-		view, err := manager.ManagedDomain(ctx.Request.Context(), component, domain)
+		view, err := manager.ManagedDomain(ctx.Request.Context(), component, domain, settings)
 		if err != nil {
 			writeSystemConfigurationError(ctx, http.StatusInternalServerError, err)
 			return
@@ -205,6 +209,12 @@ func SaveSystemConfigurationDraft(config *bootstrap.Config, manager *systemsetti
 			writeSystemConfigurationError(ctx, http.StatusBadRequest, errors.New("配置草稿格式无效"))
 			return
 		}
+		if component == compatibility.Component && domain == compatibility.Domain {
+			if err := validateServerManagedValues(ctx, client, config, component, domain, request.Values); err != nil {
+				writeSystemConfigurationError(ctx, systemConfigurationMutationStatus(err), err)
+				return
+			}
+		}
 		settings, err := loadScopedSystemSettings(ctx, client, config, systemconfig.Component(component), domain)
 		if err != nil {
 			writeSystemConfigurationError(ctx, http.StatusBadGateway, err)
@@ -245,6 +255,7 @@ func TestSystemConfigurationConnection(config *bootstrap.Config, manager *system
 }
 
 func PublishSystemConfiguration(config *bootstrap.Config, manager *systemsettings.Manager) gin.HandlerFunc {
+	client := &http.Client{Timeout: bootstrap.DefaultAgentUpstreamTimeout}
 	return func(ctx *gin.Context) {
 		component, domain, ok := parseSystemConfigurationScope(ctx)
 		if !ok {
@@ -270,6 +281,17 @@ func PublishSystemConfiguration(config *bootstrap.Config, manager *systemsetting
 			writeSystemConfigurationSuccess(ctx, view)
 			return
 		}
+		if component == compatibility.Component && domain == compatibility.Domain {
+			current, err := manager.ManagedDomain(ctx.Request.Context(), component, domain)
+			if err != nil || current.Draft == nil || current.Draft.Revision != request.DraftRevision {
+				writeSystemConfigurationError(ctx, http.StatusConflict, errors.New("草稿版本已变化，请刷新后重试"))
+				return
+			}
+			if err = validateServerManagedValues(ctx, client, config, component, domain, current.Draft.Values); err != nil {
+				writeSystemConfigurationError(ctx, systemConfigurationMutationStatus(err), err)
+				return
+			}
+		}
 		view, err := manager.PublishManaged(ctx.Request.Context(), userID, component, domain, request)
 		if err != nil {
 			writeSystemConfigurationError(ctx, systemConfigurationMutationStatus(err), err)
@@ -277,6 +299,41 @@ func PublishSystemConfiguration(config *bootstrap.Config, manager *systemsetting
 		}
 		writeSystemConfigurationSuccess(ctx, view)
 	}
+}
+
+func validateServerManagedValues(ctx *gin.Context, client *http.Client, config *bootstrap.Config,
+	component, domain string, values map[string]any) error {
+	payload, err := json.Marshal(map[string]any{
+		"component": component, "domain": domain, "values": values,
+	})
+	if err != nil {
+		return err
+	}
+	target := fmt.Sprintf("http://%s/admin/v1/system/configuration/validate", config.PoleServer.Address)
+	request, err := http.NewRequestWithContext(ctx.Request.Context(), http.MethodPost, target, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	for _, header := range []string{"Authorization", "X-Pole-User", "X-Request-Id"} {
+		if value := ctx.Request.Header.Get(header); value != "" {
+			request.Header.Set(header, value)
+		}
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return fmt.Errorf("validate Pole Server system configuration: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices {
+		return nil
+	}
+	body, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+	message := strings.TrimSpace(string(body))
+	if message == "" {
+		message = response.Status
+	}
+	return fmt.Errorf("动态配置校验失败: %s", message)
 }
 
 func ListSystemConfigurationReleases(manager *systemsettings.Manager) gin.HandlerFunc {
@@ -364,7 +421,7 @@ func systemConfigurationMutationStatus(err error) int {
 	}
 	if strings.Contains(message, "不能为空") || strings.Contains(message, "无效") ||
 		strings.Contains(message, "必须") || strings.Contains(message, "不支持") ||
-		strings.Contains(message, "未配置") {
+		strings.Contains(message, "未配置") || strings.Contains(message, "动态配置校验失败") {
 		return http.StatusUnprocessableEntity
 	}
 	return http.StatusInternalServerError

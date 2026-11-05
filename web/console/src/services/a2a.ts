@@ -5,6 +5,7 @@ import {
   AIResourceDefinition,
   bindAIResourceDefinition,
   createAIResourceDefinition,
+  deleteAIResourceDefinition,
   describeAIEnvironmentBinding,
   describeAIEnvironmentBindings,
   describeAIResourceDefinitions,
@@ -192,6 +193,10 @@ export async function describeA2AAgentDefinitions(name?: string) {
 
 export async function createA2AAgentDefinition(name: string) {
   return createAIResourceDefinition(A2ADefinitionURL, 'A2A Agent', name);
+}
+
+export async function deleteA2AAgentDefinition(definitionId: string) {
+  return deleteAIResourceDefinition(A2ADefinitionURL, definitionId);
 }
 
 export async function bindA2AAgentDefinition(definitionId: string, resourceId: string) {

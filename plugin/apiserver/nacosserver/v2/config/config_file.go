@@ -1,293 +1,106 @@
-/**
- * Tencent is pleased to support the open source community by making Polaris available.
- *
- * Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
- *
- * Licensed under the BSD 3-Clause License (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * https://opensource.org/licenses/BSD-3-Clause
- *
- * Unless required by applicable law or agreed to in writing, software distributed
- * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
- * CONDITIONS OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
- */
-
 package config
 
 import (
 	"context"
-	"time"
+	"errors"
+	"unicode/utf8"
 
-	"go.uber.org/zap"
-
-	"github.com/pole-io/specification/source/go/api/v1/config_manage"
+	configv1 "github.com/pole-io/specification/source/go/api/v1/config"
 	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 
-	"github.com/pole-io/pole-server/apis/observability/statis"
 	"github.com/pole-io/pole-server/apis/pkg/types"
-	conftypes "github.com/pole-io/pole-server/apis/pkg/types/config"
-	"github.com/pole-io/pole-server/apis/pkg/types/metrics"
-	"github.com/pole-io/pole-server/pkg/common/syncs/container"
-	"github.com/pole-io/pole-server/pkg/common/utils"
-	commontime "github.com/pole-io/pole-server/pkg/common/utils/time"
-	"github.com/pole-io/pole-server/pkg/config"
+	compatconfig "github.com/pole-io/pole-server/pkg/compatibility/config"
 	nacosmodel "github.com/pole-io/pole-server/plugin/apiserver/nacosserver/model"
 	nacospb "github.com/pole-io/pole-server/plugin/apiserver/nacosserver/v2/pb"
 	"github.com/pole-io/pole-server/plugin/apiserver/nacosserver/v2/remote"
 )
 
-const (
-	ErrorConfigNotFound      = 300
-	ErrorConfigQueryConflict = 400
-)
+const ErrorConfigNotFound = 300
 
-func (h *ConfigServer) handlePublishConfigRequest(ctx context.Context, req nacospb.BaseRequest,
-	meta nacospb.RequestMeta) (nacospb.BaseResponse, error) {
-	configReq, ok := req.(*nacospb.ConfigPublishRequest)
+const ErrorConfigQueryConflict = 400
+
+func failure(err error) *nacospb.Response {
+	code := apimodel.Code_ConfigUnavailable
+	var protocolError *compatconfig.Error
+	if errors.As(err, &protocolError) {
+		code = protocolError.Code
+	}
+	return &nacospb.Response{ResultCode: int(nacosmodel.Response_Fail.Code), ErrorCode: int(code), Message: "configuration request failed: " + code.String()}
+}
+
+func disabledWrite() *nacospb.Response {
+	return &nacospb.Response{ResultCode: int(nacosmodel.Response_Fail.Code), ErrorCode: 405, Message: "use the unified configuration draft and CAS publish API"}
+}
+
+func (h *ConfigServer) handlePublishConfigRequest(context.Context, nacospb.BaseRequest, nacospb.RequestMeta) (nacospb.BaseResponse, error) {
+	return &nacospb.ConfigPublishResponse{Response: disabledWrite()}, nil
+}
+
+func (h *ConfigServer) handleDeleteConfigRequest(context.Context, nacospb.BaseRequest, nacospb.RequestMeta) (nacospb.BaseResponse, error) {
+	return &nacospb.ConfigRemoveResponse{Response: disabledWrite()}, nil
+}
+
+// read 使用连接声明的labels和传输client IP选流量，认证仍只来自独立上下文凭证。
+func (h *ConfigServer) read(ctx context.Context, tenant, group, name string, meta nacospb.RequestMeta) (*compatconfig.Rendered, error) {
+	labels := make(map[string]string, len(meta.Labels)+1)
+	for key, value := range meta.Labels {
+		labels[key] = value
+	}
+	labels[types.ClientLabel_IP] = meta.ClientIP
+	rendered, err := compatconfig.Read(ctx, h.configSvr, "nacos", &configv1.DiscoverRequest{Key: &configv1.ConfigKey{Environment: nacosmodel.ToPolarisNamespace(tenant), Group: group, Name: name}, Labels: labels})
+	if err != nil {
+		return nil, err
+	}
+	// JSON string无法承载非UTF-8；读取和通知均拒绝，避免通知一个客户端无法安装的版本。
+	if !utf8.Valid(rendered.Content) {
+		return nil, &compatconfig.Error{Code: apimodel.Code_ConfigRenderFailed}
+	}
+	return rendered, nil
+}
+
+func (h *ConfigServer) handleGetConfigRequest(ctx context.Context, req nacospb.BaseRequest, meta nacospb.RequestMeta) (nacospb.BaseResponse, error) {
+	query, ok := req.(*nacospb.ConfigQueryRequest)
+	if !ok || query.ConfigRequest == nil {
+		return nil, remote.ErrorInvalidRequestBodyType
+	}
+	rendered, err := h.read(ctx, query.Tenant, query.Group, query.DataId, meta)
+	if err != nil {
+		return &nacospb.ConfigQueryResponse{Response: failure(err)}, nil
+	}
+	if rendered.Result.Presence == configv1.ConfigPresence_CONFIG_PRESENCE_ABSENT {
+		return &nacospb.ConfigQueryResponse{Response: &nacospb.Response{ResultCode: int(nacosmodel.Response_Fail.Code), ErrorCode: ErrorConfigNotFound, Message: "config data not exist"}}, nil
+	}
+	return &nacospb.ConfigQueryResponse{Response: &nacospb.Response{Success: true, ResultCode: int(nacosmodel.Response_Success.Code)}, Content: string(rendered.Content), Md5: rendered.MD5, ContentType: rendered.Result.Snapshot.Format}, nil
+}
+
+func (h *ConfigServer) handleWatchConfigRequest(ctx context.Context, req nacospb.BaseRequest, meta nacospb.RequestMeta) (nacospb.BaseResponse, error) {
+	watch, ok := req.(*nacospb.ConfigBatchListenRequest)
 	if !ok {
 		return nil, remote.ErrorInvalidRequestBodyType
 	}
-
-	var resp *apimodel.Response
-	startTime := commontime.CurrentMillisecond()
-	defer func() {
-		statis.GetStatis().ReportDiscoverCall(metrics.ClientDiscoverMetric{
-			Action:    nacosmodel.ActionGrpcPublishConfigFile,
-			ClientIP:  meta.ConnectionID,
-			Namespace: configReq.Tenant,
-			Resource:  metrics.ResourceOfConfigFile(configReq.Group, configReq.DataId),
-			Timestamp: startTime,
-			CostTime:  commontime.CurrentMillisecond() - startTime,
-			Success:   resp.GetCode() == uint32(apimodel.Code_ExecuteSuccess),
-		})
-	}()
-
-	resp = h.configSvr.UpsertAndReleaseConfigFileFromClient(ctx, configReq.ToSpec())
-	if resp.GetCode() != uint32(apimodel.Code_ExecuteSuccess) {
-		nacoslog.Error("[NACOS-V2][Config] publish config file fail", zap.String("tenant", configReq.Tenant),
-			utils.ZapGroup(configReq.Group), utils.ZapFileName(configReq.DataId),
-			zap.Uint32("code", resp.GetCode()), zap.String("msg", resp.GetInfo()))
-		return &nacospb.ConfigPublishResponse{
-			Response: &nacospb.Response{
-				Success:    false,
-				ResultCode: int(nacosmodel.Response_Fail.Code),
-				ErrorCode:  int(resp.GetCode()),
-				Message:    resp.GetInfo(),
-			},
-		}, nil
+	response := nacospb.NewConfigChangeBatchListenResponse()
+	if len(watch.ConfigListenContexts) > 128 {
+		response.Response = failure(&compatconfig.Error{Code: apimodel.Code_InvalidParameter})
+		return response, nil
 	}
-
-	return &nacospb.ConfigPublishResponse{
-		Response: &nacospb.Response{
-			Success:    true,
-			ResultCode: int(nacosmodel.Response_Success.Code),
-			Message:    nacosmodel.Response_Success.Desc,
-		},
-	}, nil
-}
-
-func (h *ConfigServer) handleGetConfigRequest(ctx context.Context, req nacospb.BaseRequest,
-	meta nacospb.RequestMeta) (nacospb.BaseResponse, error) {
-	configReq, ok := req.(*nacospb.ConfigQueryRequest)
-	if !ok {
-		return nil, remote.ErrorInvalidRequestBodyType
+	if !watch.Listen {
+		h.removeInterests(meta.ConnectionID, watch.ConfigListenContexts)
+		return response, nil
 	}
-	var rsp *nacospb.ConfigQueryResponse
-
-	startTime := commontime.CurrentMillisecond()
-	defer func() {
-		statis.GetStatis().ReportDiscoverCall(metrics.ClientDiscoverMetric{
-			Action:    nacosmodel.ActionGrpcGetConfigFile,
-			ClientIP:  meta.ConnectionID,
-			Namespace: configReq.Tenant,
-			Resource:  metrics.ResourceOfConfigFile(configReq.Group, configReq.DataId),
-			Timestamp: startTime,
-			CostTime:  commontime.CurrentMillisecond() - startTime,
-			Revision:  rsp.Md5,
-			Success:   rsp.Success,
-		})
-	}()
-
-	queryReq := configReq.ToQuerySpec()
-	queryResp := h.configSvr.GetConfigFileWithCache(ctx, queryReq)
-	if queryResp.GetCode() != uint32(apimodel.Code_ExecuteSuccess) {
-		nacoslog.Error("[NACOS-V2][Config] query config file fail", zap.String("tenant", configReq.Tenant),
-			utils.ZapNamespace(queryReq.GetNamespace()), utils.ZapGroup(configReq.Group),
-			utils.ZapFileName(configReq.DataId), zap.Uint32("code", queryResp.GetCode()),
-			zap.String("msg", queryResp.GetInfo()))
-		switch queryResp.GetCode() {
-		case uint32(apimodel.Code_NotFoundResource):
-			rsp = &nacospb.ConfigQueryResponse{
-				Response: &nacospb.Response{
-					ResultCode: int(nacosmodel.Response_Fail.Code),
-					ErrorCode:  ErrorConfigNotFound,
-					Message:    "config data not exist",
-				},
-			}
-			return rsp, nil
-		default:
-			rsp = &nacospb.ConfigQueryResponse{
-				Response: &nacospb.Response{
-					ResultCode: int(nacosmodel.Response_Fail.Code),
-					ErrorCode:  int(queryResp.GetCode()),
-					Message:    queryResp.GetInfo(),
-				},
-			}
-			return rsp, nil
+	for _, item := range watch.ConfigListenContexts {
+		rendered, err := h.read(ctx, item.Tenant, item.Group, item.DataId, meta)
+		if err != nil {
+			response.Response = failure(err)
+			response.ChangedConfigs = nil
+			return response, nil
+		}
+		if rendered.MD5 != item.Md5 {
+			response.ChangedConfigs = append(response.ChangedConfigs, nacospb.ConfigContext{Tenant: item.Tenant, Group: item.Group, DataId: item.DataId})
 		}
 	}
-
-	viewRelease := queryResp.GetFile()
-
-	rsp = &nacospb.ConfigQueryResponse{
-		Response: &nacospb.Response{
-			ResultCode: int(nacosmodel.Response_Success.Code),
-			Success:    true,
-		},
-		Content:      viewRelease.GetContent(),
-		Md5:          viewRelease.GetMd5(),
-		LastModified: stringToTimestamp(viewRelease.GetMtime()),
+	if err := h.watch(ctx, meta, watch.ConfigListenContexts); err != nil {
+		response.Response = failure(err)
+		response.ChangedConfigs = nil
 	}
-	return rsp, nil
-}
-
-func (h *ConfigServer) handleDeleteConfigRequest(ctx context.Context, req nacospb.BaseRequest,
-	meta nacospb.RequestMeta) (nacospb.BaseResponse, error) {
-	configReq, ok := req.(*nacospb.ConfigRemoveRequest)
-	if !ok {
-		return nil, remote.ErrorInvalidRequestBodyType
-	}
-	delResp := h.configSvr.DeleteConfigFileFromClient(ctx, configReq.ToSpec())
-	if delResp.GetCode() != uint32(apimodel.Code_ExecuteSuccess) {
-		nacoslog.Error("[NACOS-V2][Config] delete config file fail", zap.String("tenant", configReq.Tenant),
-			utils.ZapGroup(configReq.Group), utils.ZapFileName(configReq.DataId),
-			zap.Uint32("code", delResp.GetCode()), zap.String("msg", delResp.GetInfo()))
-		return &nacospb.ConfigRemoveResponse{
-			Response: &nacospb.Response{
-				Success:    false,
-				ResultCode: int(nacosmodel.Response_Fail.Code),
-				ErrorCode:  int(delResp.GetCode()),
-				Message:    delResp.GetInfo(),
-			},
-		}, nil
-	}
-
-	return &nacospb.ConfigRemoveResponse{
-		Response: &nacospb.Response{
-			Success:    true,
-			ResultCode: int(nacosmodel.Response_Success.Code),
-			Message:    nacosmodel.Response_Success.Desc,
-		},
-	}, nil
-}
-
-func (h *ConfigServer) handleWatchConfigRequest(ctx context.Context, req nacospb.BaseRequest,
-	meta nacospb.RequestMeta) (nacospb.BaseResponse, error) {
-	watchReq, ok := req.(*nacospb.ConfigBatchListenRequest)
-	if !ok {
-		return nil, remote.ErrorInvalidRequestBodyType
-	}
-	configSvr := h.originConfigSvr.(*config.Server)
-
-	listenResp := nacospb.NewConfigChangeBatchListenResponse()
-	clientId := meta.ConnectionID
-	specReq := watchReq.ToSpec()
-	if watchReq.Listen {
-		// 转换ConfigFileRelease到ConfigFile
-		configFiles := make([]*config_manage.ConfigFileRelease, len(specReq.GetFiles()))
-		for i, fileRelease := range specReq.GetFiles() {
-			// 将MD5信息保存在Tags中以便后续比较
-			tags := make(map[string]string)
-			tags["md5"] = fileRelease.GetMd5()
-
-			configFiles[i] = &config_manage.ConfigFileRelease{
-				Id:        fileRelease.GetId(),
-				Name:      fileRelease.GetFileName(),
-				Namespace: fileRelease.GetNamespace(),
-				Group:     fileRelease.GetGroup(),
-				Content:   fileRelease.GetContent(),
-				Format:    fileRelease.GetFormat(),
-				Comment:   fileRelease.GetComment(),
-				Labels:    tags,
-			}
-		}
-		watchCtx := configSvr.WatchCenter().AddWatcher(clientId, configFiles, h.BuildGrpcWatchCtx(ctx))
-		for i := range specReq.GetFiles() {
-			item := specReq.GetFiles()[i]
-			namespace := item.GetNamespace()
-			group := item.GetGroup()
-			dataId := item.GetFileName()
-			mdval := item.GetMd5()
-
-			var active *conftypes.ConfigFileRelease
-			var match bool
-			if betaActive := h.cacheSvr.ConfigFile().GetActiveGrayRelease(namespace, group, dataId); betaActive != nil {
-				match = h.cacheSvr.Gray().HitGrayRule(config.GetGrayConfigReaseKey(betaActive.SimpleConfigFileRelease), watchCtx.ClientLabels())
-				active = betaActive
-			}
-			if !match {
-				active = h.cacheSvr.ConfigFile().GetActiveRelease(namespace, group, dataId)
-			}
-
-			// 如果 client 过来的 MD5 是一个空字符串
-			if (active == nil && mdval != "") || (active != nil && active.Md5 != mdval) {
-				listenResp.ChangedConfigs = append(listenResp.ChangedConfigs, nacospb.ConfigContext{
-					Tenant: nacosmodel.ToNacosConfigNamespace(namespace),
-					Group:  group,
-					DataId: dataId,
-				})
-			}
-		}
-	} else {
-		watchCtx, ok := configSvr.WatchCenter().GetWatchContext(clientId)
-		if ok {
-			for i := range specReq.GetFiles() {
-				fileRelease := specReq.GetFiles()[i]
-				// 转换ConfigFileRelease到ConfigFile
-				tags := make(map[string]string)
-				tags["md5"] = fileRelease.GetMd5()
-
-				configFile := &config_manage.ConfigFileRelease{
-					Id:        fileRelease.GetId(),
-					Name:      fileRelease.GetFileName(),
-					Namespace: fileRelease.GetNamespace(),
-					Group:     fileRelease.GetGroup(),
-					Content:   fileRelease.GetContent(),
-					Format:    fileRelease.GetFormat(),
-					Comment:   fileRelease.GetComment(),
-					Labels:    tags,
-				}
-				watchCtx.RemoveInterest(configFile)
-			}
-		}
-	}
-	return listenResp, nil
-}
-
-// BuildGrpcWatchCtx .
-func (h *ConfigServer) BuildGrpcWatchCtx(ctx context.Context) config.WatchContextFactory {
-	labels := map[string]string{}
-	labels[types.ClientLabel_IP] = utils.ParseClientIP(ctx)
-
-	return func(clientId string, matcher config.BetaReleaseMatcher) config.WatchContext {
-		watchCtx := &StreamWatchContext{
-			clientId:         clientId,
-			connMgr:          h.connMgr,
-			labels:           labels,
-			watchConfigFiles: container.NewSyncMap[string, *config_manage.ConfigFileRelease](),
-			betaMatcher: func(clientLabels map[string]string, event *conftypes.SimpleConfigFileRelease) bool {
-				return h.cacheSvr.Gray().HitGrayRule(config.GetGrayConfigReaseKey(event), clientLabels)
-			},
-		}
-		return watchCtx
-	}
-}
-
-// stringToTimestamp Convert string to timestamp
-func stringToTimestamp(val string) int64 {
-	lastModified, _ := time.Parse("2006-01-02 15:04:05", val)
-	return lastModified.UnixMilli()
+	return response, nil
 }

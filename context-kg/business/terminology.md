@@ -1,8 +1,8 @@
 ---
 title: 领域术语表
 tags: [business, terminology]
-links: [domain-models, business-rules, auth-system, skill-marketplace, adr-skill-marketplace-federation, adr-console-agent-resource-workbench, adr-system-configuration-control-plane, adr-rpc-first-governance-scope, adr-service-contract-reporting-and-visualization, adr-logical-service-environment-binding, adr-system-namespace-kind, adr-ai-resource-environment-binding, adr-config-template-client-rendering, adr-environment-promotion-topology]
-updated: 2026-08-11
+links: [domain-models, business-rules, auth-system, skill-marketplace, adr-skill-marketplace-federation, adr-console-agent-resource-workbench, adr-system-configuration-control-plane, adr-rpc-first-governance-scope, adr-service-contract-reporting-and-visualization, adr-logical-service-environment-binding, adr-system-namespace-kind, adr-ai-resource-environment-binding, adr-config-template-client-rendering, adr-environment-promotion-topology, adr-config-template-values-unification]
+updated: 2026-10-03
 sources: 0
 ---
 
@@ -28,11 +28,11 @@ sources: 0
 | 服务契约 | Service Contract | 协议原始定义与可检索接口投影的组合；原文是事实来源，投影用于发现、治理和展示 |
 | Dubbo 元数据快照 | Dubbo Metadata Snapshot | Dubbo 按 application 与 metadata revision 聚合的接口配置和方法定义 |
 | Dubbo 服务映射 | Dubbo Service Mapping | Dubbo interface 到 provider application 的一对多关系，用于应用级服务发现 |
-| 配置文件 | Config File | 配置中心管理的版本化配置内容 |
-| 配置模板身份 | Config Template Identity | 跨环境稳定的模板 ID、名称、说明和标签；不承载可执行草稿 |
-| 环境模板草稿 | Namespace Config Template Draft | `namespace + template_id` 下独立维护的模板内容、格式、参数 Schema 和引擎草稿；不能独立生效 |
-| 模板快照 | Template Snapshot | 环境发布时生成或复用的内部不可变模板证据，不是独立发布对象 |
-| 环境配置版本 | Environment Config Release | 当前环境内 Template Snapshot 与 Value Snapshot 原子绑定的唯一可生效模板配置版本 |
+| 配置模板 | Config Template | 跨环境共享的配置正文、引擎、输出格式及变量声明；允许只向选择的环境发布 |
+| 模板变量声明 | Template Parameter | 共享模板中变量的名称、类型与必填约束，不包含环境的具体取值 |
+| 环境取值 | Environment Values | 某个环境的默认变量值和客户端标签取值规则；不同环境独立维护 |
+| 模板修订 | Template Revision | 共享模板的已保存编辑版本；改变模板修订不会自动更新任何环境的生效配置 |
+| 环境配置发布 | Config Release | 在某个环境冻结完整模板与该环境 values/规则的不可变版本；同一环境可同时存在正式版与多个灰度版 |
 | 服务调用 | Service Invocation | 一次具有调用方、被调方、接口、请求属性和结果状态的 HTTP/RPC 交互 |
 | 服务治理能力 | Service Governance Capability | 作用于服务调用的路由、限流、鉴权、镜像、Mock、熔断等能力 |
 | 治理规则 | Governance Rule | 声明对哪些服务调用、在何种条件下施加一个服务治理效果的期望策略聚合根 |
@@ -61,6 +61,7 @@ sources: 0
 | 期望配置快照 | Desired Snapshot | 控制面当前希望目标实例采用的已发布系统配置版本 |
 | 有效配置快照 | Effective Snapshot | 某个实例实际使用的最终配置及其默认值、静态文件或动态覆盖来源 |
 | 配置应用回执 | Apply Receipt | 实例对某个系统配置版本返回的已应用、拒绝或等待重启状态 |
+| 协议兼容默认环境映射 | Protocol Compatibility Namespace Mapping | 将兼容协议的缺省别名解析为当前 Pole BUSINESS Namespace 的动态配置；它不是独立环境，也不参与环境晋升拓扑 |
 | 系统角色 | Built-in Role | Pole 固定提供的 `admin`、`resource-reader`、`resource-writer` 权限集合；角色定义不可增删改，只允许维护用户和用户组成员关系 |
 | 自定义角色 | Custom Role | 管理员按职责创建的角色；可维护角色定义、用户/用户组成员及资源/API 权限，并可删除 |
 
@@ -80,3 +81,4 @@ sources: 0
 - [[adr-ai-resource-environment-binding]]
 - [[adr-config-template-client-rendering]]
 - [[adr-environment-promotion-topology]]
+- [[adr-config-template-values-unification]]

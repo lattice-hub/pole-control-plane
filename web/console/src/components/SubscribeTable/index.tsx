@@ -3,7 +3,7 @@ import { Table, Tree, Empty, Tag } from 'components/Fluent';
 import type { PrimaryTableProps } from 'components/Fluent';
 
 import Text from 'components/Text';
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 
 import style from './index.module.less';
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { AddIcon, CheckCircleFilledIcon, DeleteIcon, FilterIcon, RocketIcon, SendIcon, TagIcon, UsergroupIcon } from 'components/Fluent/icons';
-import { Button, Drawer, Form, Input, Radio, RadioGroup, RangeInput, Select, Space, TagInput } from 'components/Fluent';
+import { Button, Form, Input, Radio, RadioGroup, RangeInput, Select, Space, TagInput } from 'components/Fluent';
 import type { CustomValidator, FormProps } from 'components/Fluent';
+import EditorDrawer from 'components/EditorDrawer';
 
 import { openErrNotification, openInfoNotification } from 'utils/notifition';
 import { useAppDispatch } from 'modules/store';
@@ -289,20 +290,13 @@ const PublishForm: React.FC<IPublishFormProps> = (props) => {
 
     return (
         <>
-            <Drawer
+            <EditorDrawer
                 className={style.drawer}
                 bodyClassName={style.drawerBody}
-                footerClassName={style.drawerFooter}
-                destroyOnClose
-                header={(
-                    <div className={style.drawerHeader}>
-                        <div className={style.drawerTitle}>规则发布</div>
-                        <div className={style.drawerSubtitle}>{props.ruleName}</div>
-                    </div>
-                )}
-                size='780px'
+                title="规则发布"
+                description={props.ruleName}
+                width="wide"
                 visible={props.visible}
-                placement="right"
                 onClose={() => {
                     props.close();
                 }}
@@ -421,7 +415,7 @@ const PublishForm: React.FC<IPublishFormProps> = (props) => {
                         }}
                     </FormItem>
                 </Form>
-            </Drawer>
+            </EditorDrawer>
         </>
     )
 }

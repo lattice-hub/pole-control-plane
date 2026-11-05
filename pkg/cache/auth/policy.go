@@ -82,14 +82,17 @@ func (sc *policyCache) initContainers() {
 	sc.allowPolicies = map[authtypes.PrincipalType]*container.SyncMap[string, *container.SyncSet[string]]{
 		authtypes.PrincipalUser:  container.NewSyncMap[string, *container.SyncSet[string]](),
 		authtypes.PrincipalGroup: container.NewSyncMap[string, *container.SyncSet[string]](),
+		authtypes.PrincipalRole:  container.NewSyncMap[string, *container.SyncSet[string]](),
 	}
 	sc.denyPolicies = map[authtypes.PrincipalType]*container.SyncMap[string, *container.SyncSet[string]]{
 		authtypes.PrincipalUser:  container.NewSyncMap[string, *container.SyncSet[string]](),
 		authtypes.PrincipalGroup: container.NewSyncMap[string, *container.SyncSet[string]](),
+		authtypes.PrincipalRole:  container.NewSyncMap[string, *container.SyncSet[string]](),
 	}
 	sc.principalResources = map[authtypes.PrincipalType]*container.SyncMap[string, *PrincipalResourceContainer]{
 		authtypes.PrincipalUser:  container.NewSyncMap[string, *PrincipalResourceContainer](),
 		authtypes.PrincipalGroup: container.NewSyncMap[string, *PrincipalResourceContainer](),
+		authtypes.PrincipalRole:  container.NewSyncMap[string, *PrincipalResourceContainer](),
 	}
 }
 

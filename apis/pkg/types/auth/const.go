@@ -50,12 +50,6 @@ const (
 	DiscoverTrafficSecurityRule ServerFunctionName = "DiscoverTrafficSecurityRule"
 	DiscoverTrafficMirrorRule   ServerFunctionName = "DiscoverTrafficMirrorRule"
 	DiscoverTrafficMockRule     ServerFunctionName = "DiscoverTrafficMockRule"
-
-	// 配置接口
-	DiscoverConfigFile      ServerFunctionName = "DiscoverConfigFile"
-	WatchConfigFile         ServerFunctionName = "WatchConfigFile"
-	DiscoverConfigFileNames ServerFunctionName = "DiscoverConfigFileNames"
-	DiscoverConfigGroups    ServerFunctionName = "DiscoverConfigGroups"
 )
 
 // 命名空间
@@ -121,42 +115,12 @@ const (
 	DescribeInstanceLastHeartbeat ServerFunctionName = "DescribeInstanceLastHeartbeat"
 )
 
-// 配置
+// 配置使用环境资源授权；运行时读取、管理检查、编辑和预览分别审计。
 const (
-	// 配置分组
-	CreateConfigFileGroup    ServerFunctionName = "CreateConfigFileGroup"
-	DeleteConfigFileGroup    ServerFunctionName = "DeleteConfigFileGroup"
-	UpdateConfigFileGroup    ServerFunctionName = "UpdateConfigFileGroup"
-	DescribeConfigFileGroups ServerFunctionName = "DescribeConfigFileGroups"
-
-	// 配置文件
-	PublishConfigFile          ServerFunctionName = "PublishConfigFile"
-	CreateConfigFile           ServerFunctionName = "CreateConfigFile"
-	UpdateConfigFile           ServerFunctionName = "UpdateConfigFile"
-	DeleteConfigFile           ServerFunctionName = "DeleteConfigFile"
-	DescribeConfigFileRichInfo ServerFunctionName = "DescribeConfigFileRichInfo"
-	DescribeConfigFiles        ServerFunctionName = "DescribeConfigFiles"
-	BatchDeleteConfigFiles     ServerFunctionName = "BatchDeleteConfigFiles"
-	ExportConfigFiles          ServerFunctionName = "ExportConfigFiles"
-	ImportConfigFiles          ServerFunctionName = "ImportConfigFiles"
-
-	// 配置发布历史
-	DescribeConfigFileReleaseHistories ServerFunctionName = "DescribeConfigFileReleaseHistories"
-
-	// 配置发布
-	RollbackConfigFileReleases        ServerFunctionName = "RollbackConfigFileReleases"
-	DeleteConfigFileReleases          ServerFunctionName = "DeleteConfigFileReleases"
-	StopGrayConfigFileReleases        ServerFunctionName = "StopGrayConfigFileReleases"
-	PromoteGrayConfigFileRelease      ServerFunctionName = "PromoteGrayConfigFileRelease"
-	DescribeConfigFileRelease         ServerFunctionName = "DescribeConfigFileRelease"
-	DescribeConfigFileReleases        ServerFunctionName = "DescribeConfigFileReleases"
-	DescribeConfigFileReleaseVersions ServerFunctionName = "DescribeConfigFileReleaseVersions"
-	UpsertAndReleaseConfigFile        ServerFunctionName = "UpsertAndReleaseConfigFile"
-
-	// 配置模板
-	DescribeAllConfigFileTemplates ServerFunctionName = "DescribeAllConfigFileTemplates"
-	DescribeConfigFileTemplate     ServerFunctionName = "DescribeConfigFileTemplate"
-	CreateConfigFileTemplate       ServerFunctionName = "CreateConfigFileTemplate"
+	DiscoverConfig ServerFunctionName = "DiscoverConfig"
+	InspectConfig  ServerFunctionName = "InspectConfig"
+	ManageConfig   ServerFunctionName = "ManageConfig"
+	PreviewConfig  ServerFunctionName = "PreviewConfig"
 )
 
 // 路由
@@ -368,10 +332,7 @@ var ServerFunctions = []ServerFunctionGroup{
 			DiscoverFaultDetectRule,
 			DiscoverServiceContract,
 			DiscoverLaneRule,
-			DiscoverConfigFile,
-			WatchConfigFile,
-			DiscoverConfigFileNames,
-			DiscoverConfigGroups,
+			DiscoverConfig,
 		},
 	},
 	{
@@ -493,44 +454,8 @@ var ServerFunctions = []ServerFunctionGroup{
 		},
 	},
 	{
-		Name: "ConfigGroup",
-		Functions: []ServerFunctionName{
-			CreateConfigFileGroup,
-			DeleteConfigFileGroup,
-			UpdateConfigFileGroup,
-			DescribeConfigFileGroups,
-		},
-	},
-	{
-		Name: "ConfigFile",
-		Functions: []ServerFunctionName{
-			PublishConfigFile,
-			CreateConfigFile,
-			UpdateConfigFile,
-			DeleteConfigFile,
-			DescribeConfigFileRichInfo,
-			DescribeConfigFiles,
-			BatchDeleteConfigFiles,
-			ExportConfigFiles,
-			ImportConfigFiles,
-			DescribeConfigFileReleaseHistories,
-			DescribeAllConfigFileTemplates,
-			DescribeConfigFileTemplate,
-			CreateConfigFileTemplate,
-		},
-	},
-	{
-		Name: "ConfigRelease",
-		Functions: []ServerFunctionName{
-			RollbackConfigFileReleases,
-			DeleteConfigFileReleases,
-			StopGrayConfigFileReleases,
-			PromoteGrayConfigFileRelease,
-			DescribeConfigFileRelease,
-			DescribeConfigFileReleases,
-			DescribeConfigFileReleaseVersions,
-			UpsertAndReleaseConfigFile,
-		},
+		Name:      "Config",
+		Functions: []ServerFunctionName{DiscoverConfig, InspectConfig, ManageConfig, PreviewConfig},
 	},
 	{
 		Name: "AINative",
@@ -598,7 +523,6 @@ var (
 	SearchTypeMapping = map[string]apisecurity.ResourceType{
 		"0":  apisecurity.ResourceType_Namespaces,
 		"1":  apisecurity.ResourceType_Services,
-		"2":  apisecurity.ResourceType_ConfigGroups,
 		"30": apisecurity.ResourceType_MCPServerResources,
 		"31": apisecurity.ResourceType_A2AAgentResources,
 	}

@@ -3,7 +3,10 @@ import { authorizeResources, describeResourcePrincipals, PolicySourceType } from
 import { describeRoles } from "services/role";
 import { describeUserGroups } from "services/user_group";
 import { describeUsers } from "services/users";
-import { Drawer, Form, FormProps, Input, Loading, Select, Space, Tag } from 'components/Fluent';
+import { Form, FormProps, Input, Loading, Select, Space, Tag } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
+import style from './index.module.less';
+
 import { openErrNotification, openInfoNotification } from "utils/notifition";
 
 const { FormItem } = Form;
@@ -19,15 +22,11 @@ export interface IAuthorizeInputProps {
 const AuthorizeInput: React.FC<IAuthorizeInputProps> = (props) => {
     const [form] = Form.useForm();
     const isNamespaceResource = props.resource_type === PolicySourceType.Namespaces;
-    const isConfigGroupResource = props.resource_type === PolicySourceType.ConfigGroups;
     const isMCPServerResource = props.resource_type === PolicySourceType.MCPServerResources;
     const isA2AAgentResource = props.resource_type === PolicySourceType.A2AAgentResources;
     const resourceNameParts = props.resource_name.split('/');
     const [resourceNamespace, resourceName] = resourceNameParts;
-    const resourceFileName = resourceNameParts.slice(2).join('/');
-    const resourceNameLabel = isConfigGroupResource
-        ? '配置分组'
-        : isMCPServerResource
+    const resourceNameLabel = isMCPServerResource
             ? 'MCP Server'
             : isA2AAgentResource
                 ? 'A2A Agent'
@@ -138,16 +137,22 @@ const AuthorizeInput: React.FC<IAuthorizeInputProps> = (props) => {
 
     return (
         <>
-            <Drawer
-                header={'授权 (只会影响成员的默认策略)'}
+            <EditorDrawer
+                bodyClassName={style.editorBody}
+                title="资源授权"
+                description="仅调整成员默认策略中的资源可见范围。"
                 visible={props.visible}
-                size={'large'}
+                width="standard"
                 onClose={() => {
                     props.onClose();
                 }}
-                onConfirm={() => {
-                    form.submit();
-                }}
+                footer={(
+                    <EditorDrawerActions
+                        onCancel={props.onClose}
+                        onSubmit={() => form.submit({ showErrorMessage: true })}
+                        submitText="确认授权"
+                    />
+                )}
             >
                 <Form
                     form={form}
@@ -166,11 +171,6 @@ const AuthorizeInput: React.FC<IAuthorizeInputProps> = (props) => {
                         </FormItem>
                         {!isNamespaceResource && (
                             <FormItem label={resourceNameLabel} name="resource_group" initialData={resourceName || '-'}>
-                                <Input readonly={true} />
-                            </FormItem>
-                        )}
-                        {resourceFileName && (
-                            <FormItem label="配置文件" name="resource_file" initialData={resourceFileName}>
                                 <Input readonly={true} />
                             </FormItem>
                         )}
@@ -204,7 +204,7 @@ const AuthorizeInput: React.FC<IAuthorizeInputProps> = (props) => {
                         </section>
                     </Loading>
                 </Form>
-            </Drawer>
+            </EditorDrawer>
         </>
     )
 }

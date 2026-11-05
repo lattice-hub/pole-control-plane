@@ -5,6 +5,7 @@ import {
   AIResourceDefinition,
   bindAIResourceDefinition,
   createAIResourceDefinition,
+  deleteAIResourceDefinition,
   describeAIEnvironmentBinding,
   describeAIEnvironmentBindings,
   describeAIResourceDefinitions,
@@ -154,6 +155,10 @@ export async function describeMCPServerDefinitions(name?: string) {
 
 export async function createMCPServerDefinition(name: string) {
   return createAIResourceDefinition(MCPDefinitionURL, 'MCP Server', name);
+}
+
+export async function deleteMCPServerDefinition(definitionId: string) {
+  return deleteAIResourceDefinition(MCPDefinitionURL, definitionId);
 }
 
 export async function bindMCPServerDefinition(definitionId: string, resourceId: string) {

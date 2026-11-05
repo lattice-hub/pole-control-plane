@@ -17,11 +17,7 @@
 package nacos_grpc_service
 
 import (
-	"github.com/pole-io/specification/source/go/api/v1/config_manage"
-
-	conftypes "github.com/pole-io/pole-server/apis/pkg/types/config"
 	"github.com/pole-io/pole-server/pkg/common/utils"
-	"github.com/pole-io/pole-server/plugin/apiserver/nacosserver/model"
 )
 
 type ConfigListenContext struct {
@@ -79,24 +75,6 @@ type ConfigBatchListenRequest struct {
 	ConfigListenContexts []ConfigListenContext `json:"configListenContexts"`
 }
 
-func (c *ConfigBatchListenRequest) ToSpec() *config_manage.WatchConfigFileRequest {
-	specReq := &config_manage.WatchConfigFileRequest{
-		Files: make([]*config_manage.ConfigFileRelease, 0, len(c.ConfigListenContexts)),
-	}
-
-	for i := range c.ConfigListenContexts {
-		listenCtx := c.ConfigListenContexts[i]
-		specReq.Files = append(specReq.Files, &config_manage.ConfigFileRelease{
-			Namespace: model.ToPolarisNamespace(listenCtx.Tenant),
-			Group:     listenCtx.Group,
-			FileName:  listenCtx.DataId,
-			Md5:       listenCtx.Md5,
-		})
-	}
-
-	return specReq
-}
-
 func (c *ConfigBatchListenRequest) RequestMeta() interface{} {
 	return c
 }
@@ -132,14 +110,6 @@ type ConfigQueryRequest struct {
 	Tag string `json:"tag"`
 }
 
-func (c *ConfigQueryRequest) ToQuerySpec() *config_manage.ConfigFile {
-	return &config_manage.ConfigFile{
-		Namespace: model.ToPolarisNamespace(c.Tenant),
-		Group:     c.Group,
-		Name:      c.DataId,
-	}
-}
-
 func (c *ConfigQueryRequest) RequestMeta() interface{} {
 	return c
 }
@@ -159,26 +129,6 @@ type ConfigPublishRequest struct {
 	AdditionMap map[string]string `json:"additionMap"`
 }
 
-func (c *ConfigPublishRequest) ToSpec() *config_manage.ConfigFilePublishInfo {
-	ret := &config_manage.ConfigFilePublishInfo{
-		Namespace: model.ToPolarisNamespace(c.Tenant),
-		Group:     c.Group,
-		FileName:  c.DataId,
-		Content:   c.Content,
-		Labels:    make(map[string]string, len(c.AdditionMap)),
-		Format:    string(conftypes.FileFormatText),
-	}
-	if val, ok := c.AdditionMap["type"]; ok {
-		ret.Format = val
-	}
-
-	for k, v := range c.AdditionMap {
-		ret.Labels[k] = v
-	}
-
-	return ret
-}
-
 func (c *ConfigPublishRequest) RequestMeta() interface{} {
 	return c
 }
@@ -196,14 +146,6 @@ func (r *ConfigPublishRequest) GetRequestType() string {
 
 type ConfigRemoveRequest struct {
 	*ConfigRequest
-}
-
-func (c *ConfigRemoveRequest) ToSpec() *config_manage.ConfigFile {
-	return &config_manage.ConfigFile{
-		Namespace: model.ToPolarisNamespace(c.Tenant),
-		Group:     c.Group,
-		Name:      c.DataId,
-	}
 }
 
 func (c *ConfigRemoveRequest) RequestMeta() interface{} {

@@ -15,9 +15,6 @@ import laneRule from './governance/lane_rule';
 import rateLimit from './governance/ratelimit';
 import circuitBreaker from './governance/circuitbreaker';
 import faultDetect from './governance/faultdetect';
-import configGroup from './configuration/group';
-import configFile from './configuration/file';
-import configFileRelease from './configuration/release';
 import authPolicyRules from './auth/policy';
 import authRoles from './auth/role';
 import lossless from './governance/lossless';
@@ -40,9 +37,6 @@ const reducer = combineReducers({
   circuitBreaker,
   faultDetect,
   rateLimit,
-  configGroup,
-  configFile,
-  configFileRelease,
   authPolicyRules,
   authRoles,
   aiA2A,

@@ -47,8 +47,11 @@ export interface RateLimitTriggerViewLike {
 export interface RateLimitDraftLike {
     id?: string;
     name?: string;
-    service?: string;
     namespace?: string;
+    callee?: {
+        namespace?: string;
+        service?: string;
+    };
     priority?: number;
     type?: string;
     disable?: boolean;
@@ -61,8 +64,11 @@ export interface RateLimitDraftLike {
 export interface RateLimitSubmitPayload {
     id?: string;
     name: string;
-    service: string;
     namespace: string;
+    callee: {
+        namespace: string;
+        service: string;
+    };
     priority: number;
     type: string;
     disable: boolean;
@@ -252,8 +258,11 @@ export function buildRateLimitSubmitPayload(draft: RateLimitDraftLike): RateLimi
     return {
         id: draft.id,
         name: draft.name || '',
-        service: draft.service || '',
         namespace: draft.namespace || '',
+        callee: {
+            namespace: draft.callee?.namespace || '',
+            service: draft.callee?.service || '',
+        },
         priority: Number(draft.priority ?? 0),
         type,
         disable: draft.disable === true,
@@ -273,7 +282,8 @@ export function describeRuleThreshold(rule: RateLimitTriggerViewLike): string {
         return '未配置阈值';
     }
     const suffix = (rule.amounts?.length || 0) > 1 ? ` 等 ${rule.amounts?.length} 窗` : '';
-    return `${firstAmount.maxAmount} 次 / ${firstAmount.validDuration}${firstAmount.validDurationUnit}${suffix}`;
+    const unit = rule.resource === 'TOKEN' ? 'Token' : '次';
+    return `${firstAmount.maxAmount} ${unit} / ${firstAmount.validDuration}${firstAmount.validDurationUnit}${suffix}`;
 }
 
 export function describeRuleSummary(rule: RateLimitTriggerViewLike, limitType?: string): string {
@@ -301,6 +311,13 @@ export function validateRateLimitDraft(draft: RateLimitDraftLike): RateLimitVali
     const errors: RateLimitValidationError[] = [];
     if (!/^[a-z][a-z0-9-]*$/.test(draft.name || '')) {
         errors.push({ field: 'name', message: '规则名称必须为 kebab-case' });
+    }
+
+    if (!draft.namespace?.trim()) {
+        errors.push({ field: 'namespace', message: '规则归属环境不能为空' });
+    }
+    if (!draft.callee?.namespace?.trim() || !draft.callee?.service?.trim()) {
+        errors.push({ field: 'callee', message: '目标服务不能为空' });
     }
 
     const rules = draft.rules || [];
@@ -334,7 +351,8 @@ export function validateRateLimitDraft(draft: RateLimitDraftLike): RateLimitVali
             }
             amounts.forEach((amount) => {
                 if (Number(amount.maxAmount || 0) <= 0) {
-                    errors.push({ field: `rules.${index}.amounts.maxAmount`, ruleIndex: index, message: `规则[${ruleNumber}] 最大请求数必须大于 0` });
+                    const metric = rule.resource === 'TOKEN' ? '最大 Token 数' : '最大请求数';
+                    errors.push({ field: `rules.${index}.amounts.maxAmount`, ruleIndex: index, message: `规则[${ruleNumber}] ${metric}必须大于 0` });
                 }
             });
         }

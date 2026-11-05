@@ -28,6 +28,7 @@ import (
 	"github.com/emicklei/go-restful/v3"
 
 	"github.com/pole-io/pole-server/pkg/limiter/internal/apiserver"
+	"github.com/pole-io/pole-server/pkg/limiter/internal/ratelimitv2"
 )
 
 // Server http server
@@ -36,12 +37,13 @@ type Server struct {
 	port     uint32
 	server   *http.Server
 	handler  *restful.Container
+	core     *ratelimitv2.Server
 	done     chan error
 	stopOnce sync.Once
 }
 
 // Start 同步绑定 listener 后启动 HTTP 运维服务。
-func Start(option map[string]interface{}) (*Server, error) {
+func Start(option map[string]interface{}, core *ratelimitv2.Server) (*Server, error) {
 	ip, port, err := apiserver.ParseListenOption(option)
 	if err != nil {
 		return nil, err
@@ -49,6 +51,7 @@ func Start(option map[string]interface{}) (*Server, error) {
 	h := &Server{
 		ip:   ip,
 		port: port,
+		core: core,
 		done: make(chan error, 1),
 	}
 	address := fmt.Sprintf("%s:%d", h.ip, h.port)

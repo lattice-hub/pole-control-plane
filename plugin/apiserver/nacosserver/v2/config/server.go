@@ -18,9 +18,10 @@
 package config
 
 import (
+	"sync"
+
 	authapi "github.com/pole-io/pole-server/apis/access_control/auth"
-	cacheapi "github.com/pole-io/pole-server/apis/cache"
-	"github.com/pole-io/pole-server/pkg/config"
+	compatconfig "github.com/pole-io/pole-server/pkg/compatibility/config"
 	"github.com/pole-io/pole-server/pkg/namespace"
 	"github.com/pole-io/pole-server/plugin/apiserver/nacosserver/core"
 	nacospb "github.com/pole-io/pole-server/plugin/apiserver/nacosserver/v2/pb"
@@ -33,40 +34,30 @@ type ServerOption struct {
 	Store             *core.NacosDataStorage
 
 	// polaris
-	UserSvr         authapi.UserServer
-	CheckerSvr      authapi.StrategyServer
-	NamespaceSvr    namespace.NamespaceOperateServer
-	ConfigSvr       config.ConfigCenterServer
-	OriginConfigSvr config.ConfigCenterServer
+	UserSvr      authapi.UserServer
+	CheckerSvr   authapi.StrategyServer
+	NamespaceSvr namespace.NamespaceOperateServer
+	ConfigSvr    compatconfig.Discoverer
 }
 
 type ConfigServer struct {
-	connMgr             *remote.ConnectionManager
-	connectionClientMgr *ConnectionClientManager
+	connMgr *remote.ConnectionManager
+	watches sync.Map
 
-	userSvr         authapi.UserServer
-	checkerSvr      authapi.StrategyServer
-	namespaceSvr    namespace.NamespaceOperateServer
-	configSvr       config.ConfigCenterServer
-	originConfigSvr config.ConfigCenterServer
-	cacheSvr        cacheapi.CacheManager
-	handleRegistry  map[string]*remote.RequestHandlerWarrper
+	userSvr        authapi.UserServer
+	checkerSvr     authapi.StrategyServer
+	namespaceSvr   namespace.NamespaceOperateServer
+	configSvr      compatconfig.Discoverer
+	handleRegistry map[string]*remote.RequestHandlerWarrper
 }
 
 func (h *ConfigServer) Initialize(opt *ServerOption) error {
-	var err error
 	h.userSvr = opt.UserSvr
 	h.checkerSvr = opt.CheckerSvr
 	h.namespaceSvr = opt.NamespaceSvr
 	h.configSvr = opt.ConfigSvr
-	h.originConfigSvr = opt.OriginConfigSvr
-	h.cacheSvr = opt.Store.Cache()
 	h.handleRegistry = make(map[string]*remote.RequestHandlerWarrper)
 	h.connMgr = opt.ConnectionManager
-	h.connectionClientMgr, err = NewConnectionClientManager(h.originConfigSvr.(*config.Server))
-	if err != nil {
-		return err
-	}
 	h.initGRPCHandlers()
 	return nil
 }

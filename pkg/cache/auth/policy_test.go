@@ -16,3 +16,32 @@
  */
 
 package auth
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	apisecurity "github.com/pole-io/specification/source/go/api/v1/security"
+
+	authtypes "github.com/pole-io/pole-server/apis/pkg/types/auth"
+)
+
+func TestPolicyCacheColdLoadSupportsRolePrincipals(t *testing.T) {
+	cache := &policyCache{}
+	cache.initContainers()
+	rule := NewPolicyDetailCache(&authtypes.StrategyDetail{
+		ID: "role-policy", Action: apisecurity.AuthAction_ALLOW.String(), Valid: true,
+		Principals: []authtypes.Principal{{
+			PrincipalType: authtypes.PrincipalRole,
+			PrincipalID:   "resource-reader",
+		}},
+	})
+
+	require.NotPanics(t, func() { cache.handlePrincipalPolicies(rule) })
+	links, ok := cache.allowPolicies[authtypes.PrincipalRole].Load("resource-reader")
+	require.True(t, ok)
+	require.True(t, links.Contains("role-policy"))
+	_, ok = cache.principalResources[authtypes.PrincipalRole].Load("resource-reader")
+	require.True(t, ok)
+}

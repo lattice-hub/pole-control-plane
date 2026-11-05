@@ -45,6 +45,8 @@ data:
         headers:
           x-greptime-db-name: pole_observability
           x-greptime-pipeline-name: greptime_trace_v1
+          x-greptime-trace-table-name: pole_traces
+          x-greptime-hints: ttl=7d
         tls:
           insecure: true
       otlp_http/greptime_logs:

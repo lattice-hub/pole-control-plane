@@ -235,6 +235,41 @@ func TestServerExpiresLeaseAndReturnsReservation(t *testing.T) {
 	require.Equal(t, uint32(limiterapi.LeaseExpired), updated.GetCode())
 }
 
+func TestQuotaLeaseSnapshotShowsActiveAndSettledConsumption(t *testing.T) {
+	harness := newLeaseHarness(t, quotaTotal(60, 10, apiv2.QuotaAccounting_CONSUMABLE))
+	lease := harness.reserve("snapshot", 30, reservation(harness.counters[0], 10))
+	require.Equal(t, uint32(limiterapi.ExecuteSuccess), lease.GetCode())
+
+	require.Equal(t, uint32(limiterapi.ExecuteSuccess), harness.server.UpdateQuota(
+		harness.client,
+		&apiv2.QuotaUpdateRequest{
+			ClientKey: harness.client.ClientKey(), LeaseId: lease.GetLeaseId(), Sequence: 1,
+			Consumptions: []*apiv2.QuotaConsumption{consumption(harness.counters[0], 4)},
+		},
+	).GetCode())
+
+	active := harness.server.QuotaLeaseSnapshot("test", "llm")
+	require.Equal(t, 1, active.Summary.ActiveCount)
+	require.Equal(t, uint64(6), active.Summary.ActiveReserved)
+	require.Equal(t, uint64(4), active.Summary.ActiveConsumed)
+	require.Len(t, active.Leases, 1)
+	require.Equal(t, "ACTIVE", active.Leases[0].Status)
+	require.Equal(t, uint32(6), active.Leases[0].Counters[0].Reserved)
+	require.Equal(t, int64(0), active.Leases[0].Counters[0].Available)
+	require.Empty(t, harness.server.QuotaLeaseSnapshot("other", "llm").Leases)
+
+	require.Equal(t, uint32(limiterapi.ExecuteSuccess), harness.server.SettleQuota(
+		harness.client,
+		&apiv2.QuotaSettleRequest{ClientKey: harness.client.ClientKey(), LeaseId: lease.GetLeaseId(), Sequence: 2},
+	).GetCode())
+	settled := harness.server.QuotaLeaseSnapshot("test", "llm")
+	require.Equal(t, 0, settled.Summary.ActiveCount)
+	require.Equal(t, 1, settled.Summary.SettledCount)
+	require.Equal(t, uint64(6), settled.Summary.RecentlyReturned)
+	require.Equal(t, "SETTLED", settled.Leases[0].Status)
+	require.Equal(t, uint32(6), settled.Leases[0].Counters[0].Returned)
+}
+
 func newLeaseHarness(t *testing.T, totals ...*apiv2.QuotaTotal) leaseHarness {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())

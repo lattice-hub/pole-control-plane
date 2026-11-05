@@ -176,7 +176,9 @@ export interface DeleteServicesRequest {
 export async function deleteServices(params: DeleteServicesRequest[]) {
     const res = await apiRequest({
         action: `${BaseURL.SERVICE}/delete`,
-        data: params,
+        data: params.map(({ id, name, namespace }) => (
+            name && namespace ? { name, namespace } : { id }
+        )),
     })
 
     return res

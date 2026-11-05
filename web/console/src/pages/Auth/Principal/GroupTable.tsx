@@ -65,6 +65,12 @@ const columns = (
                 <Space>
                     <OperationButton action="view" onClick={() => openGroupDetail(row)} />
                     <OperationButton
+                        action="edit"
+                        disabled={row.editable === false}
+                        disabledLabel="无权限操作"
+                        onClick={() => handleEditGroup(row, 'edit', 'group')}
+                    />
+                    <OperationButton
                         action="token"
                         disabled={row.editable === false}
                         disabledLabel="无权限操作"

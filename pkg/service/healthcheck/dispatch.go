@@ -19,6 +19,7 @@ package healthcheck
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/pole-io/pole-server/apis/pkg/types"
 	svctypes "github.com/pole-io/pole-server/apis/pkg/types/service"
+	checkerapi "github.com/pole-io/pole-server/apis/service/healthcheck"
 	commonhash "github.com/pole-io/pole-server/pkg/common/utils/hash"
 )
 
@@ -48,6 +50,7 @@ type Dispatcher struct {
 	managedClients              map[string]*ClientWithChecker
 
 	selfServiceBuckets map[commonhash.Bucket]bool
+	checkerPeers       map[string]checkerapi.CheckerPeer
 	continuum          *commonhash.Continuum
 	mutex              *sync.Mutex
 
@@ -104,9 +107,6 @@ func compareBuckets(src map[commonhash.Bucket]bool, dst map[commonhash.Bucket]bo
 	if len(src) != len(dst) {
 		return false
 	}
-	if len(src) == 0 {
-		return false
-	}
 	for bucket := range dst {
 		if _, ok := src[bucket]; !ok {
 			return false
@@ -116,22 +116,36 @@ func compareBuckets(src map[commonhash.Bucket]bool, dst map[commonhash.Bucket]bo
 }
 
 func (d *Dispatcher) reloadSelfContinuum() bool {
-	healthyBuckets := make(map[commonhash.Bucket]bool)
-	fallbackBuckets := make(map[commonhash.Bucket]bool)
+	healthyPeers := make(map[string]checkerapi.CheckerPeer)
+	localFallbackPeers := make(map[string]checkerapi.CheckerPeer)
 	d.svr.cacheProvider.RangeSelfServiceInstances(func(instance *apiservice.Instance) {
 		if instance.GetIsolate() {
 			return
 		}
-		bucket := commonhash.Bucket{
-			Host:   instance.GetHost(),
-			Weight: weight,
+		peer := checkerapi.CheckerPeer{
+			ID:   instance.GetId(),
+			Host: instance.GetHost(),
+			Port: instance.GetPort(),
 		}
-		fallbackBuckets[bucket] = true
 		if instance.GetHealthy() {
-			healthyBuckets[bucket] = true
+			healthyPeers[peer.ID] = peer
+		}
+		if instance.GetHost() == d.svr.localHost {
+			localFallbackPeers[peer.ID] = peer
 		}
 	})
-	nextBuckets := selectCheckerBuckets(healthyBuckets, fallbackBuckets)
+	nextPeers := selectCheckerPeers(healthyPeers, localFallbackPeers)
+	if err := d.refreshCheckerPeers(nextPeers); err != nil {
+		log.Warnf("[Health Check][Dispatcher] healthy checker peers unavailable, fall back to local peer: %v", err)
+		if len(localFallbackPeers) > 0 && !compareCheckerPeers(nextPeers, localFallbackPeers) {
+			if fallbackErr := d.refreshCheckerPeers(localFallbackPeers); fallbackErr != nil {
+				log.Errorf("[Health Check][Dispatcher] refresh local fallback checker peer failed: %v", fallbackErr)
+			} else {
+				nextPeers = localFallbackPeers
+			}
+		}
+	}
+	nextBuckets := checkerPeerBuckets(nextPeers)
 	if len(nextBuckets) == 0 {
 		d.noAvailableServers = true
 	}
@@ -152,11 +166,54 @@ func (d *Dispatcher) reloadSelfContinuum() bool {
 	return true
 }
 
-func selectCheckerBuckets(healthy, fallback map[commonhash.Bucket]bool) map[commonhash.Bucket]bool {
+func selectCheckerPeers(healthy,
+	localFallback map[string]checkerapi.CheckerPeer) map[string]checkerapi.CheckerPeer {
 	if len(healthy) > 0 {
 		return healthy
 	}
-	return fallback
+	return localFallback
+}
+
+func checkerPeerBuckets(peers map[string]checkerapi.CheckerPeer) map[commonhash.Bucket]bool {
+	buckets := make(map[commonhash.Bucket]bool, len(peers))
+	for _, peer := range peers {
+		buckets[commonhash.Bucket{Host: peer.Host, Weight: weight}] = true
+	}
+	return buckets
+}
+
+func compareCheckerPeers(src, dst map[string]checkerapi.CheckerPeer) bool {
+	if len(src) != len(dst) {
+		return false
+	}
+	for id, peer := range dst {
+		if src[id] != peer {
+			return false
+		}
+	}
+	return true
+}
+
+func (d *Dispatcher) refreshCheckerPeers(next map[string]checkerapi.CheckerPeer) error {
+	if compareCheckerPeers(d.checkerPeers, next) {
+		return nil
+	}
+	peers := make([]checkerapi.CheckerPeer, 0, len(next))
+	for _, peer := range next {
+		peers = append(peers, peer)
+	}
+	sort.Slice(peers, func(i, j int) bool { return peers[i].ID < peers[j].ID })
+	for _, checker := range d.svr.checkers {
+		updater, ok := checker.(checkerapi.CheckerPeerUpdater)
+		if !ok {
+			continue
+		}
+		if err := updater.SetCheckerPeers(peers); err != nil {
+			return err
+		}
+	}
+	d.checkerPeers = next
+	return nil
 }
 
 func (d *Dispatcher) reloadManagedClients() {

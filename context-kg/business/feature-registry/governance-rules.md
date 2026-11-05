@@ -30,7 +30,7 @@ sources: 10
 
 治理规则底层存储与缓存更新的完整方案见 [[adr-governance-rule-unified-storage]]。
 请求参数值来源以及动态限流、动态路由的消费边界见 [[adr-governance-request-parameter-capture]]。
-请求前预留、流中累计消费、结束归还，以及 RPM、TPM、并发的统一限流生命周期见 [[adr-quota-lease-streaming-rate-limit]]。
+请求前预留、流中累计消费、结束归还，以及请求数、Token 数、并发的统一限流生命周期见 [[adr-quota-lease-streaming-rate-limit]]；RPM 通过请求数的 60 秒窗口表达。
 
 目标业务结论：
 

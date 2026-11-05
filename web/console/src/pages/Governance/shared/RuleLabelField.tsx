@@ -72,11 +72,13 @@ const RuleLabelField: React.FC<RuleLabelFieldProps> = ({ metadata, editable = fa
                     {draft.length ? draft.map((row, index) => (
                         <div className={style.labelDialogRow} key={`label-${index}`}>
                             <Input
+                                aria-label={`第 ${index + 1} 条规则标签键`}
                                 value={row.key}
                                 placeholder="标签键"
                                 onChange={(value) => setDraft((prev) => prev.map((item, idx) => idx === index ? { ...item, key: value } : item))}
                             />
                             <Input
+                                aria-label={`第 ${index + 1} 条规则标签值`}
                                 value={row.value}
                                 placeholder="标签值"
                                 onChange={(value) => setDraft((prev) => prev.map((item, idx) => idx === index ? { ...item, value } : item))}

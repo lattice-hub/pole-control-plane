@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'components/Router';
 import { Button, Popup, Badge, Dropdown, Space } from 'components/Fluent';
 import {
+  AlphaIcon,
   Icon,
   HelpCircleIcon,
   SettingIcon,
@@ -51,8 +52,8 @@ export default memo(() => {
           if (typeof value === 'string') i18n.changeLanguage(value);
         }}
       >
-        <Button variant='text'>
-          {t('menu.language')}
+        <Button variant='text' className={Style.languageButton} aria-label='语言' icon={<AlphaIcon />}>
+          <span className={Style.languageText}>{t('menu.language')}</span>
         </Button>
       </Dropdown>
       <Popup content='帮助文档' placement='bottom' showArrow destroyOnClose>
@@ -68,9 +69,9 @@ export default memo(() => {
       </Popup>
       <Dropdown trigger={'click'} onClick={clickHandler}>
         <Button variant='text' className={Style.dropdown}>
-          <Icon name='user-circle' className={Style.icon} />
+          <Icon name='user-circle' className={`${Style.icon} ${Style.userIcon}`} />
           <span className={Style.text}>{userInfo.name}</span>
-          <Icon name='chevron-down' className={Style.icon} />
+          <Icon name='chevron-down' className={`${Style.icon} ${Style.chevronIcon}`} />
         </Button>
         <DropdownMenu>
           <DropdownItem value={1}>

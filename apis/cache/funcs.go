@@ -33,7 +33,6 @@ type (
 	laneRulePredicateCtxKey           struct{}
 	losslessRulePredicateCtxKey       struct{}
 	trafficGovernancePredicateCtxKey  struct{}
-	configGroupPredicateCtxKey        struct{}
 	userPredicateCtxKey               struct{}
 	userGroupPredicateCtxKey          struct{}
 	authPolicyPredicateCtxKey         struct{}
@@ -234,28 +233,6 @@ func LoadLaneRulePredicates(ctx context.Context) []LanePredicate {
 	val := ctx.Value(laneRulePredicateCtxKey{})
 	if val != nil {
 		predicates, _ = val.([]LanePredicate)
-	}
-	return predicates
-}
-
-func AppendConfigGroupPredicate(ctx context.Context, p ConfigGroupPredicate) context.Context {
-	var predicates []ConfigGroupPredicate
-
-	val := ctx.Value(configGroupPredicateCtxKey{})
-	if val != nil {
-		predicates, _ = val.([]ConfigGroupPredicate)
-	}
-
-	predicates = append(predicates, p)
-	return context.WithValue(ctx, configGroupPredicateCtxKey{}, predicates)
-}
-
-func LoadConfigGroupPredicates(ctx context.Context) []ConfigGroupPredicate {
-	var predicates []ConfigGroupPredicate
-
-	val := ctx.Value(configGroupPredicateCtxKey{})
-	if val != nil {
-		predicates, _ = val.([]ConfigGroupPredicate)
 	}
 	return predicates
 }

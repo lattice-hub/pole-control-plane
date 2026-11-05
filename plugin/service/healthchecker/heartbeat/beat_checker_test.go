@@ -325,3 +325,77 @@ func TestHeartBeatHealthChecker(t *testing.T) {
 		})
 	})
 }
+
+func TestSetCheckerPeersInitializesLocalHeartbeatStorage(t *testing.T) {
+	previousLocalHost := utils.LocalHost
+	utils.LocalHost = "10.0.0.7"
+	t.Cleanup(func() { utils.LocalHost = previousLocalHost })
+
+	checker := &HeartBeatHealthChecker{}
+	assert.NoError(t, checker.Initialize(&apis.ConfigEntry{}))
+	t.Cleanup(func() { assert.NoError(t, checker.Destroy()) })
+
+	request := &healthcheck.ReportRequest{
+		QueryRequest: healthcheck.QueryRequest{InstanceId: "instance-1"},
+		CurTimeSec:   time.Now().Unix(),
+	}
+	assert.ErrorIs(t, checker.Report(context.Background(), request), ErrorPeerNotInitialize)
+	assert.NoError(t, checker.SetCheckerPeers([]healthcheck.CheckerPeer{{
+		ID: "checker-1", Host: utils.LocalHost, Port: 8091,
+	}}))
+
+	peer, ok := checker.peers["checker-1"]
+	assert.True(t, ok)
+	assert.IsType(t, &LocalPeer{}, peer)
+	assert.NoError(t, checker.Report(context.Background(), request))
+	response, err := checker.Query(context.Background(), &request.QueryRequest)
+	assert.NoError(t, err)
+	assert.True(t, response.Exists)
+	assert.Equal(t, request.CurTimeSec, response.LastHeartbeatSec)
+}
+
+func TestSetCheckerPeersRemovesDepartedPeerAndUninitializesEmptyRing(t *testing.T) {
+	previousLocalHost := utils.LocalHost
+	utils.LocalHost = "10.0.0.8"
+	t.Cleanup(func() { utils.LocalHost = previousLocalHost })
+
+	checker := &HeartBeatHealthChecker{}
+	assert.NoError(t, checker.Initialize(&apis.ConfigEntry{}))
+	t.Cleanup(func() { assert.NoError(t, checker.Destroy()) })
+	assert.NoError(t, checker.SetCheckerPeers([]healthcheck.CheckerPeer{{
+		ID: "old", Host: utils.LocalHost, Port: 8091,
+	}}))
+	assert.NoError(t, checker.SetCheckerPeers([]healthcheck.CheckerPeer{{
+		ID: "current", Host: utils.LocalHost, Port: 8091,
+	}}))
+	_, oldExists := checker.peers["old"]
+	_, currentExists := checker.peers["current"]
+	assert.False(t, oldExists)
+	assert.True(t, currentExists)
+
+	assert.NoError(t, checker.SetCheckerPeers(nil))
+	assert.False(t, checker.isInitialize())
+	assert.Empty(t, checker.peers)
+	_, ok := checker.findResponsiblePeer("instance-1")
+	assert.False(t, ok)
+}
+
+func TestSetCheckerPeersUsesRemotePeerForAnotherPod(t *testing.T) {
+	previousLocalHost := utils.LocalHost
+	previousRemoteFactory := NewRemotePeerFunc
+	utils.LocalHost = "10.0.0.9"
+	remote := newTestPeer("10.0.0.10")
+	NewRemotePeerFunc = func() Peer { return remote }
+	t.Cleanup(func() {
+		utils.LocalHost = previousLocalHost
+		NewRemotePeerFunc = previousRemoteFactory
+	})
+
+	checker := &HeartBeatHealthChecker{}
+	assert.NoError(t, checker.Initialize(&apis.ConfigEntry{}))
+	t.Cleanup(func() { assert.NoError(t, checker.Destroy()) })
+	assert.NoError(t, checker.SetCheckerPeers([]healthcheck.CheckerPeer{{
+		ID: "remote", Host: "10.0.0.10", Port: 8091,
+	}}))
+	assert.Same(t, remote, checker.peers["remote"])
+}

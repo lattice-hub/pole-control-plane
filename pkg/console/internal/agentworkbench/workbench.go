@@ -13,6 +13,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
+
+	"google.golang.org/protobuf/proto"
+
+	configv1 "github.com/pole-io/specification/source/go/api/v1/config"
+	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 )
 
 const (
@@ -50,18 +56,20 @@ type ResourceRef struct {
 }
 
 type ConfigFile struct {
-	ID          string            `json:"id,omitempty"`
-	Name        string            `json:"name"`
-	Namespace   string            `json:"namespace"`
-	Group       string            `json:"group"`
-	Content     string            `json:"content"`
-	Format      string            `json:"format,omitempty"`
-	Comment     string            `json:"comment,omitempty"`
-	Status      string            `json:"status,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Mtime       string            `json:"mtime,omitempty"`
-	Encrypted   bool              `json:"encrypted"`
-	EncryptAlgo string            `json:"encryptAlgo,omitempty"`
+	ID            string                     `json:"id,omitempty"`
+	Name          string                     `json:"name"`
+	Namespace     string                     `json:"namespace"`
+	Group         string                     `json:"group"`
+	Content       string                     `json:"content"`
+	Format        string                     `json:"format,omitempty"`
+	Comment       string                     `json:"comment,omitempty"`
+	Status        string                     `json:"status,omitempty"`
+	Labels        map[string]string          `json:"labels,omitempty"`
+	Mtime         string                     `json:"mtime,omitempty"`
+	Encrypted     bool                       `json:"encrypted"`
+	EncryptAlgo   string                     `json:"encryptAlgo,omitempty"`
+	DraftRevision uint64                     `json:"draftRevision"`
+	Definition    *configv1.ConfigDefinition `json:"-"`
 }
 
 type PrepareConfigFileRequest struct {
@@ -170,11 +178,14 @@ func (w *Workbench) PrepareConfigFile(ctx context.Context, actor Actor, req Prep
 	if current.Encrypted {
 		return nil, ErrSensitiveResource
 	}
+	if !utf8.ValidString(current.Content) || !utf8.ValidString(req.DesiredContent) || strings.IndexByte(current.Content, 0) >= 0 || strings.IndexByte(req.DesiredContent, 0) >= 0 {
+		return nil, ErrSensitiveResource
+	}
+	if req.Comment != nil && *req.Comment != current.Comment {
+		return nil, ErrInvalidRequest
+	}
 	desired := cloneConfigFile(current)
 	desired.Content = req.DesiredContent
-	if req.Comment != nil {
-		desired.Comment = *req.Comment
-	}
 	baselineHash, err := hashValue(current)
 	if err != nil {
 		return nil, err
@@ -192,7 +203,7 @@ func (w *Workbench) PrepareConfigFile(ctx context.Context, actor Actor, req Prep
 		ExpiresAt: w.now().Add(time.Duration(w.ttl.Load())), actorID: actor.UserID,
 		Warnings: []string{
 			"确认后只保存配置草稿，不会创建发布版本，也不会影响当前已发布配置。",
-			"Phase 0 会在确认前重新读取并校验基线；当前配置接口尚无原子 CAS，仍需避免多人同时修改同一文件。",
+			"确认时会重新读取并校验草稿；并发修改由草稿版本 CAS 拒绝，不会覆盖其他人的更新。",
 		},
 	}
 	proposal.PreviewHash, err = hashValue(struct {
@@ -270,12 +281,16 @@ func (w *Workbench) Confirm(ctx context.Context, actor Actor, req ConfirmRequest
 	requestID, err := w.config.UpdateConfigFile(ctx, actor, working.After)
 	if err != nil {
 		w.resetAfterFailure(req.ProposalID)
+		var upstream *UpstreamError
+		if errors.As(err, &upstream) && upstream.Code == uint32(apimodel.Code_DataConflict) {
+			return nil, ErrStalePreview
+		}
 		return nil, err
 	}
 	receipt := &Receipt{
 		ProposalID: working.ID, Status: ProposalWaitingForPublish, Resource: working.Resource,
 		RequestID: requestID,
-		DetailURL: "/configuration/group/files?namespace=" + url.QueryEscape(working.Resource.Namespace) + "&group=" + url.QueryEscape(working.Resource.Group),
+		DetailURL: "/configuration?environment=" + url.QueryEscape(working.Resource.Namespace) + "&group=" + url.QueryEscape(working.Resource.Group) + "&name=" + url.QueryEscape(working.Resource.Name),
 	}
 	w.mu.Lock()
 	stored := w.proposals[req.ProposalID]
@@ -319,6 +334,9 @@ func (w *Workbench) resetAfterFailure(id string) {
 
 func cloneConfigFile(file ConfigFile) ConfigFile {
 	clone := file
+	if file.Definition != nil {
+		clone.Definition = proto.Clone(file.Definition).(*configv1.ConfigDefinition)
+	}
 	if file.Labels != nil {
 		clone.Labels = make(map[string]string, len(file.Labels))
 		for key, value := range file.Labels {

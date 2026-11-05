@@ -10,6 +10,7 @@ import {
   useToastController,
 } from '@fluentui/react-components';
 import { Dismiss20Regular } from '@fluentui/react-icons';
+import style from './toast.module.less';
 
 const toasterId = 'lattice-hub-toaster';
 let toastSequence = 0;
@@ -50,7 +51,7 @@ export const FluentToastHost: React.FC = () => {
       const normalizedBody = normalizeToastContent(body);
       const toastId = `${toasterId}-${++toastSequence}`;
       dispatchToast(
-        <Toast>
+        <Toast style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <ToastTitle
             action={(
               <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -72,7 +73,7 @@ export const FluentToastHost: React.FC = () => {
           )}
           {footer && <ToastFooter>{footer}</ToastFooter>}
         </Toast>,
-        { intent, timeout, position: 'top-end', toastId },
+        { intent, timeout, position: 'top', toastId },
       );
     };
     listeners.add(listener);
@@ -84,7 +85,10 @@ export const FluentToastHost: React.FC = () => {
   return (
     <Toaster
       toasterId={toasterId}
-      style={{ width: '420px', maxWidth: 'calc(100vw - 32px)' }}
+      className={style.toaster}
+      offset={{ vertical: 56, horizontal: 0 }}
+      limit={2}
+      pauseOnHover={false}
     />
   );
 };

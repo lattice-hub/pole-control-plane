@@ -1,7 +1,8 @@
 import React from 'react';
-import { Drawer, Form, Input, Space, Button, InputNumber, Switch, Select, Tag } from 'components/Fluent';
+import { Form, Input, Space, Button, InputNumber, Switch, Select, Tag } from 'components/Fluent';
 import { ServerIcon } from 'components/Fluent/icons';
 import type { FormProps } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 
 import { useAppDispatch, useAppSelector } from 'modules/store';
 import { openErrNotification, openInfoNotification } from 'utils/notifition';
@@ -153,7 +154,7 @@ const InstanceEditor: React.FC<IInstanceEditorProps> = ({
             port: editIns?.port || 0,
             protocol: editIns?.protocol || '',
             version: editIns?.version || '',
-            weight: editIns?.weight || 0,
+            weight: editIns?.weight ?? 100,
             healthy: editIns?.healthy || false,
             isolate: editIns?.isolate || false,
             enableHealthCheck: editIns?.enableHealthCheck || false,
@@ -480,17 +481,13 @@ const InstanceEditor: React.FC<IInstanceEditorProps> = ({
 
     return (
         <div>
-            <Drawer
+            <EditorDrawer
                 className={style.instanceDrawer}
                 bodyClassName={style.instanceDrawerBody}
-                footerClassName={style.instanceDrawerFooter}
-                size="min(960px, calc(100vw - 32px))"
-                header={op === 'view' ? '实例详情' : op === 'edit' ? "编辑实例" : "创建实例"}
+                width="wide"
+                title={op === 'view' ? '实例详情' : op === 'edit' ? "编辑实例" : "创建实例"}
+                description={op === 'view' ? undefined : '登记可被服务发现和健康检查访问的网络端点。'}
                 visible={visible}
-                showOverlay
-                closeOnOverlayClick
-                closeOnEscKeydown
-                destroyOnClose
                 onClose={closeDrawer}
                 footer={op === 'view' ? (canEdit && onEdit ? (
                     <div className={style.instanceDrawerActions}>
@@ -499,18 +496,15 @@ const InstanceEditor: React.FC<IInstanceEditorProps> = ({
                         </Button>
                     </div>
                 ) : false) : (
-                    <div className={style.instanceDrawerActions}>
-                        <Button theme="default" onClick={closeDrawer}>
-                            取消
-                        </Button>
-                        <Button theme="primary" onClick={() => form.submit()}>
-                            提交
-                        </Button>
-                    </div>
+                    <EditorDrawerActions
+                        onCancel={closeDrawer}
+                        onSubmit={() => form.submit({ showErrorMessage: true })}
+                        submitText={op === 'edit' ? '保存修改' : '创建实例'}
+                    />
                 )}
             >
                 {op === 'view' ? instanceView : instanceForm}
-            </Drawer>
+            </EditorDrawer>
         </div>
     );
 }

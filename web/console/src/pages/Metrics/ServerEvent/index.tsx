@@ -6,12 +6,9 @@ import QueryComposer from 'components/QueryComposer';
 import { ResourceHeader } from 'components/ResourceLayout';
 import { describeEventLog, EventLog, EventType, getEventTypeInfo } from 'services/observer';
 import { describeObservabilityEvents } from 'services/observability';
-import ErrorPage from 'components/ErrorPage';
 import { useSearchParams } from 'components/Router';
 
 import style from './index.module.less';
-
-type DataSource = 'remote' | 'mock';
 
 type EventMetricRow = EventLog & {
   rowKey?: string;
@@ -28,74 +25,6 @@ interface SearchState {
 }
 
 const PAGE_SIZE = 10;
-
-const MOCK_EVENTS: EventMetricRow[] = [
-  {
-    cursor: 'evt-20260718-001',
-    namespace: 'default',
-    service: 'checkout',
-    resource: '10.24.8.31:8080',
-    event_type: 'InstanceTurnUnHealth',
-    event_time: '2026-07-18 12:42:18',
-    server: 'pole-control-plane-0',
-  },
-  {
-    cursor: 'evt-20260718-002',
-    namespace: 'default',
-    service: 'payment',
-    resource: '10.24.9.17:9000',
-    event_type: 'InstanceOffline',
-    event_time: '2026-07-18 12:35:04',
-    server: 'pole-control-plane-1',
-  },
-  {
-    cursor: 'evt-20260718-003',
-    namespace: 'mall-prod',
-    service: 'inventory',
-    resource: 'inventory.mesh.local',
-    event_type: 'ServiceOpenEmptyPushProtect',
-    event_time: '2026-07-18 12:21:36',
-    server: 'pole-control-plane-0',
-  },
-  {
-    cursor: 'evt-20260718-004',
-    namespace: 'mall-prod',
-    service: 'checkout',
-    resource: '10.24.8.33:8080',
-    event_type: 'InstanceTurnHealth',
-    event_time: '2026-07-18 12:06:57',
-    server: 'pole-control-plane-1',
-  },
-  {
-    cursor: 'evt-20260718-005',
-    namespace: 'gray',
-    service: 'recommend',
-    resource: '10.25.2.45:7001',
-    event_type: 'InstanceOpenIsolate',
-    event_time: '2026-07-18 11:53:14',
-    server: 'pole-control-plane-0',
-  },
-  {
-    cursor: 'evt-20260718-006',
-    namespace: 'default',
-    service: 'user-center',
-    resource: '10.24.1.12:8080',
-    event_type: 'InstanceOnline',
-    event_time: '2026-07-18 11:39:41',
-    server: 'pole-control-plane-1',
-  },
-];
-
-const EVENT_TREND = [
-  { label: '08:00', value: 6 },
-  { label: '09:00', value: 11 },
-  { label: '10:00', value: 8 },
-  { label: '11:00', value: 15 },
-  { label: '12:00', value: 22 },
-  { label: '13:00', value: 13 },
-  { label: '14:00', value: 18 },
-  { label: '15:00', value: 9 },
-];
 
 const presets: DateRangePickerProps['presets'] = {
   '最近 1 小时': [dayjs().subtract(1, 'hour').toDate(), dayjs().toDate()],
@@ -140,16 +69,6 @@ function formatTime(value: string) {
   return date.isValid() ? date.format('YYYY-MM-DD HH:mm:ss') : value;
 }
 
-function filterMockEvents(rows: EventMetricRow[], searchState: SearchState) {
-  return rows.filter((row) => {
-    const matchEvent = !searchState.searchEvent || row.event_type === searchState.searchEvent;
-    const matchNamespace = !searchState.searchNamespace || row.namespace.includes(searchState.searchNamespace);
-    const matchService = !searchState.searchService || row.service.includes(searchState.searchService);
-    const matchResource = !searchState.searchResource || row.resource.includes(searchState.searchResource);
-    return matchEvent && matchNamespace && matchService && matchResource;
-  });
-}
-
 function buildCategoryStats(rows: EventMetricRow[]) {
   const total = Math.max(rows.length, 1);
   const categories = rows.reduce<Record<string, number>>((acc, row) => {
@@ -187,24 +106,6 @@ function SummaryCard(props: { title: string; value: React.ReactNode; hint: strin
   );
 }
 
-function TrendBars(props: { data: Array<{ label: string; value: number }> }) {
-  const { data } = props;
-  const max = Math.max(...data.map((item) => item.value), 1);
-  return (
-    <div className={style.trendBars}>
-      {data.map((item) => (
-        <div className={style.trendItem} key={item.label}>
-          <span className={style.trendValue}>{item.value}</span>
-          <span className={style.trendTrack}>
-            <span className={style.trendFill} style={{ height: `${Math.max((item.value / max) * 100, 8)}%` }} />
-          </span>
-          <span className={style.trendLabel}>{item.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function DistributionList(props: { data: Array<{ label: string; value: number; percent: number }> }) {
   const { data } = props;
   if (!data.length) return <Empty description="暂无事件分布" />;
@@ -225,12 +126,6 @@ function DistributionList(props: { data: Array<{ label: string; value: number; p
   );
 }
 
-function DataSourceBadge(props: { source: DataSource; loading: boolean }) {
-  const { source, loading } = props;
-  if (loading) return <Tag className={style.sourceTag}>加载中</Tag>;
-  return <Tag className={source === 'mock' ? style.sourceTagMock : style.sourceTag}>{source === 'mock' ? 'Mock 预览' : '实时数据'}</Tag>;
-}
-
 export default function ServerEvent() {
   const [searchParams] = useSearchParams();
   const initialSearchState = React.useRef<SearchState>({
@@ -240,22 +135,24 @@ export default function ServerEvent() {
   });
   const [events, setEvents] = React.useState<EventMetricRow[]>([]);
   const [searchState, setSearchState] = React.useState<SearchState>(initialSearchState.current);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [hasNext, setHasNext] = React.useState(false);
-  const [dataSource, setDataSource] = React.useState<DataSource>('mock');
   const [fetchError, setFetchError] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<EventMetricRow | null>(null);
   const [paginationVersion, setPaginationVersion] = React.useState(0);
 
-  const displayEvents = React.useMemo(() => {
-    if (dataSource === 'remote') return events;
-    return filterMockEvents(MOCK_EVENTS, searchState);
-  }, [dataSource, events, searchState]);
+  const displayEvents = events;
 
   const summary = React.useMemo(() => buildEventSummary(displayEvents), [displayEvents]);
   const categoryStats = React.useMemo(() => buildCategoryStats(displayEvents), [displayEvents]);
 
+  const lastQuery = React.useRef<SearchState>(initialSearchState.current);
+
+  const requestSequence = React.useRef(0);
+
   const fetchData = React.useCallback(async (nextSearchState: SearchState = searchState) => {
+    const sequence = ++requestSequence.current;
+    lastQuery.current = nextSearchState;
     setIsLoading(true);
     try {
       const requestParams = {
@@ -273,17 +170,17 @@ export default function ServerEvent() {
       const fallbackRes = (observabilityRes.data || []).length ? observabilityRes : await describeEventLog(requestParams);
       const res = fallbackRes;
       const remoteRows = (res.data || []) as EventMetricRow[];
+      if (sequence !== requestSequence.current) return;
       setEvents(remoteRows);
       setHasNext(Boolean(res.has_next));
-      setDataSource(remoteRows.length ? 'remote' : 'mock');
       setFetchError(false);
     } catch {
+      if (sequence !== requestSequence.current) return;
       setEvents([]);
       setHasNext(false);
-      setDataSource('mock');
-      setFetchError(false);
+      setFetchError(true);
     } finally {
-      setIsLoading(false);
+      if (sequence === requestSequence.current) setIsLoading(false);
     }
   }, [searchState]);
 
@@ -345,8 +242,6 @@ export default function ServerEvent() {
     fetchData(defaultSearchState);
   };
 
-  if (fetchError) return <ErrorPage />;
-
   return (
     <div className={style.page}>
       <ResourceHeader
@@ -355,11 +250,11 @@ export default function ServerEvent() {
         eyebrow="监控指标 / 事件指标"
         title="事件指标"
         description="聚合服务实例、服务保护和控制面事件，快速定位事件影响范围与最近变化。"
-        actions={<DataSourceBadge source={dataSource} loading={isLoading} />}
+        actions={<Tag className={style.sourceTag}>{isLoading ? '加载中' : fetchError ? '查询失败' : '真实数据'}</Tag>}
       />
 
-      <div className={style.summaryGrid}>
-        <SummaryCard title="事件总数" value={summary.total} hint={dataSource === 'mock' ? '当前筛选下的预览事件' : '当前筛选下的真实事件'} />
+      {!fetchError && !isLoading && <><div className={style.summaryGrid}>
+        <SummaryCard title="事件总数" value={summary.total} hint="当前已加载记录" />
         <SummaryCard title="风险事件" value={summary.riskCount} hint="下线、异常、隔离和推空保护" tone={style.summaryDanger} />
         <SummaryCard title="影响服务" value={summary.affectedServices} hint="按 namespace/service 去重" />
         <SummaryCard title="最近事件" value={summary.latestTime} hint={hasNext ? '还有更多历史事件' : '已展示当前结果集'} compactValue />
@@ -370,24 +265,26 @@ export default function ServerEvent() {
           <div className={style.panelHeader}>
             <div>
               <h2>事件趋势</h2>
-              <span>按小时聚合最近事件量</span>
+              <span>当前暂不提供趋势统计</span>
             </div>
             <InfoCircleIcon />
           </div>
-          <TrendBars data={EVENT_TREND} />
+          <Empty description="暂无趋势数据" />
         </section>
 
         <section className={style.panel}>
           <div className={style.panelHeader}>
             <div>
               <h2>类型分布</h2>
-              <span>事件类别占比</span>
+              <span>当前已加载记录的事件类别占比</span>
             </div>
             <FilterIcon />
           </div>
           <DistributionList data={categoryStats} />
         </section>
       </div>
+
+      </>}
 
       <section className={style.panel}>
         <div className={style.panelHeader}>
@@ -464,7 +361,9 @@ export default function ServerEvent() {
           />
         </div>
 
-        <Table
+        {fetchError && !isLoading ? (
+          <Empty title="事件查询失败" description="无法加载数据，请重试。" action={<Button onClick={() => fetchData(lastQuery.current)}>重新加载</Button>} />
+        ) : <Table
           key={paginationVersion}
           data={displayEvents}
           columns={columns}
@@ -479,7 +378,7 @@ export default function ServerEvent() {
             showJumper: true,
           }}
           onRowClick={({ row }: { row: EventMetricRow }) => setSelectedEvent(row)}
-        />
+        />}
       </section>
 
       <Drawer

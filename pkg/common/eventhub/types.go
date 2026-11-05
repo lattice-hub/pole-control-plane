@@ -19,7 +19,6 @@ package eventhub
 
 import (
 	"github.com/pole-io/pole-server/apis/pkg/types"
-	conftypes "github.com/pole-io/pole-server/apis/pkg/types/config"
 	svctypes "github.com/pole-io/pole-server/apis/pkg/types/service"
 )
 
@@ -31,8 +30,6 @@ const (
 	ServiceEventTopic = "service_event"
 	// LeaderChangeEventTopic leader change
 	LeaderChangeEventTopic = "leader_change_event"
-	// ConfigFilePublishTopic config file release publish
-	ConfigFilePublishTopic = "configfile_publish"
 	// CacheInstanceEventTopic record cache occur instance add/update/del event
 	CacheInstanceEventTopic = "cache_instance_event"
 	// CacheClientEventTopic record cache occur client add/update/del event
@@ -42,16 +39,6 @@ const (
 	// ClientEventTopic .
 	ClientEventTopic = "client_event"
 )
-
-// PublishConfigFileEvent 事件对象，包含类型和事件消息
-type PublishConfigFileEvent struct {
-	Message *conftypes.SimpleConfigFileRelease
-}
-
-type ConfigTemplateSnapshotChangedEvent struct {
-	Namespace  string
-	TemplateID uint64
-}
 
 // EventType common event type
 type EventType int

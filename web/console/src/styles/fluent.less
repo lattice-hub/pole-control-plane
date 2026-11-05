@@ -1,5 +1,8 @@
 :root {
   --app-brand: #0f6cbd;
+  --app-brand-foreground: #0b5cad;
+  --app-brand-foreground-hover: #115ea3;
+  --app-brand-foreground-pressed: #0c3b5e;
   --app-brand-hover: #115ea3;
   --app-brand-pressed: #0c3b5e;
   --app-brand-1: #f2f3ff;
@@ -27,7 +30,7 @@
   --app-surface-disabled: #cfd7e3;
   --app-text: #242424;
   --app-text-secondary: #616161;
-  --app-text-tertiary: #8a8886;
+  --app-text-tertiary: #616161;
   --app-muted: #616161;
   --app-text-placeholder: rgba(0, 0, 0, 0.4);
   --app-text-on-brand: #ffffff;
@@ -53,6 +56,9 @@
 }
 
 [theme-mode='dark'] {
+  --app-brand-foreground: #96bbf8;
+  --app-brand-foreground-hover: #b4d6fa;
+  --app-brand-foreground-pressed: #cfe4fa;
   --app-brand-1: #1b2f51;
   --app-brand-2: #173463;
   --app-brand-3: #143975;
@@ -94,6 +100,10 @@
   --app-status-error-subtle: #5e2a2d;
   --app-status-error-border: #854149;
   --app-danger: #ff99a4;
+}
+
+.fluent-form-item__help {
+  color: var(--app-text-secondary);
 }
 
 .fluent-provider-shell,
@@ -318,7 +328,7 @@
   }
 
   &.has-range td[aria-current='date']:not(.is-range-start):not(.is-range-end) > button {
-    color: var(--app-brand) !important;
+    color: var(--app-brand-foreground) !important;
     background: transparent !important;
     box-shadow: inset 0 0 0 1px var(--app-brand);
   }
@@ -377,7 +387,7 @@
     }
 
     &.is-active {
-      color: var(--app-brand);
+      color: var(--app-brand-foreground);
       background: color-mix(in srgb, var(--app-brand) 10%, transparent);
       border-color: color-mix(in srgb, var(--app-brand) 36%, transparent);
     }
@@ -426,7 +436,7 @@
     font-variant-numeric: tabular-nums;
 
     &.is-selected {
-      color: var(--app-brand);
+      color: var(--app-brand-foreground);
       font-weight: 600;
       background: color-mix(in srgb, var(--app-brand) 12%, transparent);
     }

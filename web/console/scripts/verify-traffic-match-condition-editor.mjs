@@ -52,12 +52,6 @@ const consumers = [
     minUses: 1,
     forbidden: [/renderLaneMatchModeSwitch/, /className=\{styles\.laneMatchRows\}/],
   },
-  {
-    file: 'src/pages/Configuration/Group/Releases/GrayRuleEditor.tsx',
-    minUses: 1,
-    required: [/showParamKey=\{false\}/, /relationEditable=\{false\}/],
-    forbidden: [],
-  },
 ];
 
 for (const item of consumers) {

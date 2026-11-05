@@ -61,7 +61,7 @@ func ParseHeaderContext(req *restful.Request, rsp *restful.Response) context.Con
 	requestID := req.HeaderParameter(types.HeaderRequestId)
 	authToken := req.HeaderParameter(types.HeaderAuthorizationKey)
 
-	ctx := context.Background()
+	ctx := req.Request.Context()
 	ctx = context.WithValue(ctx, types.StringContext(types.HeaderRequestId), requestID)
 	ctx = types.AppendRequestHeader(ctx, req.Request.Header)
 	ctx = context.WithValue(ctx, types.ContextClientAddress, req.Request.RemoteAddr)

@@ -512,7 +512,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                             <div className={`${styles.httpHeadersCell} ${styles.httpHeadersFirstCell}`} role="cell">
                                 {editorState.editable ? (
                                     <Input
-                                        aria-label={`第 ${headerIndex + 1} 个请求头的键`}
+                                        aria-label={`第 ${index + 1} 条探测规则第 ${headerIndex + 1} 个请求头的键`}
                                         className={styles.monoInput}
                                         value={item.key}
                                         placeholder="x-seed"
@@ -525,7 +525,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                             <div className={styles.httpHeadersCell} role="cell">
                                 {editorState.editable ? (
                                     <Input
-                                        aria-label={`第 ${headerIndex + 1} 个请求头的值`}
+                                        aria-label={`第 ${index + 1} 条探测规则第 ${headerIndex + 1} 个请求头的值`}
                                         className={styles.monoInput}
                                         value={item.value}
                                         placeholder="true"
@@ -538,7 +538,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                             <div className={`${styles.httpHeadersCell} ${styles.httpHeadersActionCell}`} role="cell">
                                 {editorState.editable ? (
                                     <Popup trigger="hover" content="删除标签">
-                                        <Button aria-label={`删除第 ${headerIndex + 1} 个请求头`} shape="square" variant="outline" onClick={() => removeHttpHeader(index, headerIndex, rows)}>
+                                        <Button aria-label={`删除第 ${index + 1} 条探测规则第 ${headerIndex + 1} 个请求头`} shape="square" variant="outline" onClick={() => removeHttpHeader(index, headerIndex, rows)}>
                                             <DeleteIcon />
                                         </Button>
                                     </Popup>
@@ -552,7 +552,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                 </div>
                 {editorState.editable && (
                     <div className={styles.httpHeadersFooter}>
-                        <Button theme="primary" variant="text" icon={<AddIcon />} onClick={() => addHttpHeader(index, rows)}>
+                        <Button aria-label={`第 ${index + 1} 条探测规则添加标签`} theme="primary" variant="text" icon={<AddIcon />} onClick={() => addHttpHeader(index, rows)}>
                             添加标签
                         </Button>
                         <span>{rows.length} 个标签</span>
@@ -577,13 +577,13 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                 <div className={shared.full}>
                                     <div className={shared.editLabel}>匹配方式</div>
                                     <FormItem name={['rules', index, configKey, 'match']} style={{ marginBottom: 0 }}>
-                                        <Select options={PayloadMatchOptions} />
+                                        <Select aria-label={`第 ${index + 1} 条探测规则报文匹配方式`} options={PayloadMatchOptions} />
                                     </FormItem>
                                 </div>
                                 <div>
                                     <div className={shared.editLabel}>发送内容</div>
                                     <FormItem name={['rules', index, configKey, 'send']} style={{ marginBottom: 0 }}>
-                                        <Textarea className={styles.monoTextarea} placeholder="PING\\n" />
+                                        <Textarea aria-label={`第 ${index + 1} 条探测规则发送报文`} className={styles.monoTextarea} placeholder="PING\\n" />
                                     </FormItem>
                                 </div>
                                 <div>
@@ -592,7 +592,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                         name={['rules', index, configKey, 'receive']}
                                         style={{ marginBottom: 0 }}
                                     >
-                                        <Textarea className={styles.monoTextarea} placeholder="PONG" />
+                                        <Textarea aria-label={`第 ${index + 1} 条探测规则响应报文`} className={styles.monoTextarea} placeholder="PONG" />
                                     </FormItem>
                                 </div>
                                 <div className={shared.full}>
@@ -614,13 +614,13 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                 <div>
                                     <div className={shared.editLabel}>方法</div>
                                     <FormItem name={['rules', index, 'httpConfig', 'method']} style={{ marginBottom: 0 }}>
-                                        <Select filterable creatable options={HTTPMethodOption} />
+                                        <Select aria-label={`第 ${index + 1} 条探测规则 HTTP 方法`} filterable creatable options={HTTPMethodOption} />
                                     </FormItem>
                                 </div>
                                 <div>
                                     <div className={shared.editLabel}>URL</div>
                                     <FormItem name={['rules', index, 'httpConfig', 'url']} style={{ marginBottom: 0 }}>
-                                        <Input className={styles.monoTextarea} placeholder="/healthz" />
+                                        <Input aria-label={`第 ${index + 1} 条探测规则 HTTP 路径`} className={styles.monoTextarea} placeholder="/healthz" />
                                     </FormItem>
                                 </div>
                                 <div className={shared.full}>
@@ -650,6 +650,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                             <div>
                                 <div className={shared.editLabel}>端口来源</div>
                                 <RadioGroup
+                                    aria-label={`第 ${index + 1} 条探测规则端口来源`}
                                     theme="button"
                                     variant="primary-filled"
                                     value={customPort ? 'CUSTOM' : 'INSTANCE'}
@@ -665,7 +666,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                 <div>
                                     <div className={shared.editLabel}>探测端口</div>
                                     <FormItem name={['rules', index, 'port']} style={{ marginBottom: 0 }}>
-                                        <InputNumber theme="normal" min={1} max={65535} placeholder="8080" />
+                                        <InputNumber aria-label={`第 ${index + 1} 条探测规则端口`} theme="normal" min={1} max={65535} placeholder="8080" />
                                     </FormItem>
                                 </div>
                             ) : (
@@ -753,7 +754,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                 <div className={shared.editLabel}>状态</div>
                                 <FormItem name={['rules', index, 'disable']} initialData={false} style={{ marginBottom: 0 }}>
                                     {editorState.editable ? (
-                                        <RadioGroup theme="button" variant="primary-filled">
+                                        <RadioGroup aria-label={`第 ${index + 1} 条探测规则启用状态`} theme="button" variant="primary-filled">
                                             <Radio.Button value={false}>启用</Radio.Button>
                                             <Radio.Button value={true}>禁用</Radio.Button>
                                         </RadioGroup>
@@ -766,7 +767,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                 <div className={shared.editLabel}>间隔</div>
                                 <FormItem name={['rules', index, 'interval']} style={{ marginBottom: 0 }}>
                                     {editorState.editable ? (
-                                        <Space><InputNumber theme="normal" min={1} placeholder="30" /><span>秒</span></Space>
+                                        <Space><InputNumber aria-label={`第 ${index + 1} 条探测规则探测间隔`} theme="normal" min={1} placeholder="30" /><span>秒</span></Space>
                                     ) : (
                                         <Text>{rule.interval || 30} 秒</Text>
                                     )}
@@ -776,7 +777,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                 <div className={shared.editLabel}>超时</div>
                                 <FormItem name={['rules', index, 'timeout']} style={{ marginBottom: 0 }}>
                                     {editorState.editable ? (
-                                        <Space><InputNumber theme="normal" min={1} placeholder="60" /><span>秒</span></Space>
+                                        <Space><InputNumber aria-label={`第 ${index + 1} 条探测规则超时时间`} theme="normal" min={1} placeholder="60" /><span>秒</span></Space>
                                     ) : (
                                         <Text>{rule.timeout || 60} 秒</Text>
                                     )}
@@ -816,7 +817,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                             ]}
                         >
                             {props.op === 'create'
-                                ? <Input placeholder="最长64个字符" />
+                                ? <Input aria-label="探测规则名称" placeholder="最长64个字符" />
                                 : <Text>{editRule?.name}</Text>}
                         </FormItem>
                     </div>
@@ -824,7 +825,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                         <div className={shared.fieldLabel}>优先级</div>
                         <FormItem name="priority">
                             {editorState.editable
-                                ? <InputNumber theme="normal" min={0} placeholder="0" />
+                                ? <InputNumber aria-label="探测规则优先级" theme="normal" min={0} placeholder="0" />
                                 : <Text>{displayText(currentDraft.priority)}</Text>}
                         </FormItem>
                     </div>
@@ -832,7 +833,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                         <div className={shared.fieldLabel}>描述</div>
                         <FormItem name="description">
                             {editorState.editable
-                                ? <Input placeholder="补充规则说明" />
+                                ? <Input aria-label="探测规则描述" placeholder="补充规则说明" />
                                 : <Text>{editRule?.description || '-'}</Text>}
                         </FormItem>
                     </div>
@@ -866,6 +867,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                         >
                             {editorState.editable && !fixedTarget ? (
                                 <Select
+                                    aria-label="被探测命名空间"
                                     filterable
                                     creatable
                                     options={namespaceDatas.map(ns => ({ label: ns.name, value: ns.name }))}
@@ -888,6 +890,7 @@ const FaultDetectEditor: React.FC<IFaultDetectEditorProps> = (props) => {
                                     >
                                         {editorState.editable && !fixedTarget ? (
                                             <Select
+                                                aria-label="被探测服务"
                                                 placeholder="请选择服务"
                                                 filterable
                                                 creatable

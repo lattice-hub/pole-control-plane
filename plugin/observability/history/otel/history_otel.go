@@ -90,7 +90,7 @@ func (h *HistoryWorker) Record(entry *types.RecordEntry) {
 
 func operationBody(entry *types.RecordEntry) string {
 	if entry.Detail != "" {
-		return entry.Detail
+		return types.SanitizeOperationDetail(entry.ResourceType, entry.Detail)
 	}
 	return fmt.Sprintf("%s %s/%s by %s", entry.OperationType, entry.ResourceType, entry.ResourceName, entry.Operator)
 }

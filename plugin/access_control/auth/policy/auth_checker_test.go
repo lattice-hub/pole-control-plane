@@ -44,6 +44,24 @@ func TestCheckConsolePermission_OwnerUserBypassesPolicyCache(t *testing.T) {
 	require.True(t, ok)
 }
 
+func TestCheckConsolePermissionRetainsCredentialContext(t *testing.T) {
+	checker := &DefaultAuthChecker{
+		conf:    &AuthConfig{ConsoleOpen: true, ConsoleStrict: true},
+		userSvr: ownerCredentialUserServer{},
+	}
+	authCtx := authtypes.NewAcquireContext(
+		authtypes.WithRequestContext(context.Background()),
+		authtypes.WithMethod(authtypes.DescribeAuthPolicyDetail),
+		authtypes.WithOperation(authtypes.Read),
+	)
+
+	ok, err := checker.CheckConsolePermission(authCtx)
+
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, authtypes.OwnerUserRole, authtypes.ParseUserRole(authCtx.GetRequestContext()))
+}
+
 func TestResourcePredicate_OwnerUserBypassesPolicyCache(t *testing.T) {
 	checker := &DefaultAuthChecker{
 		conf: &AuthConfig{ConsoleOpen: true, ConsoleStrict: true},
@@ -55,6 +73,17 @@ func TestResourcePredicate_OwnerUserBypassesPolicyCache(t *testing.T) {
 	), &authtypes.ResourceEntry{})
 
 	require.True(t, ok)
+}
+
+func TestPermissionSpanPrefixDistinguishesAuthorizationAndCapabilityChecks(t *testing.T) {
+	authCtx := authtypes.NewAcquireContext(authtypes.WithMethod(authtypes.DescribeNamespaces))
+	require.Equal(t, "auth.console.authorize.DescribeNamespaces",
+		permissionSpanName(permissionSpanPrefix("auth.console", authCtx), authCtx.GetMethods()))
+
+	authCtx.SetMethod([]authtypes.ServerFunctionName{authtypes.UpdateNamespaces})
+	authCtx.SetAttachment(authtypes.PermissionCheckPurposeKey, authtypes.PermissionCheckPurposeCapability)
+	require.Equal(t, "auth.console.capability.UpdateNamespaces",
+		permissionSpanName(permissionSpanPrefix("auth.console", authCtx), authCtx.GetMethods()))
 }
 
 type ownerCredentialUserServer struct {

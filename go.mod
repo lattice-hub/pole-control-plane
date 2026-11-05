@@ -69,7 +69,7 @@ require (
 	github.com/magiconair/properties v1.8.10
 	github.com/mark3labs/mcp-go v0.18.0
 	github.com/moby/moby/api v1.54.2
-	github.com/pole-io/specification v0.1.0-ALPHA.40
+	github.com/pole-io/specification v0.1.0-ALPHA.48.0.20261105165333-f1d3771e5870
 	github.com/testcontainers/testcontainers-go v0.43.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.36.0
@@ -159,6 +159,7 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
@@ -177,3 +178,6 @@ require (
 // stream-state API removed in go-control-plane v0.14. Keep that package on the
 // compatible implementation while other split Envoy modules may move forward.
 replace github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.13.4
+
+// 固定已推送的协议提交，使独立检出与构建不依赖相邻工作区。
+replace github.com/pole-io/specification => github.com/lattice-hub/specification v0.1.0-ALPHA.48.0.20261105165333-f1d3771e5870

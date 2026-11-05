@@ -1,0 +1,42 @@
+.page { width: 100%; min-width: 0; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; color: var(--colorNeutralForeground1); }
+.page, .page * { box-sizing: border-box; }
+.keyBar, .status, .actions { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.keyBar, .panel, .status, .hint { border: 1px solid var(--colorNeutralStroke2); border-radius: 10px; background: var(--colorNeutralBackground1); padding: 18px; }
+.keyBar label, .fields label { display: grid; gap: 6px; flex: 1 1 160px; min-width: 0; font-size: 13px; font-weight: 600; }
+.keyBar button { flex: 0 0 auto; }
+.keyBar input, .fields input, .fields select, .block textarea { width: 100%; min-width: 0; border: 1px solid var(--colorNeutralStroke1); border-radius: 5px; padding: 9px 11px; background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1); font: inherit; }
+.keyBar input:focus, .fields input:focus, .fields select:focus, .block textarea:focus { outline: 2px solid var(--colorBrandStroke1); outline-offset: 1px; }
+.status { gap: 22px; color: var(--colorNeutralForeground2); font-size: 13px; }
+.status span:first-child { font-weight: 700; color: var(--colorBrandForeground1); }
+.columns { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); gap: 18px; align-items: start; }
+.panel { min-width: 0; display: grid; gap: 14px; }
+.panel h2, .panel h3, .panel p { margin: 0; }
+.panel h2 { font-size: 18px; }
+.panel h3 { font-size: 15px; margin-top: 12px; }
+.panel p, .note, .hint { color: var(--colorNeutralForeground2); font-size: 13px; line-height: 1.5; }
+.block { display: grid; min-width: 0; gap: 6px; font-size: 13px; font-weight: 600; }
+.block textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; }
+.guidance { min-width: 0; color: var(--colorNeutralForeground2); font-size: 13px; line-height: 1.5; }
+.guidance summary { color: var(--colorNeutralForeground1); cursor: pointer; font-weight: 600; }
+.guidance summary:focus-visible { outline: 2px solid var(--colorBrandStroke1); outline-offset: 2px; }
+.guidance > :not(summary) { margin-top: 10px; }
+.fields { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.preview, .releaseDetail { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--colorNeutralStroke2); border-radius: 6px; background: var(--colorNeutralBackground2); font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.history { display: grid; gap: 8px; }
+.history button { width: 100%; min-width: 0; overflow-wrap: anywhere; text-align: left; display: grid; gap: 4px; border: 1px solid var(--colorNeutralStroke2); border-radius: 6px; padding: 10px 12px; color: var(--colorNeutralForeground1); background: var(--colorNeutralBackground1); cursor: pointer; }
+.history button:hover, .history .selected { border-color: var(--colorBrandStroke1); background: var(--colorNeutralBackground2); }
+.history span, .history small { color: var(--colorNeutralForeground2); }
+.error { margin: 0; padding: 12px; border: 1px solid var(--colorPaletteRedBorder2); border-radius: 6px; color: var(--colorPaletteRedForeground1); background: var(--colorPaletteRedBackground1); }
+@media (max-width: 1000px) { .columns { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .page { padding: 16px; } .fields { grid-template-columns: 1fr; } }
+.audience, .rules, .rule { min-width: 0; display: grid; gap: 10px; }
+.audience, .rule { border: 1px solid var(--colorNeutralStroke2); border-radius: 6px; padding: 12px; }
+.audience legend { font-weight: 600; padding: 0 4px; }
+.condition { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.condition label, .range label { display: grid; gap: 5px; flex: 1 1 140px; min-width: 0; font-size: 13px; }
+.condition input, .condition select { width: 100%; min-width: 0; border: 1px solid var(--colorNeutralStroke1); border-radius: 5px; padding: 8px; background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1); font: inherit; }
+.condition small { color: var(--colorNeutralForeground2); }
+.range, .members { display: flex; flex-wrap: wrap; gap: 8px; flex: 2 1 220px; }
+.members { align-items: end; }
+.members > span { width: 100%; font-size: 12px; }
+.member { display: flex; gap: 4px; flex: 1 1 140px; min-width: 0; }

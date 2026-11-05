@@ -259,9 +259,8 @@ func (authCtx *AcquireContext) IsFromConsole() bool {
 func (authCtx *AcquireContext) IsAccessResourceEmpty() bool {
 	nsEmpty := len(authCtx.accessResources[apisecurity.ResourceType_Namespaces]) == 0
 	svcEmpty := len(authCtx.accessResources[apisecurity.ResourceType_Services]) == 0
-	cfgEmpty := len(authCtx.accessResources[apisecurity.ResourceType_ConfigGroups]) == 0
 
-	return nsEmpty && svcEmpty && cfgEmpty
+	return nsEmpty && svcEmpty
 }
 
 // AllowAnonymous 本次请求是否允许匿名访问

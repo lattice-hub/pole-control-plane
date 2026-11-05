@@ -8,9 +8,16 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
+
+	compatconfig "github.com/pole-io/pole-server/pkg/compatibility/config"
 )
 
 func newErrorResponse(req *restful.Request, err error) *ErrorResponse {
+	var protocolError *compatconfig.Error
+	if errors.As(err, &protocolError) {
+		status := protocolError.HTTPStatus()
+		return &ErrorResponse{Timestamp: time.Now().String(), Status: status, Error: http.StatusText(status), Message: err.Error(), Path: req.Request.URL.Path}
+	}
 	if errors.Is(err, Err_NotFoundConfig) {
 		return &ErrorResponse{
 			Timestamp: time.Now().String(),
@@ -59,6 +66,7 @@ type GetConfigFileResponse struct {
 	AppId          string            `json:"appId"`
 	Cluster        string            `json:"cluster"`
 	NamespaceName  string            `json:"namespaceName"`
+	Content        []byte            `json:"-"`
 	Configurations map[string]string `json:"configurations"`
 	ReleaseKey     string            `json:"releaseKey"`
 }

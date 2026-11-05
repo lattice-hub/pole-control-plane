@@ -30,6 +30,10 @@ func namespaceTool(name string) ToolDefinition {
 	}
 }
 
+func environmentTool(name string) ToolDefinition {
+	return ToolDefinition{Name: name, InputSchema: map[string]any{"type": "object", "properties": map[string]any{"environment": map[string]any{"type": "string"}, "group": map[string]any{"type": "string"}, "name": map[string]any{"type": "string"}}}}
+}
+
 func (f modelFunc) Complete(ctx context.Context, req ModelRequest) (ModelResponse, error) {
 	return f(ctx, req)
 }
@@ -144,7 +148,7 @@ func TestAgentRunsModelThenPreparesPreviewWithoutConfirmOrPublishTool(t *testing
 			RequestID: "model-request",
 		}, nil
 	})
-	session := &fakeToolSession{tools: []ToolDefinition{namespaceTool("get_config_file")}}
+	session := &fakeToolSession{tools: []ToolDefinition{environmentTool("get_config_state")}}
 	kernel := &fakeApprovalKernel{}
 	agent := readyAgent(model, &fakeToolPort{session: session}, kernel)
 
@@ -295,13 +299,13 @@ func TestAgentBoundsToolLoop(t *testing.T) {
 			Role: RoleAssistant,
 			ToolCalls: []ToolCall{{
 				ID:        "call",
-				Name:      "get_config_file",
+				Name:      "get_config_state",
 				Arguments: json.RawMessage(`{}`),
 			}},
 		}}, nil
 	})
 	session := &fakeToolSession{
-		tools:  []ToolDefinition{namespaceTool("get_config_file")},
+		tools:  []ToolDefinition{environmentTool("get_config_state")},
 		result: ToolResult{Content: `{"namespaces":[]}`},
 	}
 	agent := New(Options{
@@ -329,7 +333,7 @@ func TestAgentMarksMCPBusinessErrorTraceFailed(t *testing.T) {
 				Role: RoleAssistant,
 				ToolCalls: []ToolCall{{
 					ID:        "call-1",
-					Name:      "get_config_file",
+					Name:      "get_config_state",
 					Arguments: json.RawMessage(`{}`),
 				}},
 			}}, nil
@@ -337,7 +341,7 @@ func TestAgentMarksMCPBusinessErrorTraceFailed(t *testing.T) {
 		return ModelResponse{Message: Message{Role: RoleAssistant, Content: "查询失败，请检查权限。"}}, nil
 	})
 	session := &fakeToolSession{
-		tools:  []ToolDefinition{namespaceTool("get_config_file")},
+		tools:  []ToolDefinition{environmentTool("get_config_state")},
 		result: ToolResult{Content: "permission denied", IsError: true},
 	}
 	agent := readyAgent(model, &fakeToolPort{session: session}, &fakeApprovalKernel{})
@@ -348,7 +352,8 @@ func TestAgentMarksMCPBusinessErrorTraceFailed(t *testing.T) {
 	require.Len(t, result.Tools, 1)
 	require.Equal(t, ToolTraceFailed, result.Tools[0].Status)
 	require.True(t, result.Tools[0].IsError)
-	require.Equal(t, "default", session.arguments["namespace"])
+	require.Equal(t, "default", session.arguments["environment"])
+	require.NotContains(t, session.arguments, "namespace")
 }
 
 func TestAgentRejectsUnknownProposalFields(t *testing.T) {
@@ -441,4 +446,64 @@ func readyAgent(model ModelPort, tools ToolPort, kernel ChangeApprovalKernel) *A
 
 func testActor() agentworkbench.Actor {
 	return agentworkbench.Actor{UserID: "admin", Token: "pole-token", RequestID: "console-request"}
+}
+
+func TestAgentConfigStateScopeReachesActualToolCall(t *testing.T) {
+	crossScope := NamespaceScope{Mode: NamespaceScopeCrossEnvironment, Namespaces: []string{"development", "production"}}
+	for _, test := range []struct {
+		name            string
+		scope           NamespaceScope
+		arguments       string
+		wantEnvironment string
+		wantError       string
+	}{
+		{"single-injection", singleScope("development"), `{"group":"app","name":"settings"}`, "development", ""},
+		{"outside-single", singleScope("development"), `{"environment":"production","group":"app","name":"settings"}`, "", "outside the turn scope"},
+		{"cross-needs-selection", crossScope, `{"group":"app","name":"settings"}`, "", "must select one environment"},
+		{"cross-explicit-selection", crossScope, `{"environment":"production","group":"app","name":"settings"}`, "production", ""},
+		{"cross-rejects-unselected", crossScope, `{"environment":"default","group":"app","name":"settings"}`, "", "outside the turn scope"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := 0
+			model := modelFunc(func(_ context.Context, request ModelRequest) (ModelResponse, error) {
+				calls++
+				if calls == 1 {
+					tool, available := findTool(request.Tools, "get_config_state")
+					require.True(t, available)
+					require.Equal(t, "environment", toolScopeArgument(tool))
+					return ModelResponse{Message: Message{Role: RoleAssistant, ToolCalls: []ToolCall{{ID: "read-config", Name: "get_config_state", Arguments: json.RawMessage(test.arguments)}}}}, nil
+				}
+				return ModelResponse{Message: Message{Role: RoleAssistant, Content: "已读取配置状态。"}}, nil
+			})
+			session := &fakeToolSession{tools: []ToolDefinition{environmentTool("get_config_state")}, result: ToolResult{Content: `{"code":200000}`}}
+			agent := readyAgent(model, &fakeToolPort{session: session}, &fakeApprovalKernel{})
+			result, err := agent.RunTurn(context.Background(), testActor(), TurnRequest{Message: "读取配置状态", NamespaceScope: test.scope})
+			if test.wantError != "" {
+				require.ErrorContains(t, err, test.wantError)
+				require.Zero(t, session.callCount)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, 1, session.callCount)
+			require.Equal(t, test.wantEnvironment, session.arguments["environment"])
+			require.NotContains(t, session.arguments, "namespace")
+			require.Len(t, result.Tools, 1)
+			var traceArguments map[string]any
+			require.NoError(t, json.Unmarshal(result.Tools[0].Arguments, &traceArguments))
+			require.Equal(t, session.arguments, traceArguments)
+		})
+	}
+}
+
+func TestAgentConfigStateValidatesEntireRequestedScope(t *testing.T) {
+	session := &fakeToolSession{tools: []ToolDefinition{environmentTool("get_config_state")}, businessNamespaces: []string{"development"}}
+	agent := readyAgent(modelFunc(func(context.Context, ModelRequest) (ModelResponse, error) {
+		t.Fatal("model must not receive a partially authorized cross-environment scope")
+		return ModelResponse{}, nil
+	}), &fakeToolPort{session: session}, &fakeApprovalKernel{})
+	_, err := agent.RunTurn(context.Background(), testActor(), TurnRequest{Message: "读取开发环境配置", NamespaceScope: NamespaceScope{Mode: NamespaceScopeCrossEnvironment, Namespaces: []string{"development", "production"}}})
+	var runtimeErr *RuntimeError
+	require.ErrorAs(t, err, &runtimeErr)
+	require.Equal(t, uint32(403009), runtimeErr.Code)
+	require.Zero(t, session.callCount)
 }

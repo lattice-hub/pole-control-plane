@@ -38,7 +38,7 @@ type NacosConfig struct {
 func loadNacosConfig(raw map[string]interface{}) (*NacosConfig, error) {
 	defaultCfg := &NacosConfig{
 		ListenPort:       model.DefaultListenPort,
-		DefaultNamespace: "default",
+		DefaultNamespace: "dev",
 	}
 	decodeConfig := &mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.StringToTimeDurationHookFunc(),

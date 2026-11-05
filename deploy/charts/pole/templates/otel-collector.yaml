@@ -1,0 +1,139 @@
+{{- if .Values.otelCollector.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pole.otelName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+data:
+  config.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+        path: /health
+    receivers:
+      otlp:
+        protocols:
+          grpc: {endpoint: 0.0.0.0:4317}
+          http: {endpoint: 0.0.0.0:4318}
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 384
+      resource/pole_defaults:
+        attributes:
+          - {key: pole.cluster, value: {{ .Values.global.clusterName | quote }}, action: upsert}
+          - {key: deployment.environment.name, value: {{ .Values.global.environment | quote }}, action: upsert}
+          - {key: k8s.namespace.name, value: {{ .Release.Namespace | quote }}, action: insert}
+      batch: {timeout: 5s, send_batch_size: 1024}
+    exporters:
+      otlp_http/greptime_traces:
+        endpoint: http://{{ include "pole.greptimeName" . }}:4000/v1/otlp
+        headers:
+          x-greptime-db-name: {{ .Values.greptimedb.database | quote }}
+          x-greptime-pipeline-name: greptime_trace_v1
+          x-greptime-trace-table-name: pole_traces
+          x-greptime-hints: {{ printf "ttl=%s" .Values.greptimedb.retention | quote }}
+        tls: {insecure: true}
+      otlp_http/greptime_logs:
+        endpoint: http://{{ include "pole.greptimeName" . }}:4000/v1/otlp
+        headers:
+          x-greptime-db-name: {{ .Values.greptimedb.database | quote }}
+          x-greptime-log-table-name: pole_events
+        tls: {insecure: true}
+      otlp_http/greptime_metrics:
+        endpoint: http://{{ include "pole.greptimeName" . }}:4000/v1/otlp
+        headers:
+          x-greptime-db-name: {{ .Values.greptimedb.database | quote }}
+        tls: {insecure: true}
+    service:
+      extensions: [health_check]
+      telemetry:
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus: {host: 0.0.0.0, port: 8888}
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resource/pole_defaults, batch]
+          exporters: [otlp_http/greptime_traces]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, resource/pole_defaults, batch]
+          exporters: [otlp_http/greptime_metrics]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource/pole_defaults, batch]
+          exporters: [otlp_http/greptime_logs]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pole.otelName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "pole.componentLabels" (dict "root" . "component" "otel-collector") | nindent 4 }}
+  ports:
+    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
+    - {name: otlp-http, port: 4318, targetPort: otlp-http}
+    - {name: metrics, port: 8888, targetPort: metrics}
+    - {name: health, port: 13133, targetPort: health}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pole.otelName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  replicas: {{ .Values.otelCollector.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "otel-collector") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pole.componentLabels" (dict "root" . "component" "otel-collector") | nindent 8 }}
+      annotations:
+        checksum/config: {{ toJson (dict "cluster" .Values.global.clusterName "database" .Values.greptimedb.database "retention" .Values.greptimedb.retention) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: otel-collector
+          image: {{ include "pole.image" .Values.otelCollector.image | quote }}
+          imagePullPolicy: {{ .Values.otelCollector.image.pullPolicy }}
+          args: [--config=/etc/otelcol-contrib/config.yaml]
+          ports:
+            - {name: otlp-grpc, containerPort: 4317}
+            - {name: otlp-http, containerPort: 4318}
+            - {name: metrics, containerPort: 8888}
+            - {name: health, containerPort: 13133}
+          startupProbe:
+            httpGet: {path: /health, port: health}
+            failureThreshold: 30
+            periodSeconds: 3
+          readinessProbe:
+            httpGet: {path: /health, port: health}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: health}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources: {{ toYaml .Values.otelCollector.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /etc/otelcol-contrib/config.yaml, subPath: config.yaml, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: {{ include "pole.otelName" . }}}
+{{- end }}

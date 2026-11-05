@@ -102,6 +102,7 @@ import ServiceScopeSection from '../shared/ServiceScopeSection';
 import { GovernanceServiceContext } from '../shared/serviceContext';
 import { useRuleNamespace } from '../shared/ruleNamespace';
 import TrafficMatchConditionEditor, { TrafficMatchConditionRow } from '../shared/TrafficMatchConditionEditor';
+import MockHeaderEditor from './MockHeaderEditor';
 import shared from '../shared/governance.module.less';
 import style from './index.module.less';
 
@@ -609,7 +610,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         });
     };
 
-    const renderMirrorMatchRuleEditor = (match: TrafficMatchRule | undefined, onChange: (next: TrafficMatchRule) => void) => {
+    const renderMirrorMatchRuleEditor = (ruleIndex: number, match: TrafficMatchRule | undefined, onChange: (next: TrafficMatchRule) => void) => {
         const current = removeCallerServiceArguments(normalizeMatchRule(match));
         const args = current.arguments || [];
         const updateArg = (index: number, updater: (arg: NonNullable<TrafficMatchRule['arguments']>[number]) => NonNullable<TrafficMatchRule['arguments']>[number]) => {
@@ -626,6 +627,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         }));
         return (
             <TrafficMatchConditionEditor
+                contextLabel={`第 ${ruleIndex + 1} 条镜像子规则`}
                 rows={rows}
                 editable={editable}
                 relation={current.matchMode || MatchLogic.AND}
@@ -650,7 +652,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         );
     };
 
-    const renderSecurityMatchRuleEditor = (match: TrafficMatchRule | undefined, onChange: (next: TrafficMatchRule) => void) => {
+    const renderSecurityMatchRuleEditor = (ruleIndex: number, match: TrafficMatchRule | undefined, onChange: (next: TrafficMatchRule) => void) => {
         const current = normalizeSecurityMatchRule(match);
         const args = current.arguments || [];
         const updateArg = (index: number, updater: (arg: NonNullable<TrafficMatchRule['arguments']>[number]) => NonNullable<TrafficMatchRule['arguments']>[number]) => {
@@ -667,6 +669,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         }));
         return (
             <TrafficMatchConditionEditor
+                contextLabel={`第 ${ruleIndex + 1} 条鉴权子规则`}
                 rows={rows}
                 editable={editable}
                 relation={current.matchMode || MatchLogic.AND}
@@ -701,6 +704,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         const presentation = getApiProtocolPresentation(current.protocol);
         const methodField = presentation.usesHttpMethodSelect ? (
             <Select
+                aria-label="Mock 接口方法"
                 filterable
                 creatable
                 options={methodOptions}
@@ -709,6 +713,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
             />
         ) : (
             <Input
+                aria-label="Mock 接口方法"
                 value={current.method || ''}
                 placeholder={presentation.methodPlaceholder}
                 onChange={(next) => onChange({ ...current, method: next })}
@@ -716,6 +721,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         );
         const matchField = (
             <Select
+                aria-label="Mock 接口路径匹配类型"
                 options={MatchTypeOption}
                 value={path.type || MatchType.EXACT}
                 onChange={(next) => onChange({ ...current, path: { ...path, type: next as string } })}
@@ -723,6 +729,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         );
         const pathField = (
             <Input
+                aria-label="Mock 接口路径"
                 className={style.monoInput}
                 value={path.value || ''}
                 placeholder={presentation.pathPlaceholder}
@@ -732,6 +739,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         return (
             <div className={style.mockApiEditor}>
                 <Select
+                    aria-label="Mock 接口协议"
                     options={protocolOptions}
                     value={current.protocol || InterfaceProtocol.HTTP}
                     onChange={(next) => onChange(resetApiScopeForProtocol(current, next as string))}
@@ -743,7 +751,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         );
     };
 
-    const renderMockMatchRuleEditor = (match: TrafficMatchRule | undefined, onChange: (next: TrafficMatchRule) => void) => {
+    const renderMockMatchRuleEditor = (ruleIndex: number, match: TrafficMatchRule | undefined, onChange: (next: TrafficMatchRule) => void) => {
         const current = normalizeMockMatchRule(match);
         const args = current.arguments || [];
         const updateArg = (index: number, updater: (arg: NonNullable<TrafficMatchRule['arguments']>[number]) => NonNullable<TrafficMatchRule['arguments']>[number]) => {
@@ -760,6 +768,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         }));
         return (
             <TrafficMatchConditionEditor
+                contextLabel={`第 ${ruleIndex + 1} 条Mock子规则`}
                 rows={rows}
                 editable={editable}
                 relation={current.matchMode || MatchLogic.AND}
@@ -783,29 +792,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         );
     };
 
-    const renderMockHeaderEditor = (record: Record<string, string> | undefined, onChange: (next: Record<string, string>) => void) => {
-        const rows = Object.entries(record || {}).map(([key, value]) => ({ key, value }));
-        const commitRows = (nextRows: Array<{ key: string; value: string }>) => {
-            onChange(nextRows.reduce<Record<string, string>>((acc, row) => {
-                if (row.key || row.value) acc[row.key] = row.value;
-                return acc;
-            }, {}));
-        };
-        return (
-            <div className={style.repeatEditor}>
-                {rows.map((row, index) => (
-                    <div className={style.kvRow} key={`mock-header-${index}`}>
-                        <Input value={row.key} placeholder="Header 名" onChange={(next) => commitRows(rows.map((item, idx) => idx === index ? { ...item, key: next } : item))} />
-                        <Input value={row.value} placeholder="Header 值" onChange={(next) => commitRows(rows.map((item, idx) => idx === index ? { ...item, value: next } : item))} />
-                        <Button aria-label={`删除第 ${index + 1} 个响应头`} shape="circle" variant="text" onClick={() => commitRows(rows.filter((_, idx) => idx !== index))}><CloseIcon /></Button>
-                    </div>
-                ))}
-                <Button className={shared.addRuleButton} variant="dashed" icon={<AddIcon />} onClick={() => commitRows([...rows, { key: '', value: '' }])}>添加响应头</Button>
-            </div>
-        );
-    };
-
-    const renderProtectedInterfacesEditor = (interfaces: TrafficApiScope[], onChange: (next: TrafficApiScope[]) => void) => {
+    const renderProtectedInterfacesEditor = (ruleIndex: number, interfaces: TrafficApiScope[], onChange: (next: TrafficApiScope[]) => void) => {
         const rows = interfaces.length ? interfaces : [defaultProtectedInterface()];
         const usesRpcLayout = rows.every((api) => !getApiProtocolPresentation(api?.protocol).usesHttpMethodSelect);
         const updateRow = (index: number, updater: (api: TrafficApiScope) => TrafficApiScope) => {
@@ -813,7 +800,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         };
         return (
             <div className={style.repeatEditor}>
-                <div className={style.interfaceViewport} role="region" aria-label="受保护接口配置">
+                <div className={style.interfaceViewport} role="region" aria-label={`第 ${ruleIndex + 1} 条鉴权子规则受保护接口配置`}>
                 <div className={`${style.interfaceHeader}${usesRpcLayout ? ` ${style.rpcInterfaceRow}` : ''}`}>
                     <span>协议</span>
                     <span>HTTP 方法 / RPC 接口</span>
@@ -827,6 +814,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     const path = current.path || { type: MatchType.EXACT, value: presentation.usesHttpMethodSelect ? '/' : '' };
                     const methodField = presentation.usesHttpMethodSelect ? (
                         <Select
+                            aria-label={`第 ${ruleIndex + 1} 条鉴权子规则第 ${index + 1} 个受保护接口${presentation.usesHttpMethodSelect ? "HTTP 方法" : "RPC 接口"}`}
                             filterable
                             creatable
                             options={methodOptions}
@@ -835,6 +823,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                         />
                     ) : (
                         <Input
+                            aria-label={`第 ${ruleIndex + 1} 条鉴权子规则第 ${index + 1} 个受保护接口${presentation.usesHttpMethodSelect ? "HTTP 方法" : "RPC 接口"}`}
                             value={current.method || ''}
                             placeholder={presentation.methodPlaceholder}
                             onChange={(next) => updateRow(index, (item) => ({ ...item, method: next }))}
@@ -842,6 +831,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     );
                     const matchField = (
                         <Select
+                            aria-label={`第 ${ruleIndex + 1} 条鉴权子规则第 ${index + 1} 个受保护接口${presentation.usesHttpMethodSelect ? "HTTP 路径" : "RPC 方法"}匹配类型`}
                             options={MatchTypeOption}
                             value={path.type || MatchType.EXACT}
                             onChange={(next) => updateRow(index, (item) => ({ ...item, path: { type: next as string, value: item.path?.value || '' } }))}
@@ -849,6 +839,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     );
                     const pathField = (
                         <Input
+                            aria-label={`第 ${ruleIndex + 1} 条鉴权子规则第 ${index + 1} 个受保护接口${presentation.usesHttpMethodSelect ? "HTTP 路径" : "RPC 方法"}`}
                             value={path.value || ''}
                             placeholder={presentation.pathPlaceholder}
                             onChange={(next) => updateRow(index, (item) => ({ ...item, path: { type: item.path?.type || MatchType.EXACT, value: next } }))}
@@ -857,7 +848,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     return (
                         <div className={`${style.interfaceRow}${presentation.usesHttpMethodSelect ? '' : ` ${style.rpcInterfaceRow}`}`} key={`protected-interface-${index}`}>
                             <Select
-                                aria-label={`第 ${index + 1} 个接口的协议`}
+                                aria-label={`第 ${ruleIndex + 1} 条鉴权子规则第 ${index + 1} 个受保护接口协议`}
                                 options={protocolOptions}
                                 value={current.protocol || InterfaceProtocol.HTTP}
                                 onChange={(next) => updateRow(index, (item) => resetApiScopeForProtocol(item, next as string))}
@@ -866,7 +857,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                             {matchField}
                             {presentation.usesHttpMethodSelect ? pathField : methodField}
                             <Button
-                                aria-label={`删除第 ${index + 1} 个受保护接口`}
+                                aria-label={`删除第 ${ruleIndex + 1} 条鉴权子规则第 ${index + 1} 个受保护接口`}
                                 shape="circle"
                                 variant="text"
                                 disabled={rows.length <= 1}
@@ -879,6 +870,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                 })}
                 </div>
                 <Button
+                    aria-label={`第 ${ruleIndex + 1} 条鉴权子规则添加接口`}
                     className={shared.addRuleButton}
                     variant="dashed"
                     icon={<AddIcon />}
@@ -890,7 +882,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         );
     };
 
-    const renderMirrorInterfacesEditor = (interfaces: TrafficApiScope[], onChange: (next: TrafficApiScope[]) => void, defaultApi = defaultMirrorSubRule().interfaces[0]) => {
+    const renderMirrorInterfacesEditor = (ruleIndex: number, interfaces: TrafficApiScope[], onChange: (next: TrafficApiScope[]) => void, defaultApi = defaultMirrorSubRule().interfaces[0], interfaceKind = '镜像') => {
         const rows = interfaces.length ? interfaces : [defaultApi];
         const usesRpcLayout = rows.every((api) => !getApiProtocolPresentation(api?.protocol).usesHttpMethodSelect);
         const updateRow = (index: number, updater: (api: TrafficApiScope) => TrafficApiScope) => {
@@ -898,7 +890,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
         };
         return (
             <div className={style.repeatEditor}>
-                <div className={style.interfaceViewport} role="region" aria-label="镜像接口配置">
+                <div className={style.interfaceViewport} role="region" aria-label={`第 ${ruleIndex + 1} 条${interfaceKind}子规则接口配置`}>
                 <div className={`${style.interfaceHeader}${usesRpcLayout ? ` ${style.rpcInterfaceRow}` : ''}`}>
                     <span>协议</span>
                     <span>HTTP 方法 / RPC 接口</span>
@@ -912,6 +904,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     const presentation = getApiProtocolPresentation(current.protocol);
                     const methodField = presentation.usesHttpMethodSelect ? (
                         <Select
+                            aria-label={`第 ${ruleIndex + 1} 条${interfaceKind}子规则第 ${index + 1} 个接口${presentation.usesHttpMethodSelect ? "HTTP 方法" : "RPC 接口"}`}
                             filterable
                             creatable
                             options={methodOptions}
@@ -920,6 +913,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                         />
                     ) : (
                         <Input
+                            aria-label={`第 ${ruleIndex + 1} 条${interfaceKind}子规则第 ${index + 1} 个接口${presentation.usesHttpMethodSelect ? "HTTP 方法" : "RPC 接口"}`}
                             value={current.method || ''}
                             placeholder={presentation.methodPlaceholder}
                             onChange={(next) => updateRow(index, (item) => ({ ...item, method: next }))}
@@ -927,6 +921,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     );
                     const matchField = (
                         <Select
+                            aria-label={`第 ${ruleIndex + 1} 条${interfaceKind}子规则第 ${index + 1} 个接口${presentation.usesHttpMethodSelect ? "HTTP 路径" : "RPC 方法"}匹配类型`}
                             options={MatchTypeOption}
                             value={path.type || MatchType.EXACT}
                             onChange={(next) => updateRow(index, (item) => ({ ...item, path: { ...(item.path || defaultMatchValue()), type: next as string } }))}
@@ -934,6 +929,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     );
                     const pathField = (
                         <Input
+                            aria-label={`第 ${ruleIndex + 1} 条${interfaceKind}子规则第 ${index + 1} 个接口${presentation.usesHttpMethodSelect ? "HTTP 路径" : "RPC 方法"}`}
                             className={style.monoInput}
                             value={path.value || ''}
                             placeholder={presentation.pathPlaceholder}
@@ -943,7 +939,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                     return (
                         <div className={`${style.interfaceRow}${presentation.usesHttpMethodSelect ? '' : ` ${style.rpcInterfaceRow}`}`} key={`mirror-interface-${index}`}>
                             <Select
-                                aria-label={`第 ${index + 1} 个接口的协议`}
+                                aria-label={`第 ${ruleIndex + 1} 条${interfaceKind}子规则第 ${index + 1} 个接口协议`}
                                 options={protocolOptions}
                                 value={current.protocol || InterfaceProtocol.HTTP}
                                 onChange={(next) => updateRow(index, (item) => resetApiScopeForProtocol(item, next as string))}
@@ -952,7 +948,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                             {matchField}
                             {presentation.usesHttpMethodSelect ? pathField : methodField}
                             <Button
-                                aria-label={`删除第 ${index + 1} 个镜像接口`}
+                                aria-label={`删除第 ${ruleIndex + 1} 条${interfaceKind}子规则第 ${index + 1} 个接口`}
                                 shape="circle"
                                 variant="text"
                                 disabled={rows.length <= 1}
@@ -965,6 +961,7 @@ const TrafficGovernanceEditor: React.FC<TrafficGovernanceEditorProps> = ({ kind,
                 })}
                 </div>
                 <Button
+                    aria-label={`第 ${ruleIndex + 1} 条${interfaceKind}子规则添加接口`}
                     className={shared.addRuleButton}
                     variant="dashed"
                     icon={<AddIcon />}
@@ -1008,6 +1005,7 @@ ${current.response?.body || ''}`}
                         <div>
                             <div className={shared.editLabel}>响应 Code</div>
                             <Input
+                                aria-label={`第 ${index + 1} 条 Mock 子规则响应 Code`}
                                 value={code}
                                 placeholder="200 / SUCCESS / MOCK_OK"
                                 onChange={(value) => setMockRule(index, (draft) => ({ ...draft, response: { ...(draft.response || {}), code: value } }))}
@@ -1016,6 +1014,7 @@ ${current.response?.body || ''}`}
                         <div>
                             <div className={shared.editLabel}>响应延迟 ms</div>
                             <InputNumber
+                                aria-label={`第 ${index + 1} 条 Mock 子规则响应延迟 ms`}
                                 theme="normal"
                                 min={0}
                                 value={delayMs}
@@ -1027,7 +1026,7 @@ ${current.response?.body || ''}`}
                 </div>
                 <div className={style.mockResponseSection}>
                     <div className={style.mockResponseTitle}>响应 Header</div>
-                    {renderMockHeaderEditor(current.response?.headers, (next) => setMockRule(index, (draft) => ({ ...draft, response: { ...(draft.response || {}), headers: next } })))}
+                    <MockHeaderEditor key={`${rule.id || 'new'}-${mockRules.length}-${index}`} ruleIndex={index} record={current.response?.headers} onChange={(next) => setMockRule(index, (draft) => ({ ...draft, response: { ...(draft.response || {}), headers: next } }))} />
                 </div>
                 <div className={style.mockResponseSection}>
                     <div className={style.mockBodyHead}>
@@ -1037,9 +1036,10 @@ ${current.response?.body || ''}`}
                                 <Tag variant="light-outline">{contentType}</Tag>
                             </div>
                         </div>
-                        <Button size="small" variant="outline" onClick={() => setMockBodyDialog({ visible: true, index })}>全屏编辑</Button>
+                        <Button aria-label={`第 ${index + 1} 条 Mock 子规则响应 Body 全屏编辑`} size="small" variant="outline" onClick={() => setMockBodyDialog({ visible: true, index })}>全屏编辑</Button>
                     </div>
                     <Textarea
+                        aria-label={`第 ${index + 1} 条 Mock 子规则响应 Body`}
                         className={style.mockBodyTextarea}
                         autosize={{ minRows: 1, maxRows: 15 }}
                         value={current.response?.body || ''}
@@ -1321,7 +1321,7 @@ ${current.response?.body || ''}`}
                     </div>
                 ) : (
                     <div className={style.authenticationEditor}>
-                        <RadioGroup value={securityAuthMode} onChange={(value) => setSecurityAuthMode(value as TrafficSecurityAuthMode)}>
+                        <RadioGroup aria-label="鉴权模式" value={securityAuthMode} onChange={(value) => setSecurityAuthMode(value as TrafficSecurityAuthMode)}>
                             <Radio value={TrafficSecurityAuthMode.MANAGED_IDENTITY}>Pole 托管服务身份（推荐）</Radio>
                             <Radio value={TrafficSecurityAuthMode.LEGACY_REQUEST_MATCH}>自定义 Header（兼容模式）</Radio>
                         </RadioGroup>
@@ -1631,6 +1631,7 @@ ${current.response?.body || ''}`}
                                     <div className={shared.stepTitle}>服务级名单类型</div>
                                     <div className={shared.stepContent}>
                                         <Select
+                                            aria-label="服务级鉴权名单类型"
                                             className={style.serviceListTypeSelect}
                                             options={[
                                                 { label: '白名单', value: 'ALLOW_LIST' },
@@ -1650,7 +1651,7 @@ ${current.response?.body || ''}`}
                                     <div className={style.sectionHint}>
                                         所属{listTypeText[item.listType]}分区，提交时自动按 {item.listType} 映射；子规则内部不再重复选择名单类型。
                                     </div>
-                                    {renderProtectedInterfacesEditor(item.interfaces, (next) => setSecurityViewRule(index, (current) => ({ ...current, interfaces: next })))}
+                                    {renderProtectedInterfacesEditor(index, item.interfaces, (next) => setSecurityViewRule(index, (current) => ({ ...current, interfaces: next })))}
                                 </div>
                             </div>
                         )}
@@ -1660,6 +1661,7 @@ ${current.response?.body || ''}`}
                                 <div className={shared.stepContent}>
                                     <div className={style.managedCallerEditor}>
                                         <Switch
+                                            aria-label={`第 ${index + 1} 条鉴权子规则${normalizeManagedCaller(item.managedCaller).any_authenticated ? "任意已认证服务" : "选择具体服务"}`}
                                             label={['任意已认证服务', '选择具体服务']}
                                             value={normalizeManagedCaller(item.managedCaller).any_authenticated}
                                             onChange={(value) => setSecurityViewRule(index, (current) => ({
@@ -1669,6 +1671,7 @@ ${current.response?.body || ''}`}
                                         />
                                         {!normalizeManagedCaller(item.managedCaller).any_authenticated && (
                                             <Select
+                                                aria-label={`第 ${index + 1} 条鉴权子规则搜索来源服务`}
                                                 className={style.managedCallerSelect}
                                                 multiple
                                                 filterable
@@ -1690,7 +1693,7 @@ ${current.response?.body || ''}`}
                             <div className={shared.step} data-step={isService ? '3' : '2'}>
                                 <div className={shared.stepTitle}>自定义 Header 匹配条件<span className={shared.stepHint}>每个子规则独立匹配调用请求</span></div>
                                 <div className={shared.stepContent}>
-                                    {renderSecurityMatchRuleEditor(item.strategy, (next) => setSecurityViewRule(index, (current) => ({ ...current, strategy: next })))}
+                                    {renderSecurityMatchRuleEditor(index, item.strategy, (next) => setSecurityViewRule(index, (current) => ({ ...current, strategy: next })))}
                                 </div>
                             </div>
                         )}
@@ -1780,6 +1783,7 @@ ${current.response?.body || ''}`}
                                 <div className={shared.policyHeadActions} onClick={(e) => e.stopPropagation()}>
                                     <Tag theme="primary" variant="light-outline">{item.mirror_percent ?? 0}%</Tag>
                                     <Switch
+                                        aria-label={`第 ${index + 1} 条镜像子规则${!item.disable ? "启用" : "禁用"}`}
                                         label={['启用', '禁用']}
                                         value={!item.disable}
                                         onChange={(value) => setMirrorRule(index, (current) => ({ ...current, disable: !value }))}
@@ -1799,13 +1803,13 @@ ${current.response?.body || ''}`}
                                 <div className={shared.step} data-step="1">
                                     <div className={shared.stepTitle}>接口范围<span className={shared.stepHint}>支持为一条子规则配置多个接口</span></div>
                                     <div className={shared.stepContent}>
-                                        {renderMirrorInterfacesEditor(item.interfaces, (next) => setMirrorRule(index, (current) => ({ ...current, interfaces: next })))}
+                                        {renderMirrorInterfacesEditor(index, item.interfaces, (next) => setMirrorRule(index, (current) => ({ ...current, interfaces: next })))}
                                     </div>
                                 </div>
                                 <div className={shared.step} data-step="2">
                                     <div className={shared.stepTitle}>流量标签<span className={shared.stepHint}>按标签关系命中需要镜像的流量</span></div>
                                     <div className={shared.stepContent}>
-                                        {renderMirrorMatchRuleEditor(item.traffic_match_rule, (next) => setMirrorRule(index, (current) => ({ ...current, traffic_match_rule: next })))}
+                                        {renderMirrorMatchRuleEditor(index, item.traffic_match_rule, (next) => setMirrorRule(index, (current) => ({ ...current, traffic_match_rule: next })))}
                                     </div>
                                 </div>
                                 <div className={shared.step} data-step="3">
@@ -1815,6 +1819,7 @@ ${current.response?.body || ''}`}
                                             <div>
                                                 <div className={shared.editLabel}>镜像比例</div>
                                                 <InputNumber
+                                                    aria-label={`第 ${index + 1} 条镜像子规则镜像比例`}
                                                     theme="normal"
                                                     min={0}
                                                     max={100}
@@ -1826,6 +1831,7 @@ ${current.response?.body || ''}`}
                                             <div>
                                                 <div className={shared.editLabel}>目标命名空间</div>
                                                 <Select
+                                                    aria-label={`第 ${index + 1} 条镜像子规则目标命名空间`}
                                                     filterable
                                                     creatable
                                                     options={namespaceOptions}
@@ -1836,6 +1842,7 @@ ${current.response?.body || ''}`}
                                             <div>
                                                 <div className={shared.editLabel}>目标服务</div>
                                                 <Select
+                                                    aria-label={`第 ${index + 1} 条镜像子规则目标服务`}
                                                     filterable
                                                     creatable
                                                     options={serviceOptionsForNamespace(item.destination?.namespace)}
@@ -1886,6 +1893,7 @@ ${current.response?.body || ''}`}
                                 </div>
                                 <div className={shared.policyHeadActions} onClick={(e) => e.stopPropagation()}>
                                     <Switch
+                                        aria-label={`第 ${index + 1} 条 Mock 子规则${!item.disable ? "启用" : "禁用"}`}
                                         label={['启用', '禁用']}
                                         value={!item.disable}
                                         onChange={(value) => setMockRule(index, (current) => ({ ...current, disable: !value }))}
@@ -1905,13 +1913,13 @@ ${current.response?.body || ''}`}
                                 <div className={shared.step} data-step="1">
                                     <div className={shared.stepTitle}>选择接口<span className={shared.stepHint}>确定这条 Mock 子规则接管哪些接口</span></div>
                                     <div className={shared.stepContent}>
-                                        {renderMirrorInterfacesEditor(apis, (next) => setMockRule(index, (current) => ({ ...current, apis: next, api: next[0] })), mockDefaultApi)}
+                                        {renderMirrorInterfacesEditor(index, apis, (next) => setMockRule(index, (current) => ({ ...current, apis: next, api: next[0] })), mockDefaultApi, 'Mock')}
                                     </div>
                                 </div>
                                 <div className={shared.step} data-step="2">
                                     <div className={shared.stepTitle}>流量匹配<span className={shared.stepHint}>命中接口和匹配条件后直接返回 Mock 响应</span></div>
                                     <div className={shared.stepContent}>
-                                        {renderMockMatchRuleEditor(item.traffic_match_rule, (next) => setMockRule(index, (current) => ({ ...current, traffic_match_rule: next })))}
+                                        {renderMockMatchRuleEditor(index, item.traffic_match_rule, (next) => setMockRule(index, (current) => ({ ...current, traffic_match_rule: next })))}
                                     </div>
                                 </div>
                                 <div className={shared.step} data-step="3">
@@ -2103,6 +2111,7 @@ ${current.response?.body || ''}`}
                 <div className={style.fullscreenBodyEditor}>
                     <div className={style.sectionHint}>编辑内容会实时同步到当前 Mock 子规则。</div>
                     <Textarea
+                        aria-label={`第 ${mockBodyDialog.index + 1} 条 Mock 子规则响应 Body 全屏编辑`}
                         autosize={{ minRows: 20, maxRows: 28 }}
                         value={mockRules[mockBodyDialog.index]?.response?.body || ''}
                         onChange={(value) => setMockRule(mockBodyDialog.index, (current) => ({ ...current, response: { ...(current.response || {}), body: value } }))}

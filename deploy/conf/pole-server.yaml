@@ -39,7 +39,7 @@ bootstrap:
       listenPort: 8080
       jwt:
         secretKey: polarismesh@2021
-        expired: 1800
+        expired: 7200
       coreURL: /core/v1
       namingURL: /naming/v1
       authURL: /auth/v1
@@ -61,6 +61,8 @@ bootstrap:
           txIsolationLevel: 2
     poleServer:
       address: 127.0.0.1:8090
+    limiterServer:
+      address: 127.0.0.1:8102
     monitorServer:
       address: 127.0.0.1:9090
     observabilityQuery:
@@ -97,8 +99,7 @@ bootstrap:
           - list_namespaces
           - list_mcp_servers
           - list_mcp_server_tools
-          - get_config_file
-          - search_config_files
+          - get_config_state
       a2a:
         name: Pole Agent
         description: 通过 MCP 发现并管理 Pole 控制面资源
@@ -149,6 +150,10 @@ limiter:
       option:
         ip: 0.0.0.0
         port: 8101
+    - name: http
+      option:
+        ip: 127.0.0.1
+        port: 8102
   limit:
     node-id: 1
     max-counter: 1000000
@@ -247,9 +252,6 @@ naming:
 config:
   # Whether to start the configuration module
   open: true
-  # Maximum number of number of file characters
-  # Deprecated: This configuration has been deprecated.
-  contentMaxLength: 20000
 # Cache configuration
 cache:
   # When the incremental synchronization data is cached, the actual incremental data time range is as follows:
@@ -261,10 +263,13 @@ maintain:
   jobs:
     # Clean up long term unhealthy instance
     - name: DeleteUnHealthyInstance
-      enable: false
+      enable: true
       option:
         # Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
         instanceDeleteTimeout: 60m
+        # Scan independently from the retention threshold so stale instances
+        # converge promptly after this process wins the maintenance election.
+        sweepInterval: 1m
     # Delete auto-created service without an instance
     - name: DeleteEmptyAutoCreatedService
       enable: false
@@ -283,7 +288,7 @@ store:
   option:
     master:
       dbType: mysql
-      dns: "${MYSQL_USER}:${MYSQL_PWD}@tcp(${MYSQL_HOST})/pole_server?loc=Local" ##DB_DNS##
+      dns: "${MYSQL_USER}:${MYSQL_PWD}@tcp(${MYSQL_HOST})/pole_server?loc=Local&parseTime=true" ##DB_DNS##
       maxOpenConns: 300
       maxIdleConns: 50
       connMaxLifetime: 300 # Unit second

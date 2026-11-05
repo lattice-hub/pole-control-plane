@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input, Select, Space, Button, Tag } from 'components/Fluent';
+import { Form, Input, Select, Tag } from 'components/Fluent';
 import type { FormProps } from 'components/Fluent';
 import LabelInput from 'components/LabelInput';
 import { useAppDispatch, useAppSelector } from 'modules/store';
@@ -19,8 +19,16 @@ export type ServiceFormMode = 'create' | 'edit' | 'view';
 interface ServiceFormProps {
     mode: ServiceFormMode;
     service?: Service | ServiceView | null;
+    fixedNamespace?: string;
     onSubmitted?: (service: Service) => void;
     onCancel?: () => void;
+    onSubmittingChange?: (submitting: boolean) => void;
+}
+
+export interface ServiceFormHandle {
+    submit: () => void;
+    reset: () => void;
+    submitting: boolean;
 }
 
 interface ServiceLabelRow {
@@ -51,13 +59,19 @@ const ReadonlyItem = ({
     </div>
 );
 
-const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, onCancel }) => {
+const ServiceForm = React.forwardRef<ServiceFormHandle, ServiceFormProps>(({ mode, service, fixedNamespace, onSubmitted, onSubmittingChange }, ref) => {
     const [form] = Form.useForm();
     const dispatch = useAppDispatch();
     const editable = mode !== 'view';
     const identityEditable = mode === 'create';
     const [allServices, setAllServices] = React.useState<ServiceView[]>([]);
     const [nameError, setNameError] = React.useState('');
+    const nameHelpId = React.useId();
+    const [submitting, setSubmitting] = React.useState(false);
+
+    React.useEffect(() => {
+        onSubmittingChange?.(submitting);
+    }, [onSubmittingChange, submitting]);
 
     const { datas: namespaceDatas } = useAppSelector(selectNamespace);
 
@@ -69,12 +83,12 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
 
     const initialValues = React.useCallback(() => ({
         name: service?.name || undefined,
-        namespace: service?.namespace || undefined,
+        namespace: fixedNamespace || service?.namespace || undefined,
         comment: service?.comment || '',
         department: service?.department || '',
         business: service?.business || '',
         service_labels: metadataToRows(service?.metadata),
-    }), [service?.business, service?.comment, service?.department, service?.metadata, service?.name, service?.namespace]);
+    }), [fixedNamespace, service?.business, service?.comment, service?.department, service?.metadata, service?.name, service?.namespace]);
 
     const validateServiceName = React.useCallback((name: string, namespace: string) => {
         const trimmedName = name.trim();
@@ -100,6 +114,12 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
         form.setFieldsValue(initialValues());
         setNameError('');
     }, [form, initialValues]);
+
+    React.useImperativeHandle(ref, () => ({
+        submit: () => form.submit({ showErrorMessage: true }),
+        reset: resetForm,
+        submitting,
+    }), [form, resetForm, submitting]);
 
     React.useEffect(() => {
         resetForm();
@@ -182,7 +202,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
         const newData = {
             id: service?.id || '',
             name: watchedName.trim(),
-            namespace: watchedNamespace,
+            namespace: fixedNamespace || watchedNamespace,
             comment: form.getFieldValue('comment') as string,
             department: form.getFieldValue('department') as string,
             business: form.getFieldValue('business') as string,
@@ -192,15 +212,19 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
             owners: '',
         };
 
-        const result = mode === 'create'
-            ? await dispatch(saveServices({ param: { ...newData } }))
-            : await dispatch(updateServices({ param: { ...newData } }));
-
-        if (result.meta.requestStatus !== 'fulfilled') {
-            openErrNotification('请求错误', result?.payload as string);
-        } else {
-            openInfoNotification('请求成功', mode === 'create' ? '服务已创建' : '修改服务成功');
-            onSubmitted?.(newData);
+        setSubmitting(true);
+        try {
+            const result = mode === 'create'
+                ? await dispatch(saveServices({ param: { ...newData } }))
+                : await dispatch(updateServices({ param: { ...newData } }));
+            if (result.meta.requestStatus !== 'fulfilled') {
+                openErrNotification('请求错误', result?.payload as string);
+            } else {
+                openInfoNotification('请求成功', mode === 'create' ? '服务已创建' : '修改服务成功');
+                onSubmitted?.(newData);
+            }
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -209,7 +233,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
         return (
             <div className={style.serviceReadonly}>
                 <section className={style.serviceReadonlySection}>
-                    <div className={style.serviceFormSectionTitle}>身份与描述</div>
+                    <h3 className={style.serviceFormSectionTitle}>身份与描述</h3>
                     <div className={style.serviceReadonlyGrid}>
                         <ReadonlyItem label="命名空间" value={service?.namespace} />
                         <ReadonlyItem label="名称" value={service?.name} />
@@ -218,7 +242,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                 </section>
 
                 <section className={style.serviceReadonlySection}>
-                    <div className={style.serviceFormSectionTitle}>归属信息</div>
+                    <h3 className={style.serviceFormSectionTitle}>归属信息</h3>
                     <div className={style.serviceReadonlyGrid}>
                         <ReadonlyItem label="部门" value={service?.department} />
                         <ReadonlyItem label="业务" value={service?.business} />
@@ -226,7 +250,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                 </section>
 
                 <section className={style.serviceReadonlySection}>
-                    <div className={style.serviceFormSectionTitle}>服务标签</div>
+                    <h3 className={style.serviceFormSectionTitle}>服务标签</h3>
                     {metadata.length > 0 ? (
                         <div className={style.serviceReadonlyTags}>
                             {metadata.map(([key, value]) => (
@@ -254,14 +278,15 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
         >
             <div id="drawer" className={style.serviceDrawerContent}>
                 <section className={style.serviceFormSection}>
-                    <div className={style.serviceFormSectionTitle}>身份与描述</div>
+                    <h3 className={style.serviceFormSectionTitle}>身份与描述</h3>
                     <div id="inNs">
                         <FormItem
+                            style={{ marginBottom: 0 }}
                             label="命名空间"
                             name="namespace"
                             rules={identityEditable ? [{ required: true, message: '请选择命名空间' }] : []}
                         >
-                            {identityEditable ? (
+                            {identityEditable && fixedNamespace ? <Input readonly /> : identityEditable ? (
                                 <Select
                                     filterable
                                     placeholder="请选择"
@@ -269,7 +294,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                                         label: item.name,
                                         value: item.name,
                                     }))}
-                                    onChange={(value) => {
+                                    onChange={(value: string) => {
                                         const nextError = validateServiceName(watchedName, String(value || ''));
                                         setNameError(watchedName ? nextError : '');
                                     }}
@@ -279,8 +304,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                     </div>
                     <div id="inName">
                         <FormItem
+                            style={{ marginBottom: 0 }}
                             label="名称"
                             name="name"
+                            help={identityEditable && nameError ? <span id="errName" className={style.inlineError}>{nameError}</span> : undefined}
                             rules={identityEditable ? [
                                 { required: true, message: '请输入服务名称' },
                                 { pattern: SERVICE_NAME_REG, message: '只允许数字、英文字母、.、-、_' },
@@ -289,7 +316,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                         >
                             {identityEditable ? (
                                 <Input
-                                    allowInputOverMax
+                                    aria-describedby={`${nameHelpId}-hint nameCount`}
+                                    aria-invalid={Boolean(nameError) || undefined}
                                     placeholder="允许数字、英文字母、.、-、_，限制128个字符"
                                     onChange={(value) => {
                                         setNameError(validateServiceName(String(value), watchedNamespace));
@@ -300,7 +328,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                         {identityEditable && (
                             <>
                                 <div className={style.nameMeta}>
-                                    <span>命名后不可修改，请谨慎填写</span>
+                                    <span id={`${nameHelpId}-hint`}>命名后不可修改，请谨慎填写</span>
                                     <span
                                         id="nameCount"
                                         className={watchedName.length > 128 ? style.nameCountError : undefined}
@@ -308,27 +336,26 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                                         {watchedName.length}/128
                                     </span>
                                 </div>
-                                <div id="errName" className={style.inlineError}>
-                                    {nameError}
-                                </div>
                             </>
                         )}
                     </div>
                     <div id="inDesc">
                         <FormItem
+                            style={{ marginBottom: 0 }}
                             label="描述"
                             name="comment"
                             rules={editable ? [{ max: 1024, message: '长度不超过1024个字符' }] : []}
                         >
-                            {editable ? <Input placeholder="请输入服务描述" /> : <ReadonlyField value={watchedComment} />}
+                            {editable ? <Input autoFocus={mode === 'edit'} placeholder="请输入服务描述" /> : <ReadonlyField value={watchedComment} />}
                         </FormItem>
                     </div>
                 </section>
 
                 <section className={style.serviceFormSection}>
-                    <div className={style.serviceFormSectionTitle}>归属信息</div>
+                    <h3 className={style.serviceFormSectionTitle}>归属信息</h3>
                     <div id="inDept">
                         <FormItem
+                            style={{ marginBottom: 0 }}
                             label="部门"
                             name="department"
                             rules={editable ? [{ max: 255, message: '长度不超过255个字符' }] : []}
@@ -338,6 +365,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                     </div>
                     <div id="inBiz">
                         <FormItem
+                            style={{ marginBottom: 0 }}
                             label="业务"
                             name="business"
                             rules={editable ? [{ max: 255, message: '长度不超过255个字符' }] : []}
@@ -348,7 +376,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                 </section>
 
                 <section className={style.serviceFormSection}>
-                    <div className={style.serviceFormSectionTitle}>服务标签</div>
+                    <h3 className={style.serviceFormSectionTitle}>服务标签</h3>
                     <LabelInput
                         form={form}
                         label="服务标签"
@@ -362,21 +390,11 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ mode, service, onSubmitted, o
                     />
                 </section>
 
-                {editable && (
-                    <FormItem className={style.serviceFormFooter}>
-                        <Space>
-                            <Button type="submit" theme="primary">
-                                提交
-                            </Button>
-                            <Button theme="default" onClick={onCancel || resetForm}>
-                                取消
-                            </Button>
-                        </Space>
-                    </FormItem>
-                )}
             </div>
         </Form>
     );
-};
+});
+
+ServiceForm.displayName = 'ServiceForm';
 
 export default React.memo(ServiceForm);

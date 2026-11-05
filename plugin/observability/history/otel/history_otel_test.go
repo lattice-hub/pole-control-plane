@@ -74,3 +74,34 @@ func attrMap(attrs []any) map[string]string {
 	}
 	return out
 }
+
+func TestHistoryWorkerExportsSafeAccountDetails(t *testing.T) {
+	payloads := make(chan string, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		payloads <- string(body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+	worker := &HistoryWorker{}
+	require.NoError(t, worker.Initialize(&apis.ConfigEntry{Option: map[string]interface{}{
+		"logsEndpoint": server.URL, "serviceName": "pole-control-plane", "logQueueSize": 4,
+	}}))
+	for _, resource := range []types.Resource{types.RUser, types.RUserGroup, types.RUserGroupRelation} {
+		worker.Record(&types.RecordEntry{ResourceType: resource, ResourceName: "audit-resource", OperationType: types.OCreate,
+			Detail: `{"id":"visible","Password":"otel-password-sentinel","metadata":{"nested":"{\"auth_token\":\"otel-token-sentinel\"}"}}`})
+	}
+	require.NoError(t, worker.Destroy())
+	select {
+	case payload := <-payloads:
+		require.NotContains(t, payload, "sentinel")
+		require.Contains(t, payload, "visible")
+		require.Contains(t, payload, "pole.audit.operation")
+	case <-time.After(time.Second):
+		t.Fatal("account audit payload was not exported")
+	}
+	for len(payloads) > 0 {
+		require.NotContains(t, <-payloads, "sentinel")
+	}
+}

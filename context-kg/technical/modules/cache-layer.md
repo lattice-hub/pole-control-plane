@@ -1,18 +1,24 @@
 ---
+type: Module
 title: 缓存层
 tags: [cache, performance]
 links: [storage, architecture, ai-features, adr-local-pebble-protobuf-value-cache, adr-service-contract-reporting-and-visualization]
-updated: 2026-07-26
-sources: 2
+updated: 2026-10-03
+legacy_source_count: 2
+sources:
+  - resource: ../../../apis/cache/types.go
+    title: 当前模块接口
 ---
 
 # 缓存层
 
 ## 设计理念
 
-缓存层是一个内存读透缓存，位于业务逻辑层和数据库之间。它使服务发现、配置分发和规则评估能够以低延迟方式运行，无需在每次请求时都访问 MySQL。存储层接口见 [[storage]]，整体架构见 [[architecture]]，AI 缓存子包见 [[ai-features]]。
+缓存层是一个内存读透缓存，位于业务逻辑层和数据库之间。它使服务发现和规则评估能够以低延迟方式运行，无需在每次请求时都访问 MySQL。存储层接口见 [[storage]]，整体架构见 [[architecture]]，AI 缓存子包见 [[ai-features]]。
 
 **位置：** `pkg/cache/`（实现），`apis/cache/`（接口）
+
+统一配置直接从主库读取一致聚合及观察游标；旧配置文件、分组和 values 缓存已移除，见[配置 ADR](../adr/adr-config-template-values-unification.md)。
 
 ## 缓存管理器
 
@@ -31,9 +37,7 @@ sources: 2
 | UserCache | `UserName` | 认证用户 |
 | AuthStrategyCache | `StrategyName` | 认证策略/策略 |
 | RoleCache | `RoleName` | 认证角色 |
-| ConfigFileCache | `ConfigFileName` | 配置文件 |
-| ConfigGroupCache | `ConfigGroupName` | 配置文件分组 |
-| GrayConfigCache | `GrayConfigName` | 灰度发布配置 |
+| GrayCache | `GrayName` | 治理规则灰度发布 |
 | MCPServerCache | `MCPServerName` | MCP 服务器 |
 | LaneRuleCache | `LaneRuleName` | 泳道规则 |
 
@@ -103,7 +107,7 @@ pkg/cache/gray/       # 灰度发布元数据
 
 ## 本地 value cache 方向
 
-内存缓存继续负责热点索引、revision、mtime 和必要热状态；对于实例列表、配置文件、服务契约和治理规则发布快照这类面向客户端返回、且可由事实来源重建的大 value，后续采用 [[adr-local-pebble-protobuf-value-cache]] 中的 Pebble 本地 protobuf bytes 缓存。
+内存缓存继续负责热点索引、revision、mtime 和必要热状态；对于实例列表、服务契约和治理规则发布快照这类面向客户端返回、且可由事实来源重建的大 value，后续采用 [[adr-local-pebble-protobuf-value-cache]] 中的 Pebble 本地 protobuf bytes 缓存。
 
 这个方向的核心边界：
 

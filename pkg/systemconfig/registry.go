@@ -13,6 +13,8 @@ type Registration struct {
 	Definition SettingDefinition
 	SourcePath string
 	Value      func() any
+	Source     func() SourceDescriptor
+	Status     func() string
 }
 
 type Registry struct {
@@ -59,10 +61,17 @@ func (r *Registry) Effective(_ context.Context, scope Scope) (*EffectiveSnapshot
 		}
 		value := registration.Value()
 		configured := isConfigured(value)
+		source := r.sources.Source(registration.SourcePath)
+		if registration.Source != nil {
+			source = registration.Source()
+		}
 		setting := EffectiveSetting{
 			SettingDefinition: definition,
 			Configured:        configured,
-			Source:            r.sources.Source(registration.SourcePath),
+			Source:            source,
+		}
+		if registration.Status != nil {
+			setting.ApplyStatus = registration.Status()
 		}
 		if definition.Sensitivity == SensitivitySecret {
 			setting.Redacted = true

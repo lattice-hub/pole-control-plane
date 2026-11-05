@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { CreateFaultDetectRequest, createFaultDetects, deleteFaultDetectRelease, deleteFaultDetects, describeFaultDetects, DescribeFaultDetectsRequest, describeFaultDetectVersions, DescribeFaultDetectVersionsRequest, FaultDetectRule, ModifyFaultDetectRequest, modifyFaultDetects, publishFaultDetect, rollbackFaultDetect } from 'services/faultdetect';
 import { RuleRelease } from 'services/types';
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 
 export interface FaultDetectState {
     datas: FaultDetectRule[]

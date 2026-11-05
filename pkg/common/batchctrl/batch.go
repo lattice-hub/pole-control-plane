@@ -172,6 +172,14 @@ func (bc *BatchController) mainLoop(ctx context.Context) {
 	}
 
 	stopFunc := func() {
+		bc.lock.Lock()
+		defer bc.lock.Unlock()
+		// The parent context can be cancelled without an explicit Stop call.
+		// Publish the stopped state before closing tasksChan so a late Submit
+		// returns an error future instead of sending to a closed channel.
+		if atomic.LoadInt32(&bc.stop) == 0 {
+			atomic.StoreInt32(&bc.stop, shutdownNow)
+		}
 		close(bc.tasksChan)
 		switch atomic.LoadInt32(&bc.stop) {
 		case shutdownGraceful:

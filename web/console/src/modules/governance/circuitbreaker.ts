@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { BlockConfig, BreakLevelType, CircuitBreakerRule, createCircuitBreaker, CreateCircuitBreakerRequest, deleteCircuitBreaker, deleteCircuitBreakerRelease, describeCircuitBreakers, DescribeCircuitBreakersRequest, describeCircuitBreakerVersions, DescribeCircuitBreakerVersionsRequest, describeOneCircuitBreaker, ErrorCondition, ErrorConditionType, FallbackConfig, FaultDetectConfig, modifyCircuitBreaker, ModifyCircuitBreakerRequest, publishCircuitBreaker, RecoverCondition, rollbackCircuitBreaker, TriggerCondition, TriggerType } from "services/circuitbreaker"
 import { Label, MatchType, RuleRelease } from "services/types"
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 
 export interface CircuitBreakerState {
     datas: CircuitBreakerRule[]

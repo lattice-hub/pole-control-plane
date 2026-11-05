@@ -1,5 +1,7 @@
 .git
 .codegraph
+.handoff
+.worktree
 **/node_modules
 data
 logs

@@ -39,6 +39,7 @@ import (
 	"github.com/pole-io/pole-server/pkg/common/eventhub"
 	"github.com/pole-io/pole-server/pkg/common/secure"
 	"github.com/pole-io/pole-server/pkg/common/utils"
+	"github.com/pole-io/pole-server/pkg/compatibility"
 	"github.com/pole-io/pole-server/pkg/service"
 	"github.com/pole-io/pole-server/pkg/service/healthcheck"
 )
@@ -143,6 +144,7 @@ type EurekaServer struct {
 	rateLimit              ratelimit.Ratelimit
 	statis                 statis.Statis
 	namespace              string
+	namespaceResolver      *compatibility.Resolver
 	refreshInterval        time.Duration
 	deltaExpireInterval    time.Duration
 	enableSelfPreservation bool
@@ -164,6 +166,13 @@ func (h *EurekaServer) GetPort() uint32 {
 // GetProtocol 获取协议
 func (h *EurekaServer) GetProtocol() string {
 	return ServerEureka
+}
+
+func (h *EurekaServer) defaultNamespace() string {
+	if h.namespaceResolver != nil {
+		return h.namespaceResolver.ResolveEureka("")
+	}
+	return h.namespace
 }
 
 // Initialize 初始化HTTP API服务器
@@ -191,6 +200,11 @@ func (h *EurekaServer) Initialize(ctx context.Context, option map[string]interfa
 		}
 	}
 	h.namespace = namespace
+	h.namespaceResolver, _ = compatibility.ResolverFromContext(ctx)
+	if h.namespaceResolver == nil {
+		h.namespaceResolver = compatibility.NewNamespaceResolver("dev", namespace)
+	}
+	h.namespaceResolver.ConfigureEurekaStatic(namespace)
 
 	if replicatePeersValue, ok := option[optionPeerNodesToReplicate]; ok {
 		replicatePeerObjs := replicatePeersValue.([]interface{})

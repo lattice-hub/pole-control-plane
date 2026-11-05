@@ -14,7 +14,6 @@ const { TabPanel } = Tabs;
 const resourceTypeOptions = [
     { label: '命名空间', value: 'namespaces' },
     { label: '服务', value: 'services' },
-    { label: '配置组', value: 'config_groups' },
     { label: '路由规则', value: 'route_rules' },
     { label: '泳道规则', value: 'lane_rules' },
     { label: '熔断规则', value: 'circuitbreaker_rules' },

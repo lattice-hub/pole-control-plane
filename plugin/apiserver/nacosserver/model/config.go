@@ -26,10 +26,6 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
-
-	"github.com/pole-io/specification/source/go/api/v1/config_manage"
-
-	"github.com/pole-io/pole-server/apis/pkg/types"
 )
 
 type ConfigFileBase struct {
@@ -52,46 +48,6 @@ type ConfigFile struct {
 	EncryptedDataKey string `param:"encryptedDataKey"`
 }
 
-func (i *ConfigFile) ToDeleteSpec() *config_manage.ConfigFile {
-	return &config_manage.ConfigFile{
-		Namespace: ToPolarisNamespace(i.Namespace),
-		Group:     i.Group,
-		Name:      i.DataId,
-	}
-}
-
-func (i *ConfigFile) ToQuerySpec() *config_manage.ConfigFile {
-	return &config_manage.ConfigFile{
-		Namespace: ToPolarisNamespace(i.Namespace),
-		Group:     i.Group,
-		Name:      i.DataId,
-	}
-}
-
-func (i *ConfigFile) ToSpecConfigFile() *config_manage.ConfigFilePublishInfo {
-	specFile := &config_manage.ConfigFilePublishInfo{
-		Labels:             make(map[string]string),
-		Namespace:          ToPolarisNamespace(i.Namespace),
-		Group:              i.Group,
-		FileName:           i.DataId,
-		Content:            i.Content,
-		Format:             i.Type,
-		Comment:            i.Description,
-		ReleaseDescription: i.Description,
-	}
-
-	isCipher := strings.HasPrefix(i.DataId, "cipher-") && i.DataId != "cipher-"
-	if isCipher {
-		specFile.Encrypted = true
-		specFile.EncryptAlgo = strings.Split(i.DataId, "-")[1]
-		if i.EncryptedDataKey != "" {
-			specFile.Labels[types.MetaKeyConfigFileDataKey] = i.EncryptedDataKey
-		}
-	}
-
-	return specFile
-}
-
 const (
 	LineSeparatorRune = '\x01'
 	WordSeparatorRune = '\x02'
@@ -108,24 +64,6 @@ type ConfigWatchContext struct {
 	Request       *restful.Request
 	ClientVersion string
 	Items         []*ConfigListenItem
-}
-
-func (cw *ConfigWatchContext) ToSpecWatch() *config_manage.WatchConfigFileRequest {
-	specWatch := &config_manage.WatchConfigFileRequest{
-		ClientIp: cw.Request.Request.RemoteAddr,
-		Files:    make([]*config_manage.ConfigFileRelease, 0, len(cw.Items)),
-	}
-	for i := range cw.Items {
-		item := cw.Items[i]
-		specWatch.Files = append(specWatch.Files, &config_manage.ConfigFileRelease{
-			Namespace: ToPolarisNamespace(item.Tenant),
-			Group:     item.Group,
-			FileName:  item.DataId,
-			Md5:       item.Md5,
-		})
-	}
-
-	return specWatch
 }
 
 func (cw *ConfigWatchContext) IsSupportLongPolling() (time.Duration, bool) {
@@ -192,6 +130,9 @@ func ParseConfigListenContext(req *restful.Request, configKeysString string) (*C
 			start = i + 1
 
 			// If it is the old message, the last digit is MD5. The post-multi-tenant message is tenant
+			if len(tmpList) != 2 && len(tmpList) != 3 {
+				return nil, InvalidProbeModify
+			}
 			if len(tmpList) == 2 {
 				watchCtx.Items = append(watchCtx.Items, &ConfigListenItem{
 					Group:  tmpList[1],
@@ -208,12 +149,15 @@ func ParseConfigListenContext(req *restful.Request, configKeysString string) (*C
 			}
 			tmpList = tmpList[:0]
 			// Protect malformed messages
-			if len(watchCtx.Items) > 10000 {
+			if len(watchCtx.Items) > 128 {
 				return nil, InvalidProbeModify
 			}
 		}
 	}
 
+	if start != len(configKeysString) {
+		return nil, InvalidProbeModify
+	}
 	watchCtx.ClientVersion = req.HeaderParameter("Client-Version")
 	if watchCtx.ClientVersion == "" {
 		watchCtx.ClientVersion = "2.0.0"

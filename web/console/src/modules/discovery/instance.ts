@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
-import { CreateInstanceRequest, DescribeInstancesRequest, HEALTH_CHECK_STRUCT, Instance, InstanceLocation, InstanceView, ModifyInstanceRequest, createInstances, deleteInstances, describeInstances, modifyInstances } from 'services/instance';
+import { CreateInstanceRequest, DeleteInstancesRequest, DescribeInstancesRequest, HEALTH_CHECK_STRUCT, Instance, InstanceLocation, InstanceView, ModifyInstanceRequest, createInstances, deleteInstances, describeInstances, modifyInstances } from 'services/instance';
 
 // State 和 Action 类型定义
 export interface InstanceState {
@@ -56,9 +56,9 @@ export const updateInstances = createAsyncThunk(`instance/update`, async ({ para
     }
 });
 
-export const removeInstances = createAsyncThunk(`instance/remove`, async ({ ids }: { ids: string[] }, { fulfillWithValue, rejectWithValue }) => {
+export const removeInstances = createAsyncThunk(`instance/remove`, async ({ instances }: { instances: DeleteInstancesRequest[] }, { fulfillWithValue, rejectWithValue }) => {
     try {
-        const res = await deleteInstances(ids.map((id) => ({ id })));
+        const res = await deleteInstances(instances);
         return fulfillWithValue(res); // 返回 token
     } catch (error) {
         return rejectWithValue((error as Error).message); // 捕获错误并返回

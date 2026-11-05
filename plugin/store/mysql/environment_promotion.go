@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/pole-io/pole-server/apis/pkg/types"
 	"github.com/pole-io/pole-server/apis/store"
@@ -15,12 +16,13 @@ type environmentPromotionStore struct {
 }
 
 func (s *environmentPromotionStore) GetEnvironmentPromotionTopology() (*types.EnvironmentPromotionTopology, error) {
-	row := s.master.QueryRow(`SELECT draft_revision, published_revision, draft_json, modify_by, mtime
+	row := s.master.QueryRow(`SELECT draft_revision, published_revision, draft_json, modify_by, UNIX_TIMESTAMP(mtime)
 		FROM environment_promotion_topology WHERE id = 1`)
 	var topology types.EnvironmentPromotionTopology
 	var payload, modifyBy string
+	var modifyTime int64
 	if err := row.Scan(&topology.DraftRevision, &topology.PublishedRevision, &payload,
-		&modifyBy, &topology.ModifyTime); err != nil {
+		&modifyBy, &modifyTime); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return &types.EnvironmentPromotionTopology{}, nil
 		}
@@ -30,6 +32,7 @@ func (s *environmentPromotionStore) GetEnvironmentPromotionTopology() (*types.En
 		return nil, store.Error(err)
 	}
 	topology.ModifyBy = modifyBy
+	topology.ModifyTime = time.Unix(modifyTime, 0)
 	return &topology, nil
 }
 
@@ -125,7 +128,7 @@ func (s *environmentPromotionStore) PublishEnvironmentPromotionTopology(
 
 func (s *environmentPromotionStore) ListEnvironmentPromotionTopologyRevisions() (
 	[]*types.EnvironmentPromotionTopologyRevision, error) {
-	rows, err := s.master.Query(`SELECT revision, topology_json, comment, create_by, ctime
+	rows, err := s.master.Query(`SELECT revision, topology_json, comment, create_by, UNIX_TIMESTAMP(ctime)
 		FROM environment_promotion_topology_revision ORDER BY revision DESC`)
 	if err != nil {
 		return nil, store.Error(err)
@@ -135,10 +138,12 @@ func (s *environmentPromotionStore) ListEnvironmentPromotionTopologyRevisions() 
 	for rows.Next() {
 		var revision types.EnvironmentPromotionTopologyRevision
 		var payload string
+		var createTime int64
 		if err := rows.Scan(&revision.Revision, &payload, &revision.Comment,
-			&revision.CreateBy, &revision.CreateTime); err != nil {
+			&revision.CreateBy, &createTime); err != nil {
 			return nil, store.Error(err)
 		}
+		revision.CreateTime = time.Unix(createTime, 0)
 		if err := json.Unmarshal([]byte(payload), &revision.Topology); err != nil {
 			return nil, store.Error(fmt.Errorf("decode topology revision %d: %w", revision.Revision, err))
 		}

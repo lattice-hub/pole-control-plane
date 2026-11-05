@@ -19,6 +19,9 @@ package model
 
 import (
 	"strings"
+	"sync/atomic"
+
+	"github.com/pole-io/pole-server/pkg/compatibility"
 )
 
 const (
@@ -111,30 +114,38 @@ func GetGroupName(s string) string {
 	return ss[0]
 }
 
-var ConvertPolarisNamespaceVal = "default"
+var namespaceResolver atomic.Pointer[compatibility.Resolver]
+
+func SetNamespaceResolver(resolver *compatibility.Resolver) {
+	if resolver != nil {
+		namespaceResolver.Store(resolver)
+	}
+}
+
+func currentNamespaceResolver() *compatibility.Resolver {
+	if resolver := namespaceResolver.Load(); resolver != nil {
+		return resolver
+	}
+	resolver := compatibility.NewNamespaceResolver("dev", "dev")
+	if namespaceResolver.CompareAndSwap(nil, resolver) {
+		return resolver
+	}
+	return namespaceResolver.Load()
+}
 
 // ToPolarisNamespace 替换 nacos namespace 为 polaris 的 namespace 信息，主要是针对默认命令空间转为 polaris 的 default
 func ToPolarisNamespace(ns string) string {
-	if ns == "" || ns == DefaultNacosNamespace {
-		return ConvertPolarisNamespaceVal
-	}
-	return ns
+	return currentNamespaceResolver().ResolveNacos(ns)
 }
 
 // ToNacosNamespace 替换 polaris namespace 为 nacos 的 namespace 信息，恢复下发 nacos 的数据包信息
 func ToNacosNamespace(ns string) string {
-	if ns == ConvertPolarisNamespaceVal {
-		return "public"
-	}
-	return ns
+	return currentNamespaceResolver().ToNacosDiscovery(ns)
 }
 
 // ToNacosConfigNamespace 替换 polaris namespace 为 nacos 的 namespace 信息，恢复下发 nacos 的数据包信息
 func ToNacosConfigNamespace(ns string) string {
-	if ns == ConvertPolarisNamespaceVal {
-		return ""
-	}
-	return ns
+	return currentNamespaceResolver().ToNacosConfig(ns)
 }
 
 const (

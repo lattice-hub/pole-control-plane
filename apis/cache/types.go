@@ -28,7 +28,6 @@ import (
 
 	"github.com/pole-io/pole-server/apis/pkg/types"
 	authtypes "github.com/pole-io/pole-server/apis/pkg/types/auth"
-	conftypes "github.com/pole-io/pole-server/apis/pkg/types/config"
 	"github.com/pole-io/pole-server/apis/pkg/types/rules"
 	svctypes "github.com/pole-io/pole-server/apis/pkg/types/service"
 	"github.com/pole-io/pole-server/apis/store"
@@ -63,12 +62,6 @@ const (
 	CircuitBreakerName = "circuitBreakerConfig"
 	// FaultDetectRuleName fault detect config name
 	FaultDetectRuleName = "faultDetectRule"
-	// ConfigGroupCacheName config group config name
-	ConfigGroupCacheName = "configGroup"
-	// ConfigFileCacheName config file config name
-	ConfigFileCacheName = "configFile"
-	// ConfigTemplateValueReleaseCacheName config template Value release event cache name
-	ConfigTemplateValueReleaseCacheName = "configTemplateValueRelease"
 	// ClientName client cache name
 	ClientName = "client"
 	// UsersName user data config name
@@ -106,9 +99,7 @@ const (
 	CacheAuthStrategy
 	CacheNamespace
 	CacheClient
-	CacheConfigFile
 	CacheFaultDetector
-	CacheConfigGroup
 	CacheServiceContract
 	CacheGray
 	CacheRole
@@ -116,7 +107,6 @@ const (
 	// AI Native 缓存索引
 	CacheMCPServer
 	CacheA2AAgent
-	CacheConfigTemplateValueRelease
 
 	CacheLast
 )
@@ -187,10 +177,6 @@ type CacheManager interface {
 	Namespace() NamespaceCache
 	// Client Get client cache information
 	Client() ClientCache
-	// ConfigFile get config file cache information
-	ConfigFile() ConfigFileCache
-	// ConfigGroup get config group cache information
-	ConfigGroup() ConfigGroupCache
 	// Gray get Gray cache information
 	Gray() GrayCache
 	// Role Get role cache information
@@ -314,7 +300,7 @@ type (
 		// Get .
 		Get(ctx context.Context, req *svctypes.ServiceContract) *svctypes.EnrichServiceContract
 		// List returns every cached contract version for one logical service.
-		List(ctx context.Context, namespace, service string) []*svctypes.EnrichServiceContract
+		List(ctx context.Context, namespace, serviceName string) []*svctypes.EnrichServiceContract
 	}
 )
 
@@ -565,93 +551,6 @@ type (
 		Query(context.Context, *TrafficGovernanceArgs) (uint32, []*rules.TrafficGovernanceRule, error)
 		GetRule(id string) *rules.TrafficGovernanceRule
 		GetRulesForService(namespace string, service string) ([]*rules.TrafficGovernanceRule, string)
-	}
-)
-
-type (
-	BaseConfigArgs struct {
-		// Namespace
-		Namespace string
-		// Group
-		Group string
-		// Offset
-		Offset uint32
-		// Limit
-		Limit uint32
-		// OrderField Sort field
-		OrderField string
-		// OrderType Sorting rules
-		OrderType string
-	}
-
-	ConfigFileArgs struct {
-		BaseConfigArgs
-		FileName string
-		Metadata map[string]string
-	}
-
-	ConfigReleaseArgs struct {
-		BaseConfigArgs
-		// FileName
-		FileName string
-		// ReleaseName
-		ReleaseName string
-		// OnlyActive
-		OnlyActive bool
-		// IncludeGray 是否包含灰度文件，默认不包括
-		IncludeGray bool
-		// Metadata
-		Metadata map[string]string
-		// NoPage
-		NoPage bool
-	}
-
-	// ConfigGroupArgs
-	ConfigGroupArgs struct {
-		Namespace  string
-		Name       string
-		Business   string
-		Department string
-		Metadata   map[string]string
-		Offset     uint32
-		Limit      uint32
-		// OrderField Sort field
-		OrderField string
-		// OrderType Sorting rules
-		OrderType string
-	}
-
-	// ConfigGroupPredicate .
-	ConfigGroupPredicate func(context.Context, *conftypes.ConfigFileGroup) bool
-
-	// ConfigGroupCache file cache
-	ConfigGroupCache interface {
-		Cache
-		// GetGroupByName
-		GetGroupByName(namespace, name string) *conftypes.ConfigFileGroup
-		// GetGroupByID
-		GetGroupByID(id string) *conftypes.ConfigFileGroup
-		// ListGroups
-		ListGroups(namespace string) ([]*conftypes.ConfigFileGroup, string)
-		// Query
-		Query(args *ConfigGroupArgs) (uint32, []*conftypes.ConfigFileGroup, error)
-	}
-
-	// ConfigFileCache file cache
-	ConfigFileCache interface {
-		Cache
-		// GetActiveRelease
-		GetGroupActiveReleases(namespace, group string) ([]*conftypes.ConfigFileRelease, string)
-		// GetActiveRelease
-		GetActiveRelease(namespace, group, fileName string) *conftypes.ConfigFileRelease
-		// GetActiveGrayRelease
-		GetActiveGrayRelease(namespace, group, fileName string) *conftypes.ConfigFileRelease
-		// GetActiveGrayReleases
-		GetActiveGrayReleases(namespace, group, fileName string) []*conftypes.ConfigFileRelease
-		// GetRelease
-		GetRelease(key conftypes.ConfigFileReleaseKey) *conftypes.ConfigFileRelease
-		// QueryReleases
-		QueryReleases(args *ConfigReleaseArgs) (uint32, []*conftypes.SimpleConfigFileRelease, error)
 	}
 )
 

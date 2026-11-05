@@ -58,20 +58,10 @@ assert.ok(
   '别名列表主新增必须位于筛选操作之后。',
 );
 
-const templateList = read('src/pages/Configuration/Template/index.tsx');
-assert.match(templateList, /刷新配置模板[\s\S]*shape="square"[\s\S]*variant="outline"[\s\S]*icon=\{<RefreshIcon \/>}/, '配置模板刷新必须使用方形次级按钮。');
-assert.match(templateList, /theme="primary"[\s\S]*icon=\{<AddIcon \/>}[\s\S]*新建配置模板/, '配置模板主新增必须使用明确资源名。');
-
-const configFiles = read('src/pages/Configuration/Group/Files/index.tsx');
-assert.match(configFiles, /<ResourceToolbar[\s\S]*title="配置清单"[\s\S]*filters=\{\([\s\S]*icon=\{<RefreshIcon \/>}[\s\S]*theme="primary"[\s\S]*icon=\{<AddIcon \/>}[\s\S]*新建配置/, '配置主新增必须属于统一配置清单 ResourceToolbar，并位于刷新之后。');
-assert.doesNotMatch(configFiles, /FileAddIcon/, '配置文件主新增不能继续使用仅表达文件类型的图标按钮。');
-
 const topLevelToolbarPages = [
   ['命名空间', 'src/pages/Namespace/index.tsx', '新建业务环境'],
-  ['A2A Agent', 'src/pages/AI/A2A/index.tsx', '新建 A2A Agent'],
-  ['MCP Server', 'src/pages/AI/Mcp/index.tsx', '新建 MCP Server'],
-  ['配置分组', 'src/pages/Configuration/Group/group.tsx', '新建配置分组'],
-  ['配置模板', 'src/pages/Configuration/Template/index.tsx', '新建配置模板'],
+  ['A2A Agent', 'src/pages/AI/A2A/index.tsx', '新建 A2A 环境实例'],
+  ['MCP Server', 'src/pages/AI/Mcp/index.tsx', '新建 MCP 环境实例'],
   ['治理工作台', 'src/pages/Governance/Workbench/index.tsx', '新建规则'],
 ];
 
@@ -81,14 +71,14 @@ for (const [name, file, label] of topLevelToolbarPages) {
   const toolbarIndex = source.lastIndexOf('<ResourceToolbar', createIndex);
   const headerIndex = source.lastIndexOf('<ResourceHeader', createIndex);
   assert.ok(createIndex >= 0 && toolbarIndex > headerIndex, `${name}主新增必须从 ResourceHeader 下移到清单 ResourceToolbar。`);
-  assert.ok(source.slice(toolbarIndex, createIndex).includes('filters={('), `${name}主新增必须位于清单工具栏 filters 区域。`);
+  assert.ok(source.slice(toolbarIndex, createIndex).includes('filters={'), `${name}主新增必须位于清单工具栏 filters 区域。`);
 }
 
 const representativePrimaryLists = [
   ['命名空间', 'src/pages/Namespace/index.tsx', '新建业务环境'],
   ['逻辑服务', 'src/pages/Discovery/Services/services.tsx', '新建逻辑服务'],
-  ['A2A Agent', 'src/pages/AI/A2A/index.tsx', '新建 A2A Agent'],
-  ['MCP Server', 'src/pages/AI/Mcp/index.tsx', '新建 MCP Server'],
+  ['A2A Agent', 'src/pages/AI/A2A/index.tsx', '新建 A2A 环境实例'],
+  ['MCP Server', 'src/pages/AI/Mcp/index.tsx', '新建 MCP 环境实例'],
   ['用户', 'src/pages/Auth/Principal/UserTable.tsx', '新建用户'],
   ['角色', 'src/pages/Auth/Principal/RoleTable.tsx', '新建角色'],
   ['用户组', 'src/pages/Auth/Principal/GroupTable.tsx', '新建用户组'],

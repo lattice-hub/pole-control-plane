@@ -192,8 +192,16 @@ export default React.memo((props: IInstanceListProps & BrowserRouterProps) => {
                 setEditState(prev => ({ ...prev, visible: true, mode: op, selectedRow: row }));
                 break;
             case 'delete':
-                if (!row?.id) return;
-                dispatch(removeInstances({ ids: [String(row?.id)] })).then((res) => {
+                if (!row?.id || !row?.host || !row?.port) return;
+                dispatch(removeInstances({
+                    instances: [{
+                        id: String(row.id),
+                        namespace,
+                        service: serviceName,
+                        host: String(row.host),
+                        port: Number(row.port),
+                    }],
+                })).then((res) => {
                     if (res.meta.requestStatus === 'rejected') {
                         openErrNotification('删除服务实例失败', res.payload as string);
                         return;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Loading, Tabs } from 'components/Fluent';
-import { useNavigate } from 'components/Router';
+import { useNavigate, useSearchParams } from 'components/Router';
 
 import { ResourceHeader } from 'components/ResourceLayout';
 import InstanceTable from './InstanceTable';
@@ -15,13 +15,15 @@ const GovernanceWorkbench = React.lazy(() => import('pages/Governance/Workbench'
 
 export default React.memo(() => {
     const navigate = useNavigate()
-    const urlParams = new URLSearchParams(window.location.search);
+    const [urlParams] = useSearchParams();
     const namespace = urlParams.get('namespace');
     const serviceName = urlParams.get('service');
     const editMode = urlParams.get('mode') === 'edit';
     const logicalServiceId = urlParams.get('logicalServiceId') || '';
 
-    const [activeTab, setActiveTab] = React.useState('0');
+    const requestedTab = urlParams.get('tab') === 'instances' ? '1' : '0';
+    const [activeTab, setActiveTab] = React.useState(requestedTab);
+    React.useEffect(() => { setActiveTab(requestedTab); }, [namespace, serviceName, requestedTab]);
     const returnToService = () => {
         if (logicalServiceId) {
             navigate(`/discovery/service/detail?id=${encodeURIComponent(logicalServiceId)}`);

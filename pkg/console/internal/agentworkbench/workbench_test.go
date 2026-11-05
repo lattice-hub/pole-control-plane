@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	configv1 "github.com/pole-io/specification/source/go/api/v1/config"
 )
 
 type fakeConfigFilePort struct {
@@ -44,7 +46,7 @@ func TestWorkbenchPrepareAndConfirmConfigFileStagesWithoutPublish(t *testing.T) 
 
 	proposal, err := wb.PrepareConfigFile(context.Background(), actor, PrepareConfigFileRequest{
 		Namespace: "default", Group: "orders", Name: "application.yaml",
-		DesiredContent: "timeout: 5s\n", Comment: stringPointer("raised timeout"),
+		DesiredContent: "timeout: 5s\n",
 	})
 	require.NoError(t, err)
 	require.Equal(t, ProposalPreviewReady, proposal.Status)
@@ -60,10 +62,10 @@ func TestWorkbenchPrepareAndConfirmConfigFileStagesWithoutPublish(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, ProposalWaitingForPublish, receipt.Status)
 	require.Equal(t, "write-request", receipt.RequestID)
-	require.Equal(t, "/configuration/group/files?namespace=default&group=orders", receipt.DetailURL)
+	require.Equal(t, "/configuration?environment=default&group=orders&name=application.yaml", receipt.DetailURL)
 	require.Equal(t, 1, port.updateCalls)
 	require.Equal(t, "timeout: 5s\n", port.file.Content)
-	require.Equal(t, "raised timeout", port.file.Comment)
+	require.Equal(t, "current", port.file.Comment)
 }
 
 func TestWorkbenchConfirmIsIdempotent(t *testing.T) {
@@ -187,6 +189,22 @@ func TestWorkbenchConfirmRejectsStalePreview(t *testing.T) {
 	require.Zero(t, port.updateCalls)
 }
 
+func TestWorkbenchConfirmRejectsAdvancedDraftRevisionEvenWhenTextMatches(t *testing.T) {
+	port := &fakeConfigFilePort{file: ConfigFile{Namespace: "default", Group: "g", Name: "a.yaml", Content: "a: 1\n", DraftRevision: 3}}
+	wb := New(port, Options{NewID: func() string { return "proposal-1" }})
+	actor := Actor{UserID: "alice"}
+	proposal, err := wb.PrepareConfigFile(context.Background(), actor, PrepareConfigFileRequest{
+		Namespace: "default", Group: "g", Name: "a.yaml", DesiredContent: "a: 2\n",
+	})
+	require.NoError(t, err)
+	port.file.DraftRevision = 4
+	_, err = wb.Confirm(context.Background(), actor, ConfirmRequest{
+		ProposalID: proposal.ID, ProposalVersion: proposal.Version, PreviewHash: proposal.PreviewHash, IdempotencyKey: "confirm-1",
+	})
+	require.ErrorIs(t, err, ErrStalePreview)
+	require.Zero(t, port.updateCalls)
+}
+
 func TestWorkbenchConfirmRejectsExpiredOrForeignProposal(t *testing.T) {
 	now := time.Date(2026, 7, 21, 10, 0, 0, 0, time.UTC)
 	port := &fakeConfigFilePort{file: ConfigFile{Namespace: "default", Group: "g", Name: "a.yaml", Content: "a: 1\n"}}
@@ -227,6 +245,36 @@ func TestWorkbenchRejectsEncryptedAndNoopChanges(t *testing.T) {
 		Namespace: "default", Group: "g", Name: "secret.yaml", DesiredContent: port.file.Content,
 	})
 	require.ErrorIs(t, err, ErrNoChanges)
+}
+
+func TestWorkbenchRejectsUnsupportedCommentAndBinaryEdits(t *testing.T) {
+	port := &fakeConfigFilePort{file: ConfigFile{Namespace: "default", Group: "g", Name: "a.yaml", Content: "a: 1\n"}}
+	wb := New(port, Options{})
+	actor := Actor{UserID: "alice"}
+	_, err := wb.PrepareConfigFile(context.Background(), actor, PrepareConfigFileRequest{
+		Namespace: "default", Group: "g", Name: "a.yaml", DesiredContent: "a: 2\n", Comment: stringPointer("not supported by v1 draft"),
+	})
+	require.ErrorIs(t, err, ErrInvalidRequest)
+	_, err = wb.PrepareConfigFile(context.Background(), actor, PrepareConfigFileRequest{
+		Namespace: "default", Group: "g", Name: "a.yaml", DesiredContent: string([]byte{0xff}),
+	})
+	require.ErrorIs(t, err, ErrSensitiveResource)
+	port.file.Content = string([]byte{0xff})
+	_, err = wb.PrepareConfigFile(context.Background(), actor, PrepareConfigFileRequest{
+		Namespace: "default", Group: "g", Name: "a.yaml", DesiredContent: "a: 2\n",
+	})
+	require.ErrorIs(t, err, ErrSensitiveResource)
+}
+
+func TestCloneConfigFilePreservesIndependentDefinition(t *testing.T) {
+	original := ConfigFile{Definition: &configv1.ConfigDefinition{
+		Content: []byte("old"), DefaultValues: map[string]*configv1.Scalar{"x": {Value: "one"}},
+	}}
+	copy := cloneConfigFile(original)
+	copy.Definition.Content[0] = 'n'
+	copy.Definition.DefaultValues["x"].Value = "two"
+	require.Equal(t, "old", string(original.Definition.Content))
+	require.Equal(t, "one", original.Definition.DefaultValues["x"].Value)
 }
 
 func TestWorkbenchPropagatesAdapterFailureWithoutApplying(t *testing.T) {

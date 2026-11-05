@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Input, TagInput, Textarea } from 'components/Fluent';
+import { Button, Input, TagInput, Textarea } from 'components/Fluent';
+import EditorDrawer from 'components/EditorDrawer';
 import { CheckCircleIcon, LockOnIcon, PlugConnectedIcon } from 'components/Fluent/icons';
 import {
   AgentSystemDomain,
@@ -96,10 +97,11 @@ export default function AgentGatewayDraftPanel({ visible, domain, fallback, onCl
   };
 
   return (
-    <Drawer
+    <EditorDrawer
       visible={visible}
-      size="720px"
-      header="Agent 运行配置"
+      width="standard"
+      title="Agent 运行配置"
+      description="编辑、预检并保存由 Pole 托管的 Agent 运行期望状态。"
       onClose={onClose}
       footer={(
         <div className={style.agentDrawerFooter}>
@@ -263,6 +265,6 @@ export default function AgentGatewayDraftPanel({ visible, domain, fallback, onCl
           </div>
         </section>
       </div>
-    </Drawer>
+    </EditorDrawer>
   );
 }

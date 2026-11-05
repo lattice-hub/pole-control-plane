@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Drawer, Form, Input, Space, Button, InputNumber, Radio, Switch, Select, Transfer, Tag, Tabs } from 'components/Fluent';
+import { Form, Input, Space, Button, InputNumber, Radio, Select, Transfer, Tag, Tabs } from 'components/Fluent';
 import type { FormProps } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 
 import { useAppDispatch, useAppSelector } from 'modules/store';
 import { openErrNotification, openInfoNotification } from 'utils/notifition';
@@ -33,7 +34,6 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ visible, op, modify, closeDr
     const {
         id,
         name,
-        token_enable,
         comment,
         metadata,
     } = currentUserGroup;
@@ -58,10 +58,11 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ visible, op, modify, closeDr
             } else {
                 setDetailGroup(null);
                 form.reset();
+                form.setFieldsValue({ name: '', comment: '', token_enable: true, users: [], group_labels: [] });
             }
             fetchUserData();
         }
-    }, [id, visible]);
+    }, [id, op, visible]);
 
     const fetchUserGroupDetail = async () => {
         if (!id) {
@@ -117,11 +118,14 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ visible, op, modify, closeDr
         }
         setSubmitting(true);
 
-        const inusers = form.getFieldValue('users') as string[]
-        const labels = form.getFieldValue('group_labels') as { key: string, value: string }[]
+        // Fluent Form 不会为未交互的 Transfer/LabelInput 自动写入空数组；
+        // 创建空成员、空标签的用户组时必须按空集合处理，避免提交阶段调用
+        // undefined.map/reduce 导致整个抽屉卡在 loading 状态。
+        const inusers = (form.getFieldValue('users') as string[] | undefined) || []
+        const labels = (form.getFieldValue('group_labels') as { key: string, value: string }[] | undefined) || []
 
         const newData = {
-            id: id,
+            id: op === 'create' ? undefined : id,
             name: form.getFieldValue('name') as string,
             token_enable: form.getFieldValue('token_enable') as boolean,
             comment: form.getFieldValue('comment') as string,
@@ -130,7 +134,7 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ visible, op, modify, closeDr
                 return acc;
             }, {}),
             relation: {
-                group_id: id,
+                group_id: op === 'create' ? undefined : id,
                 users: inusers.map((v) => {
                     return {
                         id: v,
@@ -244,23 +248,29 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ visible, op, modify, closeDr
             onSubmit={onSubmit}
             onReset={resetEditor}
         >
-            <FormItem label={'用户组名'} name={'name'} initialData={name}
+            <FormItem label={'用户组名'} name={'name'} initialData={op === 'create' ? '' : name}
                 rules={[
                     { required: true, message: '用户组名不能为空' },
                     { max: 64, message: '长度不超过64个字符' },
                 ]}
             >
-                <Input disabled={op !== 'create'} />
+                <Input readonly={op !== 'create'} />
             </FormItem>
-            <FormItem label={'备注'} name={'comment'} initialData={comment}
+            <FormItem label={'备注'} name={'comment'} initialData={op === 'create' ? '' : comment}
                 rules={[
                     { max: 255, message: '长度不超过255个字符' }
                 ]}>
                 <Input disabled={!editable} />
             </FormItem>
-            <FormItem label="Token 启用状态" name="token_enable" initialData={op === 'create' ? true : token_enable}>
-                <Switch disabled={!editable} size="large" label={['启用', '禁用']} />
-            </FormItem>
+            {op === 'create' ? (
+                <p>创建后默认启用 Token，可在详情中禁用。</p>
+            ) : (
+                <div className={style.detailField}>
+                    <span>Token 状态</span>
+                    <p>{viewGroup?.token_enable ? '启用' : '禁用'}</p>
+                    <p>Token 状态请在详情中管理。</p>
+                </div>
+            )}
             <FormItem
                 label={'用户'}
                 name={'users'}
@@ -279,26 +289,16 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ visible, op, modify, closeDr
                 />
             </FormItem>
             <LabelInput form={form} label='用户组标签' name='group_labels' editable={editable} />
-            {editable && (
-                <FormItem style={{ marginTop: 24 }}>
-                    <Space>
-                        <Button type="submit" theme="primary" loading={submitting} disabled={searchState.userLoading}>
-                            提交
-                        </Button>
-                        <Button type="reset" theme="default">
-                            重置
-                        </Button>
-                    </Space>
-                </FormItem>
-            )}
         </Form>
     )
 
     return (
         <div>
-            <Drawer
-                size='large'
-                header={op === 'create' ? "创建用户组" : editable ? "编辑用户组" : "用户组详情"}
+            <EditorDrawer
+                bodyClassName={style.editorBody}
+                width="standard"
+                title={op === 'create' ? "创建用户组" : editable ? "编辑用户组" : "用户组详情"}
+                description={op === 'create' ? '集中维护成员和权限识别标签。' : undefined}
                 footer={op === 'view' && !editable ? (
                     <Space>
                         <Button theme="primary" onClick={() => setEditable(true)}>
@@ -308,13 +308,20 @@ const GroupEditor: React.FC<IGroupEditorProps> = ({ visible, op, modify, closeDr
                             关闭
                         </Button>
                     </Space>
+                ) : editable ? (
+                    <EditorDrawerActions
+                        onCancel={closeDrawer}
+                        onSubmit={() => form.submit({ showErrorMessage: true })}
+                        submitText={op === 'create' ? '创建用户组' : '保存修改'}
+                        submitting={submitting}
+                        submitDisabled={searchState.userLoading || Boolean(searchState.userError)}
+                    />
                 ) : false}
                 visible={visible}
-                showOverlay={false}
                 onClose={closeDrawer}
             >
                 {editable ? userForm : groupView}
-            </Drawer>
+            </EditorDrawer>
         </div>
     );
 }

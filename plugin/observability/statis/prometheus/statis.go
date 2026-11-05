@@ -31,7 +31,6 @@ const (
 // PrometheusStatis is a struct for prometheus statistics
 type StatisWorker struct {
 	discoveryHandler *discoveryMetricHandle
-	configHandler    *configMetricHandle
 	metricVecCaches  map[string]otelmetric.Int64Gauge
 }
 
@@ -44,7 +43,6 @@ func (s *StatisWorker) Name() string {
 func (s *StatisWorker) Initialize(conf *apis.ConfigEntry) error {
 	s.metricVecCaches = make(map[string]otelmetric.Int64Gauge)
 	s.discoveryHandler = newDiscoveryMetricHandle()
-	s.configHandler = newConfigMetricHandle()
 	// 设置统计打印周期
 	interval, _ := conf.Option["interval"].(int)
 	if interval == 0 {
@@ -73,11 +71,6 @@ func (s *StatisWorker) ReportCallMetrics(metric metricstypes.CallMetric) {
 // ReportDiscoveryMetrics report discovery metrics
 func (s *StatisWorker) ReportDiscoveryMetrics(metric ...metricstypes.DiscoveryMetric) {
 	s.discoveryHandler.handle(metric)
-}
-
-// ReportConfigMetrics report config_center metrics
-func (s *StatisWorker) ReportConfigMetrics(metric ...metricstypes.ConfigMetrics) {
-	s.configHandler.handle(metric)
 }
 
 // ReportDiscoverCall report discover service times

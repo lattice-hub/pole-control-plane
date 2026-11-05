@@ -2,7 +2,7 @@
 title: 通用配额租约与流式限流
 tags: [adr, governance, ratelimit, limiter, sdk, streaming, llm]
 links: [governance-rules, architecture, adr-unified-process-mode-and-limiter-integration, adr-governance-request-parameter-capture]
-updated: 2026-08-02
+updated: 2026-08-04
 sources: 8
 ---
 
@@ -67,6 +67,24 @@ Rust SDK 公开 `reserve_quota` 并返回 `QuotaLease`。`QuotaLease` 封装 lea
 
 业务调用只有 reserve 阶段可能因配额不足而被拒绝。reserve 成功后，流式输出不能再出现由本地配额检查产生的 429；update/finish 失败作为租约同步或协议错误处理，不回写已经开始的业务响应。
 
+### Console 产品闭环
+
+Console 不直接暴露 protobuf 枚举，而以 QPS、TPM 和并发三个计量场景配置规则；QPS 对应请求数
+资源并默认 1 秒窗口，TPM 对应 Token 数资源并默认 60 秒窗口，两者都允许用户直接修改统计窗口。
+RPM 只是请求数资源使用 60 秒窗口的配置结果，不作为独立场景重复暴露。TPM 编辑态必须直接解释
+请求前预留、流中累计更新和结束归还，不能把它描述为普通响应中途触发的 429。
+场景卡是资源类型的唯一选择入口；选中后下方只配置对应的窗口、阈值或并发上限，不再重复展示
+请求数、Token 数、并发数单选组。
+
+限流规则以顶层 `namespace` 表示规则归属环境，以 `callee.namespace + callee.service` 表示运行态
+目标服务。该契约由 specification `v0.1.0-ALPHA.45` 正式发布；控制面列表按归属环境过滤，数据面
+取规则时按 callee 目标服务匹配，禁止再次把两个 namespace 合并成同一个字段。
+
+Limiter 的本地 HTTP 运维面提供只读租约快照，Console 使用独立 `limiterServer` 地址并在完成
+登录态校验后代理 `/limiter/v1/quota-leases`。前端不得直接连接 8102。快照按服务过滤并展示活跃
+租约、当前预留、流中已使用、最近归还、TTL 回收、counter 上限与可用量；终态记录只保留 5 分钟，
+该接口用于运行态诊断，不承担长期审计或计费。
+
 ## 取舍
 
 - 预留上界会短暂降低池子的可利用率，但换取业务请求开始后不再因配额不足中断。
@@ -79,6 +97,7 @@ Rust SDK 公开 `reserve_quota` 并返回 `QuotaLease`。`QuotaLease` 封装 lea
 - Limiter 测试覆盖原子预留、幂等重试、乱序更新、超额消费、结算归还、并发释放和 TTL 回收。
 - Rust SDK 测试证明预留失败发生在业务调用前，流中累计更新不重新做配额准入，finish 会归还未使用量。
 - RPM、TPM、concurrency 使用同一租约状态机，不引入 LLM 或金额专用协议。
+- Console 以场景模板完成规则配置，并能经认证代理观察租约预留、消费、归还和 TTL 回收。
 
 ## 相关页面
 

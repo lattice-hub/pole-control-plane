@@ -1,0 +1,119 @@
+{{- if and .Values.backup.enabled .Values.backup.mysql.enabled }}
+{{- $bucket := required "backup.oss.bucket is required when backup.enabled=true" .Values.backup.oss.bucket }}
+{{- $endpoint := required "backup.oss.endpoint is required when backup.enabled=true" .Values.backup.oss.endpoint }}
+{{- $region := required "backup.oss.region is required when backup.enabled=true" .Values.backup.oss.region }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "pole.fullname" . }}-mysql-backup
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql-backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  timeZone: {{ .Values.backup.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.backup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.backup.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "pole.componentLabels" (dict "root" . "component" "mysql-backup") | nindent 12 }}
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          initContainers:
+            - name: dump
+              image: {{ include "pole.image" .Values.mysql.image | quote }}
+              command: [sh, -ec]
+              args:
+                - >-
+                  stamp="$(date -u +%Y%m%dT%H%M%SZ)";
+                  printf '%s' "${stamp}" >/backup/stamp;
+                  mysqldump --single-transaction --routines --events --triggers
+                  -h {{ include "pole.mysqlName" . }} -P {{ .Values.mysql.service.port }}
+                  -u"${MYSQL_USER}" -p"${MYSQL_PWD}" --databases
+                  {{ .Values.mysql.database }} {{ .Values.mysql.observabilityDatabase }}
+                  >/backup/pole.sql
+              env:
+                - name: MYSQL_USER
+                  valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_USER}}
+                - name: MYSQL_PWD
+                  valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_PWD}}
+              volumeMounts: [{name: backup, mountPath: /backup}]
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          containers:
+            - name: upload
+              image: {{ include "pole.image" .Values.backup.mysql.image | quote }}
+              command: [sh, -ec]
+              args:
+                - >-
+                  aws configure set default.s3.addressing_style virtual;
+                  stamp="$(cat /backup/stamp)";
+                  aws --endpoint-url "{{ $endpoint }}" s3 cp /backup/pole.sql
+                  "s3://{{ $bucket }}/{{ .Values.backup.oss.prefix }}/mysql/${stamp}/pole.sql";
+                  aws --endpoint-url "{{ $endpoint }}" s3api head-object
+                  --bucket "{{ $bucket }}"
+                  --key "{{ .Values.backup.oss.prefix }}/mysql/${stamp}/pole.sql"
+              env:
+                - {name: AWS_DEFAULT_REGION, value: {{ $region | quote }}}
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: OSS_ACCESS_KEY_ID}}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: OSS_ACCESS_KEY_SECRET}}
+              volumeMounts: [{name: backup, mountPath: /backup}]
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumes: [{name: backup, emptyDir: {}}]
+{{- end }}
+{{- if and .Values.backup.enabled .Values.backup.greptimedb.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "pole.fullname" . }}-greptimedb-backup
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: greptimedb-backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  timeZone: {{ .Values.backup.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.backup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.backup.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "pole.componentLabels" (dict "root" . "component" "greptimedb-backup") | nindent 12 }}
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          containers:
+            - name: export
+              image: {{ include "pole.image" .Values.greptimedb.image | quote }}
+              command: [sh, -ec]
+              args:
+                - >-
+                  stamp="$(date -u +%Y%m%dT%H%M%SZ)";
+                  greptime cli data export
+                  --addr {{ include "pole.greptimeName" . }}:4000
+                  --database {{ .Values.greptimedb.database }}
+                  --output-dir "/{{ .Values.backup.oss.prefix }}/greptimedb/${stamp}"
+                  --oss
+                  --oss-bucket "{{ .Values.backup.oss.bucket }}"
+                  --oss-endpoint "{{ .Values.backup.oss.endpoint }}"
+                  --oss-access-key-id "${OSS_ACCESS_KEY_ID}"
+                  --oss-access-key-secret "${OSS_ACCESS_KEY_SECRET}"
+                  --max-retry 3
+              env:
+                - name: OSS_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: OSS_ACCESS_KEY_ID}}
+                - name: OSS_ACCESS_KEY_SECRET
+                  valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: OSS_ACCESS_KEY_SECRET}}
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+{{- end }}

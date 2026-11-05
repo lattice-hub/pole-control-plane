@@ -19,8 +19,7 @@ package config
 
 import (
 	authapi "github.com/pole-io/pole-server/apis/access_control/auth"
-	cacheapi "github.com/pole-io/pole-server/apis/cache"
-	"github.com/pole-io/pole-server/pkg/config"
+	compatconfig "github.com/pole-io/pole-server/pkg/compatibility/config"
 	"github.com/pole-io/pole-server/pkg/namespace"
 	"github.com/pole-io/pole-server/plugin/apiserver/nacosserver/core"
 	"github.com/pole-io/pole-server/plugin/apiserver/nacosserver/v2/remote"
@@ -32,20 +31,17 @@ type ServerOption struct {
 	Store             *core.NacosDataStorage
 
 	// polaris
-	UserSvr         authapi.UserServer
-	CheckerSvr      authapi.StrategyServer
-	NamespaceSvr    namespace.NamespaceOperateServer
-	ConfigSvr       config.ConfigCenterServer
-	OriginConfigSvr config.ConfigCenterServer
+	UserSvr      authapi.UserServer
+	CheckerSvr   authapi.StrategyServer
+	NamespaceSvr namespace.NamespaceOperateServer
+	ConfigSvr    compatconfig.Discoverer
 }
 
 type ConfigServer struct {
-	userSvr         authapi.UserServer
-	checkerSvr      authapi.StrategyServer
-	namespaceSvr    namespace.NamespaceOperateServer
-	configSvr       config.ConfigCenterServer
-	originConfigSvr config.ConfigCenterServer
-	cacheSvr        cacheapi.CacheManager
+	userSvr      authapi.UserServer
+	checkerSvr   authapi.StrategyServer
+	namespaceSvr namespace.NamespaceOperateServer
+	configSvr    compatconfig.Discoverer
 }
 
 func (h *ConfigServer) Initialize(opt *ServerOption) error {
@@ -53,8 +49,6 @@ func (h *ConfigServer) Initialize(opt *ServerOption) error {
 	h.checkerSvr = opt.CheckerSvr
 	h.namespaceSvr = opt.NamespaceSvr
 	h.configSvr = opt.ConfigSvr
-	h.originConfigSvr = opt.OriginConfigSvr
-	h.cacheSvr = opt.Store.Cache()
 	return nil
 }
 

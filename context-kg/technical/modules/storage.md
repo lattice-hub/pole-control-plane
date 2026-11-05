@@ -1,9 +1,13 @@
 ---
+type: Module
 title: 存储层
 tags: [storage, mysql, database]
 links: [architecture, cache-layer, index, adr-service-contract-reporting-and-visualization]
-updated: 2026-07-26
-sources: 2
+updated: 2026-10-03
+legacy_source_count: 2
+sources:
+  - resource: ../../../apis/store/api.go
+    title: 当前模块接口
 ---
 
 # 存储层
@@ -13,7 +17,7 @@ sources: 2
 ## 接口层次结构
 
 ```
-Store (apis/store/store.go)
+Store (apis/store/api.go)
 ├── DiscoverStore
 │   ├── ServiceStore           — 服务增删改查
 │   ├── InstanceStore          — 实例增删改查 + 批量操作
@@ -23,12 +27,8 @@ Store (apis/store/store.go)
 │   ├── FaultDetectRuleStore   — 故障探测规则
 │   ├── LaneStore              — 泳道规则
 │   └── ServiceContractStore   — 服务契约
-├── ConfigFileStore
-│   ├── ConfigFileGroupStore
-│   ├── ConfigFileOperateStore
-│   ├── ConfigFileReleaseStore
-│   ├── ConfigFileReleaseHistoryStore
-│   └── ConfigFileTemplateStore
+├── UnifiedConfigInventory      — 环境持久配置数量和删除保护
+├── UnifiedConfigStore          — 配置一致快照、事务更新与持久游标（独立能力接口）
 ├── AdminStore                 — 分布式锁、维护操作
 ├── AuthStore
 │   ├── UserStore
@@ -43,9 +43,9 @@ Store (apis/store/store.go)
 
 生产环境的存储后端。关键特性如下：
 
-**软删除**：所有资源使用 `flag` 字段（0 = 活跃，1 = 已删除）。查询时通过 `flag = 0` 过滤。
+**软删除**：普通实体使用 `flag` 字段（0 = 活跃，1 = 已删除）。查询时通过 `flag = 0` 过滤。
 
-**增量查询**：每个实体都有 `mtime`（修改时间）列。[[cache-layer]] 使用 `WHERE mtime > ?` 查询，获取自上次轮询以来的变更数据。
+**增量查询**：普通缓存实体有 `mtime`（修改时间）列。[[cache-layer]] 使用 `WHERE mtime > ?` 查询，获取自上次轮询以来的变更数据。
 
 ```go
 // 所有 Store 用于缓存同步的通用模式
@@ -71,6 +71,8 @@ func init() {
     storeapi.RegisterStore("defaultStore", s)
 }
 ```
+
+统一配置的聚合头、发布正文、事件和时钟由专用表管理，不使用旧 config_file/config_template 表或 mtime 增量缓存；具体事务与 namespace→clock→state 锁序见[配置 ADR](../adr/adr-config-template-values-unification.md)。
 
 ## Mock Store（`plugin/store/mock/`）
 

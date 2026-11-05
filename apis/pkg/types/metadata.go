@@ -25,25 +25,6 @@ const (
 	MetaKeyBuildRevision = "build-revision"
 )
 
-// 配置文件标签
-const (
-	// MetaKeyConfigFileDataKey 加密密钥 tag key
-	MetaKeyConfigFileDataKey = "internal-datakey"
-	// MetaKeyConfigFileUseEncrypted 配置加密开关标识，value 为 boolean
-	MetaKeyConfigFileUseEncrypted = "internal-encrypted"
-	// MetaKeyConfigFileEncryptAlgo 加密算法 tag key
-	MetaKeyConfigFileEncryptAlgo = "internal-encryptalgo"
-	// MetaKeyConfigFileSyncToKubernetes 配置同步到 kubernetes
-	MetaKeyConfigFileSyncToKubernetes = "internal-sync-to-kubernetes"
-	// ---- 以下参数仅适配 polaris-controller 生态 ----
-	// MetaKeyConfigFileSyncSourceKey 配置同步来源
-	MetaKeyConfigFileSyncSourceKey = "internal-sync-source"
-	// MetaKeyConfigFileSyncSourceClusterKey 配置同步来源所在集群
-	MetaKeyConfigFileSyncSourceClusterKey = "internal-sync-sourcecluster"
-	// MetaKey3RdPlatform 第三方平台标签
-	MetaKey3RdPlatform = "internal-3rd-platform"
-)
-
 // 服务实例标签
 const (
 	MetadataInstanceLastHeartbeatTime     = "internal-lastheartbeat"

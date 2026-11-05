@@ -11,10 +11,11 @@ import {
 } from 'services/observability';
 
 import style from './index.module.less';
+import TraceDrawer from './TraceDrawer';
 
 type ComponentStatus = 'healthy' | 'warning' | 'critical';
 type SystemCategory = 'control-plane' | 'observability' | 'controller' | 'storage';
-type DataSource = 'remote' | 'mock';
+type QueryStatus = 'loading' | 'success' | 'error';
 
 type SystemMetricRow = {
   id: string;
@@ -27,11 +28,13 @@ type SystemMetricRow = {
   status: ComponentStatus;
   cpu: number;
   memory: number;
+  requestCount: number;
   qps: number;
   p95: number;
   p99: number;
   errorRate: number;
   restartCount: number;
+  protocol: string;
   series: number[];
   [key: string]: unknown;
 };
@@ -64,6 +67,19 @@ type QueryTimeRange = {
   endTime: number;
 };
 
+type TraceTarget = {
+  component: string;
+  api: string;
+  protocol: string;
+};
+
+type TraceNavigationState = {
+  depth: 1 | 2;
+  target: TraceTarget;
+};
+
+const TRACE_HISTORY_KEY = 'systemMonitorTrace';
+
 const CATEGORY_OPTIONS = [
   { label: '控制面', value: 'control-plane' },
   { label: '观测链路', value: 'observability' },
@@ -80,176 +96,8 @@ const CATEGORY_LABEL: Record<SystemCategory, string> = {
   storage: '存储',
 };
 
-const SYSTEM_ROWS: SystemMetricRow[] = [
-  {
-    id: 'cp-services',
-    category: 'control-plane',
-    component: 'pole-control-plane',
-    role: '注册发现 API',
-    namespace: 'pole-system',
-    pod: 'pole-control-plane-0',
-    api: '/naming/v1/services',
-    status: 'healthy',
-    cpu: 38,
-    memory: 54,
-    qps: 186,
-    p95: 42,
-    p99: 88,
-    errorRate: 0.08,
-    restartCount: 0,
-    series: [31, 35, 39, 44, 48, 42, 45, 41, 38, 40, 42, 39],
-  },
-  {
-    id: 'cp-events',
-    category: 'control-plane',
-    component: 'pole-control-plane',
-    role: '事件查询 API',
-    namespace: 'pole-system',
-    pod: 'pole-control-plane-1',
-    api: '/metrics/v1/server/events',
-    status: 'healthy',
-    cpu: 41,
-    memory: 58,
-    qps: 74,
-    p95: 47,
-    p99: 96,
-    errorRate: 0.1,
-    restartCount: 0,
-    series: [28, 32, 36, 34, 40, 43, 41, 39, 37, 44, 42, 45],
-  },
-  {
-    id: 'cp-operations',
-    category: 'control-plane',
-    component: 'pole-control-plane',
-    role: '审计查询 API',
-    namespace: 'pole-system',
-    pod: 'pole-control-plane-1',
-    api: '/metrics/v1/server/operations',
-    status: 'healthy',
-    cpu: 36,
-    memory: 52,
-    qps: 68,
-    p95: 51,
-    p99: 104,
-    errorRate: 0.13,
-    restartCount: 0,
-    series: [30, 31, 32, 35, 39, 41, 37, 36, 40, 43, 45, 42],
-  },
-  {
-    id: 'otel-ingest',
-    category: 'observability',
-    component: 'otel-collector',
-    role: 'OTLP ingest',
-    namespace: 'observability',
-    pod: 'otel-collector-74b7d9c8dd-f2f9w',
-    api: '/otlp/v1/metrics',
-    status: 'warning',
-    cpu: 67,
-    memory: 72,
-    qps: 920,
-    p95: 88,
-    p99: 180,
-    errorRate: 0.42,
-    restartCount: 1,
-    series: [54, 58, 63, 69, 74, 78, 83, 88, 84, 91, 86, 88],
-  },
-  {
-    id: 'openobserve-query',
-    category: 'observability',
-    component: 'openobserve',
-    role: '观测查询',
-    namespace: 'observability',
-    pod: 'openobserve-0',
-    api: '/api/default/_search',
-    status: 'healthy',
-    cpu: 45,
-    memory: 63,
-    qps: 312,
-    p95: 96,
-    p99: 214,
-    errorRate: 0.16,
-    restartCount: 0,
-    series: [62, 67, 70, 78, 82, 90, 96, 92, 88, 94, 99, 96],
-  },
-  {
-    id: 'controller-sync',
-    category: 'controller',
-    component: 'pole-controller',
-    role: 'Kubernetes 同步',
-    namespace: 'pole-system',
-    pod: 'pole-controller-6d778b8778-t62mc',
-    api: '/controller/reconcile',
-    status: 'healthy',
-    cpu: 29,
-    memory: 46,
-    qps: 74,
-    p95: 31,
-    p99: 66,
-    errorRate: 0.04,
-    restartCount: 0,
-    series: [24, 25, 28, 30, 33, 29, 31, 30, 28, 32, 31, 29],
-  },
-  {
-    id: 'mysql-store',
-    category: 'storage',
-    component: 'mysql',
-    role: '元数据存储',
-    namespace: 'pole-system',
-    pod: 'mysql-0',
-    api: 'sql://pole_server',
-    status: 'warning',
-    cpu: 58,
-    memory: 76,
-    qps: 540,
-    p95: 71,
-    p99: 162,
-    errorRate: 0.26,
-    restartCount: 0,
-    series: [45, 48, 52, 57, 61, 68, 71, 69, 65, 70, 74, 71],
-  },
-];
-
 const SAMPLE_COUNT = 12;
 const DEFAULT_WINDOW_MS = 60 * 60 * 1000;
-
-const MOCK_RUNTIME_ROWS: RuntimeMetricRow[] = [
-  {
-    name: 'process.runtime.go.goroutines',
-    title: 'Goroutines',
-    category: 'concurrency',
-    value: 312,
-    unit: '{goroutine}',
-    description: '当前 goroutine 数',
-    series: [228, 236, 251, 260, 284, 298, 305, 312, 318, 306, 314, 312],
-  },
-  {
-    name: 'process.runtime.go.mem.heap_alloc',
-    title: 'Heap Alloc',
-    category: 'memory',
-    value: 46,
-    unit: 'MiB',
-    description: 'Go heap 已分配内存',
-    series: [32, 35, 34, 38, 41, 43, 44, 45, 47, 46, 48, 46],
-  },
-  {
-    name: 'process.runtime.go.gc.pause',
-    title: 'GC Pause Avg',
-    category: 'gc',
-    value: 3.6,
-    unit: 'ms',
-    description: '时间窗内 GC pause 平均值',
-    series: [2.1, 2.8, 3.2, 3.5, 3.1, 4.2, 3.8, 3.3, 3.6, 3.9, 3.4, 3.6],
-  },
-  {
-    name: 'process.runtime.go.gc.count',
-    title: 'GC Count',
-    category: 'gc',
-    value: 18,
-    unit: '{collection}',
-    description: '时间窗内 GC 次数',
-    series: [1, 2, 2, 1, 3, 1, 2, 2, 1, 1, 2, 0],
-  },
-];
 
 function uniqueOptions(rows: SystemMetricRow[], key: 'api' | 'component') {
   return Array.from(new Set(rows.map((row) => row[key]))).map((value) => ({ label: value, value }));
@@ -263,28 +111,6 @@ function average(rows: SystemMetricRow[], key: 'cpu' | 'memory' | 'p95' | 'p99' 
 function maxValue(rows: SystemMetricRow[], key: 'qps' | 'restartCount') {
   if (!rows.length) return 0;
   return Math.max(...rows.map((row) => row[key]));
-}
-
-function mockResourcesFrom(rows: SystemMetricRow[]): ResourceMetricRow[] {
-  const resources = new Map<string, ResourceMetricRow>();
-  rows.forEach((row) => {
-    const key = `${row.component}-${row.pod}`;
-    if (!resources.has(key)) {
-      resources.set(key, {
-        id: key,
-        component: row.component,
-        namespace: row.namespace,
-        pod: row.pod,
-        cpu: row.cpu,
-        memory: row.memory,
-        memoryUnit: '%',
-        restartCount: row.restartCount,
-        cpuSeries: row.series,
-        memorySeries: row.series.map((value) => Math.min(100, Math.round(value * 1.15))),
-      });
-    }
-  });
-  return Array.from(resources.values());
 }
 
 function statusClass(status: ComponentStatus) {
@@ -308,16 +134,18 @@ function normalizeRemoteRow(row: PlatformComponentMetric): SystemMetricRow {
     component: row.component || 'pole-control-plane',
     role: row.role || '控制面 API',
     namespace: row.namespace || 'pole-system',
-    pod: row.pod || row.component || 'pole-control-plane',
+    pod: row.pod || '—',
     api: row.api || 'unknown',
     status,
     cpu: Math.round(row.cpu || 0),
     memory: Math.round(row.memory || 0),
-    qps: Math.round(row.qps || 0),
+    requestCount: Number((row.requestCount || 0).toFixed(2)),
+    qps: Number((row.qps || 0).toFixed(4)),
     p95: Math.round(row.p95 || 0),
     p99: Math.round(row.p99 || 0),
     errorRate: Number((row.errorRate || 0).toFixed(2)),
     restartCount: row.restartCount || 0,
+    protocol: row.protocol || 'unknown',
     series: row.series?.length ? row.series.map((value) => Math.round(value)) : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   };
 }
@@ -327,7 +155,7 @@ function normalizeResourceRow(row: PlatformResourceMetric): ResourceMetricRow {
     id: row.id,
     component: row.component || 'pole-control-plane',
     namespace: row.namespace || 'pole-system',
-    pod: row.pod || row.component || 'pole-control-plane',
+    pod: row.pod || '—',
     cpu: Number((row.cpu || 0).toFixed(2)),
     memory: Number((row.memory || 0).toFixed(2)),
     memoryUnit: row.memoryUnit || 'MiB',
@@ -524,24 +352,28 @@ function HeatmapPanel(props: { rows: SystemMetricRow[]; timeLabels: string[] }) 
   }
   return (
     <div className={style.heatmapFrame}>
-      <div />
-      <div className={style.heatmapXAxis} aria-hidden="true">
-        {labels.map((label) => <span key={label}>{label}</span>)}
+      <div className={style.heatmapHeader} aria-hidden="true">
+        <span>接口</span>
+        <div className={style.heatmapXAxis}>
+          {labels.map((label) => <span key={label}>{label}</span>)}
+        </div>
       </div>
-      {rows.map((row) => (
-        <React.Fragment key={row.id}>
-          <div className={style.heatmapYAxis} title={`${row.component} / ${row.api}`}>{row.api}</div>
-          <div className={style.heatmapRow}>
-            {row.series.slice(-8).map((value, index) => (
-              <span
-                key={`${row.id}-${index}`}
-                className={value > 80 ? style.heatHigh : value > 60 ? style.heatWarn : style.heatOk}
-                title={`${row.component} ${row.api} ${labels[index]}: ${value}ms`}
-              />
-            ))}
-          </div>
-        </React.Fragment>
-      ))}
+      <div className={style.heatmapBody}>
+        {rows.map((row) => (
+          <React.Fragment key={row.id}>
+            <div className={style.heatmapYAxis} title={`${row.component} / ${row.api}`}>{row.api}</div>
+            <div className={style.heatmapRow}>
+              {row.series.slice(-8).map((value, index) => (
+                <span
+                  key={`${row.id}-${index}`}
+                  className={value > 80 ? style.heatHigh : value > 60 ? style.heatWarn : style.heatOk}
+                  title={`${row.component} ${row.api} ${labels[index]}: ${value}ms`}
+                />
+              ))}
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
     </div>
   );
 }
@@ -603,10 +435,10 @@ function TinyTrend(props: { values: number[]; label: string; timeLabels: string[
   );
 }
 
-function ResourceBoard(props: { rows: ResourceMetricRow[]; source: DataSource }) {
-  const { rows, source } = props;
+function ResourceBoard(props: { rows: ResourceMetricRow[] }) {
+  const { rows } = props;
   if (!rows.length) {
-    return <Empty description={source === 'remote' ? '暂无 CPU/MEM 资源指标' : '暂无资源数据'} />;
+    return <Empty description="暂无 CPU/MEM 资源指标" />;
   }
   return (
     <div className={style.resourceBoard}>
@@ -672,13 +504,17 @@ export default function SystemMonitor() {
   const [remoteRows, setRemoteRows] = React.useState<SystemMetricRow[]>([]);
   const [remoteResources, setRemoteResources] = React.useState<ResourceMetricRow[]>([]);
   const [remoteRuntime, setRemoteRuntime] = React.useState<RuntimeMetricRow[]>([]);
-  const [dataSource, setDataSource] = React.useState<DataSource>('mock');
+  const [queryStatus, setQueryStatus] = React.useState<QueryStatus>('loading');
+  const [traceTarget, setTraceTarget] = React.useState<TraceTarget | null>(() => (
+    window.history.state?.[TRACE_HISTORY_KEY]?.target || null
+  ));
   const [timeRange, setTimeRange] = React.useState<QueryTimeRange>(() => buildQueryTimeRange());
   const timezoneLabel = React.useMemo(() => formatTimezoneOffset(), []);
 
   const loadRemoteData = React.useCallback(async () => {
     const nextTimeRange = buildQueryTimeRange();
     setTimeRange(nextTimeRange);
+    setQueryStatus('loading');
     try {
       const overview = await describePlatformOverview({
         start_time: String(nextTimeRange.startTime),
@@ -693,12 +529,12 @@ export default function SystemMonitor() {
       setRemoteRows(rows);
       setRemoteResources(resources);
       setRemoteRuntime(runtime);
-      setDataSource(rows.length || resources.length || runtime.length ? 'remote' : 'mock');
+      setQueryStatus('success');
     } catch {
       setRemoteRows([]);
       setRemoteResources([]);
       setRemoteRuntime([]);
-      setDataSource('mock');
+      setQueryStatus('error');
     }
   }, [api, category]);
 
@@ -706,25 +542,51 @@ export default function SystemMonitor() {
     void loadRemoteData();
   }, [loadRemoteData]);
 
-  const sourceRows = dataSource === 'remote' ? remoteRows : SYSTEM_ROWS;
-  const sourceResources = dataSource === 'remote' ? remoteResources : mockResourcesFrom(SYSTEM_ROWS);
-  const sourceRuntime = dataSource === 'remote' ? remoteRuntime : MOCK_RUNTIME_ROWS;
+  React.useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const navigationState = event.state?.[TRACE_HISTORY_KEY] as TraceNavigationState | undefined;
+      setTraceTarget(navigationState?.target || null);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const openTraceWorkspace = React.useCallback((row: SystemMetricRow) => {
+    const target = { component: row.component, api: row.api, protocol: row.protocol };
+    window.history.pushState({
+      ...window.history.state,
+      [TRACE_HISTORY_KEY]: { depth: 1, target },
+    }, '');
+    setTraceTarget(target);
+  }, []);
+
+  const closeTraceWorkspace = React.useCallback(() => {
+    const navigationState = window.history.state?.[TRACE_HISTORY_KEY] as TraceNavigationState | undefined;
+    if (navigationState) {
+      window.history.go(-navigationState.depth);
+      return;
+    }
+    setTraceTarget(null);
+  }, []);
+
   const timeLabels = React.useMemo(() => buildTimeLabels(timeRange), [timeRange]);
 
-  const filteredRows = React.useMemo(() => sourceRows.filter((row) => {
+  const filteredRows = React.useMemo(() => remoteRows.filter((row) => {
     const matchCategory = !category || row.category === category;
     const matchApi = !api || row.api === api;
     const matchComponent = !componentKeyword || `${row.component} ${row.pod} ${row.role}`.includes(componentKeyword);
     return matchCategory && matchApi && matchComponent;
-  }), [api, category, componentKeyword, sourceRows]);
+  }), [api, category, componentKeyword, remoteRows]);
 
   const unhealthyCount = filteredRows.filter((item) => item.status !== 'healthy').length;
   const avgP95 = Math.round(average(filteredRows, 'p95'));
   const avgP99 = Math.round(average(filteredRows, 'p99'));
   const avgErrorRate = average(filteredRows, 'errorRate').toFixed(2);
   const maxQps = maxValue(filteredRows, 'qps');
-  const goroutineMetric = sourceRuntime.find((item) => item.name === 'process.runtime.go.goroutines');
-  const interfacePaginationKey = [category, api, componentKeyword, dataSource].join('|');
+  const goroutineMetric = remoteRuntime.find((item) => item.name === 'process.runtime.go.goroutines');
+  const interfacePaginationKey = [category, api, componentKeyword].join('|');
+  const sourceTagLabel = queryStatus === 'loading' ? '加载中' : queryStatus === 'error' ? '查询失败' : '实时数据';
+  const sourceTagClass = queryStatus === 'loading' ? style.sourceTagLoading : queryStatus === 'error' ? style.sourceTagError : style.sourceTag;
 
   const columns = React.useMemo<TableColumnData<SystemMetricRow>[]>(() => [
     {
@@ -763,10 +625,20 @@ export default function SystemMonitor() {
       cell: ({ row }) => <Tag className={statusClass(row.status)}>{row.status === 'healthy' ? '健康' : '关注'}</Tag>,
     },
     {
+      colKey: 'requestCount',
+      title: '请求量',
+      width: 100,
+      align: 'right',
+      cell: ({ row }) => row.requestCount.toLocaleString('zh-CN'),
+    },
+    {
       colKey: 'qps',
       title: 'QPS',
       width: 90,
       align: 'right',
+      cell: ({ row }) => row.qps > 0 && row.qps < 0.01
+        ? '<0.01'
+        : row.qps.toLocaleString('zh-CN', { maximumFractionDigits: 2 }),
     },
     {
       colKey: 'p95',
@@ -782,13 +654,37 @@ export default function SystemMonitor() {
       align: 'right',
       cell: ({ row }) => `${row.errorRate}%`,
     },
-  ], []);
+    {
+      colKey: 'action',
+      title: '链路',
+      width: 108,
+      fixed: 'right',
+      cell: ({ row }) => (
+        <Button size="small" variant="outline" onClick={(event) => { event.stopPropagation(); openTraceWorkspace(row); }}>
+          查看 Trace
+        </Button>
+      ),
+    },
+  ], [openTraceWorkspace]);
 
   const resetFilters = () => {
     setCategory('');
     setApi('');
     setComponentKeyword('');
   };
+
+  if (traceTarget) {
+    return (
+      <div className={style.page}>
+        <TraceDrawer
+          target={traceTarget}
+          startTime={timeRange.startTime}
+          endTime={timeRange.endTime}
+          onClose={closeTraceWorkspace}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={style.page}>
@@ -798,25 +694,15 @@ export default function SystemMonitor() {
         eyebrow="监控指标 / 系统监控"
         title="系统监控"
         description="Grafana-like 平台组件看板，按类别、接口和组件关键字聚合 OTel 指标。"
-        actions={(
-          <div className={style.dashboardActions}>
-          <span className={style.dashboardPill}>Last 1 hour</span>
-          <span className={style.dashboardPill}>Step 1m</span>
-          <span className={style.dashboardPill}>{timezoneLabel}</span>
-          <span className={style.dashboardPill}>GreptimeDB</span>
-          <Tag className={dataSource === 'mock' ? style.sourceTagMock : style.sourceTag}>{
-            dataSource === 'mock' ? 'Mock 预览' : '实时数据'
-          }</Tag>
-          <Button icon={<RefreshIcon />} variant="outline" onClick={() => void loadRemoteData()}>刷新</Button>
-          </div>
-        )}
       />
+
+      {queryStatus === 'error' ? <div className={style.queryError}>观测数据查询失败，请检查 GreptimeDB 连接后重试。</div> : null}
 
       <section className={style.variableBar} aria-label="Dashboard variables">
         <QueryComposer
           keyword={componentKeyword}
           keywordPlaceholder="搜索组件、Pod 或角色"
-          suggestions={Array.from(new Set(sourceRows.flatMap((item) => [item.component, item.pod]).filter(Boolean)))}
+          suggestions={Array.from(new Set(remoteRows.flatMap((item) => [item.component, item.pod]).filter(Boolean)))}
           fields={[
             {
               key: 'category',
@@ -829,7 +715,7 @@ export default function SystemMonitor() {
               label: '接口',
               type: 'select',
               filterable: true,
-              options: uniqueOptions(sourceRows, 'api'),
+              options: uniqueOptions(remoteRows, 'api'),
             },
           ]}
           values={{ category, api }}
@@ -840,6 +726,16 @@ export default function SystemMonitor() {
           }}
           onReset={resetFilters}
           mode="instant"
+          actions={(
+            <div className={style.dashboardActions}>
+              <span className={style.dashboardPill}>Last 1 hour</span>
+              <span className={style.dashboardPill}>Step 1m</span>
+              <span className={style.dashboardPill}>{timezoneLabel}</span>
+              <span className={style.dashboardPill}>GreptimeDB</span>
+              <Tag className={sourceTagClass}>{sourceTagLabel}</Tag>
+              <Button icon={<RefreshIcon />} variant="outline" onClick={() => void loadRemoteData()}>刷新</Button>
+            </div>
+          )}
         />
       </section>
 
@@ -859,10 +755,10 @@ export default function SystemMonitor() {
           <HeatmapPanel rows={filteredRows} timeLabels={timeLabels} />
         </Panel>
         <Panel title="Go runtime 看板" subtitle="pole-control-plane Go 服务端标准 runtime 指标" query="process_runtime_go_*" className={style.panelFull}>
-          <RuntimeBoard rows={sourceRuntime} timeLabels={timeLabels} />
+          <RuntimeBoard rows={remoteRuntime} timeLabels={timeLabels} />
         </Panel>
         <Panel title="组件资源看板" subtitle="CPU/MEM 资源指标" query="k8s.pod.* / container.*" className={style.panelFull}>
-          <ResourceBoard rows={sourceResources} source={dataSource} />
+          <ResourceBoard rows={remoteResources} />
         </Panel>
         <Panel title="接口明细" subtitle="component / api / pod 等 OTel resource labels 级别指标" query="group by component, api, pod" className={style.panelFull}>
           <Table

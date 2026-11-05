@@ -44,13 +44,14 @@ Options:
   --detach[=auto|tmux|nohup]  Run the full rebuild/start flow in a detached session.
                               Defaults to tmux when available, then setsid/nohup.
   --foreground                Run in the current terminal and exec the all-mode server.
-  --no-stop-existing          Do not stop existing Pole processes on 8080/8090.
-  --force-kill                Kill listeners on 8080/8090 even if process metadata is hidden.
+  --no-stop-existing          Do not stop existing Pole processes on 8080/8090/8101/8102.
+  --force-kill                Kill listeners on product ports even if process metadata is hidden.
   -h, --help                  Show this help.
 
 Environment:
   MYSQL_USER, MYSQL_PWD, MYSQL_HOST
   POLE_BIN_PATH, POLE_CONFIG_PATH
+  POLE_START_MODE=all|full
   POLE_TMUX_SESSION, POLE_LOG_PATH
   POLE_STOP_EXISTING=0, POLE_FORCE_KILL=1
 EOF
@@ -162,7 +163,7 @@ stop_existing_pole_processes() {
     return
   fi
 
-  local ports=(8080 8090)
+  local ports=(8080 8090 8101 8102)
   local pid command_name killed_any=0
 
   # Resolve the process name for a PID without relying on `ps`, which is blocked
@@ -262,10 +263,13 @@ start_all_mode() {
 main() {
   parse_args "$@"
 
-  if [[ "${POLE_START_MODE}" != "all" ]]; then
-    printf '[rebuild-start-all] POLE_START_MODE must be all, got: %s\n' "${POLE_START_MODE}" >&2
-    exit 1
-  fi
+  case "${POLE_START_MODE}" in
+    all|full) ;;
+    *)
+      printf '[rebuild-start-all] POLE_START_MODE must be all or full, got: %s\n' "${POLE_START_MODE}" >&2
+      exit 1
+      ;;
+  esac
 
   detach_and_exit
 

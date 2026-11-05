@@ -48,7 +48,7 @@ var (
 )
 
 func ConvertToErrCode(err error) apimodel.Code {
-	if errors.Is(err, ErrorTokenNotExist) {
+	if errors.Is(err, ErrorTokenNotExist) || errors.Is(err, ErrorTokenInvalid) {
 		return apimodel.Code_TokenNotExisted
 	}
 
@@ -75,6 +75,9 @@ const (
 	TokenForUserGroup  string = "groupid"
 
 	ResourceAttachmentKey string = "resource_attachment"
+
+	PermissionCheckPurposeKey        string = "permission_check_purpose"
+	PermissionCheckPurposeCapability string = "capability"
 )
 
 func _() {

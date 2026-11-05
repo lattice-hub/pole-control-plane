@@ -57,7 +57,12 @@
 }
 
 .interfaceGrid {
-  grid-template-columns: 108px 108px 138px minmax(220px, 1fr) 56px;
+  grid-template-columns: 120px 120px 150px minmax(240px, 1fr) 56px;
+}
+
+@media (max-width: 900px) {
+  .formPane { padding: 12px; }
+  .singleMetricRow { grid-template-columns: minmax(0, 1fr); }
 }
 
 .windowGrid {
@@ -85,10 +90,25 @@
   min-width: 0;
   padding: 8px 10px;
 
-    :global(.fui-Input),
-    :global(.fui-Dropdown),
+  > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  :global(.fui-Input),
+  :global(.fui-Combobox),
+  :global(.fui-Dropdown),
   :global(.fluent-tag-input),
   :global(.fluent-number-input) {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  :global(.fui-Combobox__input) {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
     width: 100%;
   }
 }
@@ -164,6 +184,86 @@
   margin-bottom: 12px;
 }
 
+.scenarioLabel {
+  color: var(--app-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+
+.scenarioGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.scenarioCard,
+.scenarioCardActive {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  color: var(--app-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 58px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.scenarioCard:hover,
+.scenarioCardActive {
+  background: color-mix(in srgb, var(--app-primary) 7%, var(--app-surface));
+  border-color: color-mix(in srgb, var(--app-primary) 55%, var(--app-border-subtle));
+}
+
+.scenarioCard strong,
+.scenarioCardActive strong { font-size: 13px; }
+.scenarioCard span,
+.scenarioCardActive span { color: var(--app-text-secondary); font-size: 12px; }
+.scenarioCard:disabled,
+.scenarioCardActive:disabled { cursor: default; }
+
+.leaseExplanation {
+  background: color-mix(in srgb, var(--app-primary) 7%, var(--app-surface));
+  border-left: 3px solid var(--app-primary);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+}
+
+.leaseExplanation strong { color: var(--app-text); font-size: 13px; }
+.leaseExplanation span { color: var(--app-text-secondary); font-size: 12px; line-height: 19px; }
+
+.strategyNote {
+  align-items: start;
+  background: var(--app-surface-subtle);
+  border: 1px solid var(--app-border-subtle);
+  border-left: 3px solid var(--app-primary);
+  border-radius: 6px;
+  display: grid;
+  gap: 6px 14px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  padding: 10px 12px;
+}
+
+.strategyNote strong {
+  color: var(--app-text);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.strategyNote span {
+  color: var(--app-text-secondary);
+  font-size: 12px;
+  line-height: 20px;
+}
+
 .singleMetricRow {
   align-items: center;
   background: var(--app-surface-subtle);
@@ -213,5 +313,9 @@
     grid-template-columns: minmax(0, 1fr);
     overflow: auto;
   }
+
+  .scenarioGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .strategyNote { grid-template-columns: minmax(0, 1fr); }
 
 }

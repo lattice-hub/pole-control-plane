@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pole.fullname" . }}-config
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+data:
+  pole-server.yaml: |
+{{ .Files.Get "files/pole-server.yaml" | indent 4 }}

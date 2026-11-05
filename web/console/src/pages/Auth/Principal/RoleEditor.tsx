@@ -1,6 +1,7 @@
 import React from 'react';
-import { Button, Drawer, Form, Input, Space, Tabs, Tag, Transfer } from 'components/Fluent';
+import { Button, Form, Input, Space, Tabs, Tag, Transfer } from 'components/Fluent';
 import type { FormProps } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 
 import LabelInput from 'components/LabelInput';
 import { useAppDispatch } from 'modules/store';
@@ -27,6 +28,7 @@ const RoleEditor: React.FC<IRoleEditorProps> = ({ visible, op, closeDrawer, refr
     const [form] = Form.useForm();
     const dispatch = useAppDispatch();
     const [editable, setEditable] = React.useState(op !== 'view');
+    const [submitting, setSubmitting] = React.useState(false);
     const [detailRole, setDetailRole] = React.useState<Role | null>(role);
     const [options, setOptions] = React.useState<{
         users: { value: string; label: string; disabled?: boolean }[];
@@ -79,34 +81,38 @@ const RoleEditor: React.FC<IRoleEditorProps> = ({ visible, op, closeDrawer, refr
             user_groups: groups.map(id => ({ id })),
         };
 
-        let result;
-        if (builtIn) {
-            result = await dispatch(updateRoles({ state: { id: currentRole!.id, ...bindings } }));
-        } else {
-            const labels = (form.getFieldValue('role_labels') as { key: string; value: string }[] | undefined) || [];
-            const state = {
-                id: currentRole?.id || '',
-                name: form.getFieldValue('name') as string,
-                comment: (form.getFieldValue('comment') as string) || '',
-                source: currentRole?.source || 'pole.io',
-                metadata: labels.reduce<Record<string, string>>((metadata, item) => {
-                    metadata[item.key] = item.value;
-                    return metadata;
-                }, {}),
-                ...bindings,
-            };
-            result = op === 'create'
-                ? await dispatch(saveRoles({ state }))
-                : await dispatch(updateRoles({ state }));
+        setSubmitting(true);
+        try {
+            let result;
+            if (builtIn) {
+                result = await dispatch(updateRoles({ state: { id: currentRole!.id, ...bindings } }));
+            } else {
+                const labels = (form.getFieldValue('role_labels') as { key: string; value: string }[] | undefined) || [];
+                const state = {
+                    id: currentRole?.id || '',
+                    name: form.getFieldValue('name') as string,
+                    comment: (form.getFieldValue('comment') as string) || '',
+                    source: currentRole?.source || 'pole.io',
+                    metadata: labels.reduce<Record<string, string>>((metadata, item) => {
+                        metadata[item.key] = item.value;
+                        return metadata;
+                    }, {}),
+                    ...bindings,
+                };
+                result = op === 'create'
+                    ? await dispatch(saveRoles({ state }))
+                    : await dispatch(updateRoles({ state }));
+            }
+            if (result.meta.requestStatus !== 'fulfilled') {
+                openErrNotification('请求错误', String(result.payload || '保存角色失败'));
+                return;
+            }
+            openInfoNotification('请求成功', builtIn ? '角色成员绑定已更新' : op === 'create' ? '创建角色成功' : '修改角色成功');
+            closeDrawer();
+            refresh();
+        } finally {
+            setSubmitting(false);
         }
-
-        if (result.meta.requestStatus !== 'fulfilled') {
-            openErrNotification('请求错误', String(result.payload || '保存角色失败'));
-            return;
-        }
-        openInfoNotification('请求成功', builtIn ? '角色成员绑定已更新' : op === 'create' ? '创建角色成功' : '修改角色成功');
-        closeDrawer();
-        refresh();
     };
 
     const viewRole = currentRole;
@@ -212,7 +218,7 @@ const RoleEditor: React.FC<IRoleEditorProps> = ({ visible, op, closeDrawer, refr
                             { max: 64, message: '长度不超过64个字符' },
                         ]}
                     >
-                        <Input disabled={op !== 'create'} />
+                        <Input readonly={op !== 'create'} />
                     </FormItem>
                     <FormItem label="备注" name="comment" rules={[{ max: 255, message: '长度不超过255个字符' }]}>
                         <Input />
@@ -226,21 +232,16 @@ const RoleEditor: React.FC<IRoleEditorProps> = ({ visible, op, closeDrawer, refr
                 <Transfer search data={options.groups} />
             </FormItem>
             {!builtIn && <LabelInput form={form} label="角色标签" name="role_labels" editable />}
-            <FormItem style={{ marginTop: 48 }}>
-                <Space>
-                    <Button type="submit" theme="primary">保存</Button>
-                    <Button theme="default" onClick={closeDrawer}>取消</Button>
-                </Space>
-            </FormItem>
         </Form>
     );
 
     return (
-        <Drawer
-            size="large"
-            header={op === 'create' ? '创建角色' : editable ? (builtIn ? '管理内置角色成员' : '编辑角色') : '角色详情'}
+        <EditorDrawer
+            bodyClassName={style.editorBody}
+            width="standard"
+            title={op === 'create' ? '创建角色' : editable ? (builtIn ? '管理内置角色成员' : '编辑角色') : '角色详情'}
+            description={op === 'create' ? '定义角色属性，并一次完成用户与用户组绑定。' : undefined}
             visible={visible}
-            showOverlay={false}
             onClose={closeDrawer}
             footer={op === 'view' && !editable ? (
                 <Space>
@@ -251,10 +252,17 @@ const RoleEditor: React.FC<IRoleEditorProps> = ({ visible, op, closeDrawer, refr
                         关闭
                     </Button>
                 </Space>
+            ) : editable ? (
+                <EditorDrawerActions
+                    onCancel={closeDrawer}
+                    onSubmit={() => form.submit({ showErrorMessage: true })}
+                    submitText={op === 'create' ? '创建角色' : '保存修改'}
+                    submitting={submitting}
+                />
             ) : false}
         >
             {editable ? roleForm : roleView}
-        </Drawer>
+        </EditorDrawer>
     );
 };
 

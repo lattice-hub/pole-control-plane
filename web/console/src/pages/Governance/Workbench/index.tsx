@@ -2,7 +2,7 @@ import React from 'react';
 import { Button, Dialog, Input, Radio, RadioGroup, Select, Space, Table, Tag, Tooltip } from 'components/Fluent';
 import type { PrimaryTableProps, TableRowData } from 'components/Fluent';
 import { AddIcon, RefreshIcon } from 'components/Fluent/icons';
-import { useNavigate } from 'components/Router';
+import { useNavigate, useSearchParams } from 'components/Router';
 
 import { useAppDispatch } from 'modules/store';
 import { listAllNamespaces, selectNamespace } from 'modules/namespace';
@@ -83,7 +83,7 @@ interface GovernanceWorkbenchProps {
 
 const typeOptions = [
     { label: '路由', value: 'route', scene: '按主调、接口或标签把流量分配到不同目标服务或版本。' },
-    { label: '限流', value: 'ratelimit', scene: '接口流量需要按 QPS、并发或条件限制，避免服务被打满。' },
+    { label: '限流', value: 'ratelimit', scene: '按请求数、Token 数或并发进行请求前准入，并通过窗口表达每秒、每分钟等统计周期。' },
     { label: '熔断', value: 'circuitbreaker', scene: '下游错误率、慢调用或异常升高时，快速切断不稳定依赖。' },
     { label: '探测', value: 'faultdetect', scene: '需要主动探测接口或服务健康，并据此辅助治理决策。' },
     { label: '无损', value: 'lossless', scene: '发布、重启或下线前需要延迟摘除流量，保护存量请求。' },
@@ -199,8 +199,8 @@ const normalizeRules = (items: {
             name: rule.name,
             description: rule.description,
             namespace: rule.namespace,
-            service: rule.service,
-            target: `${text(rule.namespace)}/${text(rule.service)}`,
+            service: rule.callee?.service,
+            target: `${text(rule.callee?.namespace)}/${text(rule.callee?.service)}`,
             condition: firstRule ? `${text(firstRule.apis?.[0]?.path?.value || firstRule.method?.value || firstRule.resource)} / ${LimitActionMap[firstRule.action] || firstRule.action || '-'}` : '按接口或资源限流',
             status: rule.disable ? '禁用' : '启用',
             release: rule.revision ? '已发布' : '待发布',
@@ -363,20 +363,21 @@ export const isRuleAssociatedWithService = (
             || matchesEndpoint(raw.target_service, context)
             || (raw.namespace === context.namespace && raw.service === context.service);
     }
-    return matchesEndpoint(raw.targetService || raw.target_service, context)
-        || (rule.namespace === context.namespace && rule.service === context.service);
+    return matchesEndpoint(raw.callee || raw.targetService || raw.target_service, context);
 };
 
 const GovernanceWorkbench: React.FC<GovernanceWorkbenchProps> = ({ embedded = false, serviceContext }) => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedNamespace = searchParams.get('namespace') || '';
     const { datas: namespaceDatas } = useAppSelector(selectNamespace);
     const [rules, setRules] = React.useState<GovernanceRuleRow[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [typeFilters, setTypeFilters] = React.useState<string[]>([]);
     const [statusFilter, setStatusFilter] = React.useState('');
-    const [selectedNamespace, setSelectedNamespace] = React.useState(serviceContext?.namespace || 'default');
+    const [selectedNamespace, setSelectedNamespace] = React.useState(serviceContext?.namespace || requestedNamespace || '');
     const [paginationVersion, setPaginationVersion] = React.useState(0);
     const [createWizardVisible, setCreateWizardVisible] = React.useState(false);
     const [serviceRole, setServiceRole] = React.useState<GovernanceServiceRole>('caller');
@@ -627,6 +628,7 @@ const GovernanceWorkbench: React.FC<GovernanceWorkbenchProps> = ({ embedded = fa
                                 className={style.createTypeCard}
                                 type="button"
                                 aria-label={`创建${item.label}规则`}
+                                disabled={!selectedNamespace}
                                 onClick={() => createRuleFromType(item.value)}
                             >
                                 <Tag className={`${style.typeTag} ${getTypeClassName(target.kind)}`} variant="light-outline">{item.label}</Tag>
@@ -675,7 +677,7 @@ const GovernanceWorkbench: React.FC<GovernanceWorkbenchProps> = ({ embedded = fa
                 <div className={style.summaryItem}>
                     <div className={style.summaryLabel}>规则总数</div>
                     <div className={style.summaryValue}>{scopedRules.length}</div>
-                    <div className={style.summaryHint}>当前环境：{selectedNamespace || '-'}</div>
+                    <div className={style.summaryHint}>当前环境：{selectedNamespace || '全部环境'}</div>
                 </div>
                 <div className={style.summaryItem}>
                     <div className={style.summaryLabel}>已启用</div>
@@ -743,7 +745,7 @@ const GovernanceWorkbench: React.FC<GovernanceWorkbenchProps> = ({ embedded = fa
                                 refreshData(keyword, nextNamespace);
                             }}
                             onReset={() => {
-                                const nextNamespace = serviceContext?.namespace || 'default';
+                                const nextNamespace = serviceContext?.namespace || '';
                                 setTypeFilters([]);
                                 setStatusFilter('');
                                 setSearch('');

@@ -210,7 +210,7 @@ func (e *Env) writeConfig(opts Options) {
       listenPort: %d
       jwt:
         secretKey: pole-e2e-secret
-        expired: 1800
+        expired: 7200
       coreURL: /core/v1
       namingURL: /naming/v1
       authURL: /auth/v1
@@ -274,7 +274,6 @@ naming:
       - name: heartbeat
 config:
   open: true
-  contentMaxLength: 20000
 cache:
   diffTime: 1s
 maintain:

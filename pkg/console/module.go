@@ -23,8 +23,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	consoleconfig "github.com/pole-io/pole-server/pkg/console/config"
 	"github.com/pole-io/pole-server/pkg/console/internal/handlers"
@@ -55,8 +58,16 @@ func Start(ctx context.Context, config *consoleconfig.Config) (*Running, error) 
 		return nil, fmt.Errorf("listen console %s: %w", address, err)
 	}
 	server := &http.Server{
-		Addr:    address,
-		Handler: router.NewRouter(config, embeddedConsoleAssets()),
+		Addr: address,
+		Handler: otelhttp.NewHandler(router.NewRouter(config, embeddedConsoleAssets()), "pole-console-http",
+			otelhttp.WithSpanNameFormatter(func(_ string, request *http.Request) string {
+				path := strings.TrimSuffix(request.URL.Path, "/")
+				if path == "" {
+					path = "/"
+				}
+				return request.Method + ":" + path
+			}),
+		),
 	}
 	running := &Running{
 		server: server,

@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1.7
+
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS console-builder
+WORKDIR /src/web/console
+COPY web/console/package.json web/console/package-lock.json ./
+RUN npm ci --legacy-peer-deps
+COPY web/console/ ./
+RUN npm run build
+
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS go-builder
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
+ARG BUILD_DATE=unknown
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . ./
+COPY --from=console-builder /src/web/console/dist/ ./pkg/console/internal/assets/dist/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -tags consoleassets \
+    -ldflags="-s -w -X github.com/pole-io/pole-server/pkg/common/version.Version=${VERSION} -X github.com/pole-io/pole-server/pkg/common/version.BuildDate=${BUILD_DATE}" \
+    -o /out/pole-server .
+
+FROM alpine:3.22
+ARG VERSION=dev
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.title="Pole Control Plane" \
+      org.opencontainers.image.description="Open source Pole control plane, limiter and Console" \
+      org.opencontainers.image.source="https://github.com/lattice-hub/pole-control-plane" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.licenses="BSD-3-Clause"
+
+RUN apk add --no-cache ca-certificates curl tzdata \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo Asia/Shanghai >/etc/timezone \
+    && mkdir -p /app/logs/runtime /app/.pole_data/observability/otel-events /work \
+    && chown -R 65532:65532 /app /work
+
+COPY --from=go-builder --chown=65532:65532 /out/pole-server /app/pole-server
+COPY --chown=65532:65532 deploy/conf /app/conf
+COPY --chown=65532:65532 deploy/kubernetes/entrypoint.sh /app/entrypoint.sh
+
+RUN chmod 0755 /app/pole-server /app/entrypoint.sh
+USER 65532:65532
+WORKDIR /app
+
+EXPOSE 8080 8090 8091 8093 8101 8102 8761 8848 8890 15010
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["start", "-c", "/work/pole-server.yaml", "--mode", "all"]

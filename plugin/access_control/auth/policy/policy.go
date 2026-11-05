@@ -247,7 +247,6 @@ var (
 	resTypeFilter = map[string]string{
 		"namespace":            "0",
 		"service":              "1",
-		"config_group":         "2",
 		"mcpserverresources":   "30",
 		"mcp_server_resources": "30",
 		"mcp_servers":          "30",
@@ -577,10 +576,6 @@ func (svr *Server) authorizeCheckResourceExist(ctx context.Context, resType apis
 		if svr.cacheMgr.Service().GetServiceByID(resourceID) == nil {
 			return api.NewAuthResponse(apimodel.Code_NotFoundResource)
 		}
-	case apisecurity.ResourceType_ConfigGroups:
-		if svr.cacheMgr.ConfigGroup().GetGroupByID(resourceID) == nil {
-			return api.NewAuthResponse(apimodel.Code_NotFoundResource)
-		}
 	case apisecurity.ResourceType_MCPServerResources:
 		if svr.cacheMgr.MCPServer().GetMCPServerByID(resourceID) == nil {
 			return api.NewAuthResponse(apimodel.Code_NotFoundResource)
@@ -738,10 +733,6 @@ func (svr *Server) updateAuthPolicyAttribute(ctx context.Context, saved, update 
 	return saved, needUpdate
 }
 
-type pbStringValue interface {
-	GetValue() string
-}
-
 // normalizeResource 对于资源进行归一化处理, 如果出现 * 的话，则该资源访问策略就是 *
 func (svr *Server) normalizeResource(resources *apisecurity.StrategyResources) *apisecurity.StrategyResources {
 	if resources == nil {
@@ -754,12 +745,19 @@ func (svr *Server) normalizeResource(resources *apisecurity.StrategyResources) *
 		}
 		sliceVal := slicePtr.Elem()
 		for i := 0; i < sliceVal.Len(); i++ {
-			item := sliceVal.Index(i).Elem()
-			resId := item.FieldByName("Id").Interface().(pbStringValue)
-			if resId.GetValue() == matchs.MatchAll {
+			entry := sliceVal.Index(i)
+			if entry.IsNil() {
+				continue
+			}
+			item := entry.Elem()
+			resID := item.FieldByName("Id")
+			// specification 的资源 ID 已从 wrapperspb.StringValue 迁移为 string。
+			// 通过 reflect.String 读取可避免旧类型断言在策略创建时 panic。
+			if resID.IsValid() && resID.Kind() == reflect.String && resID.String() == matchs.MatchAll {
 				sliceVal.Set(reflect.ValueOf([]*apisecurity.StrategyResourceEntry{{
 					Id: "*",
 				}}))
+				break
 			}
 		}
 	}
@@ -814,7 +812,6 @@ func (svr *Server) enrichResourceInfo(ctx context.Context, resp *apisecurity.Aut
 	allMatch := map[apisecurity.ResourceType]struct{}{}
 	resp.Resources = &apisecurity.StrategyResources{
 		Namespaces:          make([]*apisecurity.StrategyResourceEntry, 0, 4),
-		ConfigGroups:        make([]*apisecurity.StrategyResourceEntry, 0, 4),
 		Services:            make([]*apisecurity.StrategyResourceEntry, 0, 4),
 		RouteRules:          make([]*apisecurity.StrategyResourceEntry, 0, 4),
 		RatelimitRules:      make([]*apisecurity.StrategyResourceEntry, 0, 4),
@@ -963,20 +960,6 @@ var (
 			return &apisecurity.StrategyResourceEntry{
 				Id:        item.ResID,
 				Namespace: user.Name,
-				Name:      user.Name,
-			}
-		},
-		apisecurity.ResourceType_ConfigGroups: func(ctx context.Context, svr *Server,
-			item authtypes.StrategyResource) *apisecurity.StrategyResourceEntry {
-			user := svr.cacheMgr.ConfigGroup().GetGroupByID(item.ResID)
-			if user == nil {
-				log.Warn("[Auth][Strategy] not found config_group in fill-info",
-					zap.String("id", item.StrategyID), zap.String("res-id", item.ResID), utils.RequestID(ctx))
-				return nil
-			}
-			return &apisecurity.StrategyResourceEntry{
-				Id:        item.ResID,
-				Namespace: user.Namespace,
 				Name:      user.Name,
 			}
 		},

@@ -80,7 +80,7 @@ func (h *EurekaServer) BatchReplication(req *restful.Request, rsp *restful.Respo
 		writeHeader(http.StatusForbidden, rsp)
 		return
 	}
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	batchResponse, resultCode := h.doBatchReplicate(replicateRequest, token, namespace)
 	if err := writeEurekaResponseWithCode(restful.MIME_JSON, batchResponse, req, rsp, resultCode); nil != err {
 		eurekalog.Errorf("[EurekaServer]fail to write replicate response, client: %s, err: %v", remoteAddr, err)

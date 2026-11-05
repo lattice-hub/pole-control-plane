@@ -1,9 +1,9 @@
 ---
 title: 配置参考
 tags: [config, yaml, deploy]
-links: [overview, architecture, adr-system-configuration-control-plane, adr-console-agent-resource-workbench, adr-otel-observability-platform, adr-unified-process-mode-and-limiter-integration]
-updated: 2026-07-31
-sources: 8
+links: [overview, architecture, adr-system-configuration-control-plane, adr-console-agent-resource-workbench, adr-otel-observability-platform, adr-unified-process-mode-and-limiter-integration, adr-kubernetes-production-deployment, kubernetes-production-sop]
+updated: 2026-08-19
+sources: 10
 ---
 
 # 配置参考
@@ -261,8 +261,15 @@ Git。Kubernetes 以 `runtime-local-db` 作为唯一运行时数据卷，规范�
 - Collector 的 traces、metrics、logs exporter 和 Console query provider 统一使用共享 GreptimeDB 的 `pole_observability` 逻辑库；MaaS 的 `maas_logs`、`maas_metrics` 保持独立。
 - 部署脚本会幂等创建 GreptimeDB 逻辑库，等待 Collector 与 Control Plane rollout 成功后再删除旧 standalone StatefulSet；旧 `data-pole-greptimedb-0` PVC 保留，直到历史数据明确导出或放弃。
 - 宿主机 `pole-mysql` 容器必须配置 `unless-stopped`。Console 入口拒绝连接且 Pod CrashLoop 时，应先检查前一容器日志、MySQL 状态和 RestartPolicy，再判断是否为 SPA 问题。
+- MySQL DSN 必须带 `parseTime=true`。Skill Marketplace 等新表直接把 `TIMESTAMP` 扫描到 `time.Time`；省略该参数会让
+  驱动返回 `[]uint8`，表现为 Publisher 或 Release 读取 400/500，而不是 Bundle 格式错误。
+- 本地资源稳定性验收依赖集群级 Metrics API。OrbStack 当前使用固定版本 Metrics Server `v0.9.0`；验收必须同时检查
+  `v1beta1.metrics.k8s.io` Available 和 `kubectl --context orbstack top node/pod` 返回数值，不能只看 Deployment Ready。
 
 共享观测后端的所有权、数据隔离和迁移理由见 [[adr-otel-observability-platform]]。
+
+正式生产的 Helm、ACK ALB、Kubernetes Secret、GHCR 与 OSS 备份基线见
+[[adr-kubernetes-production-deployment]]，逐步操作与验收命令见 [[kubernetes-production-sop]]。
 
 ## 相关页面
 
@@ -272,3 +279,5 @@ Git。Kubernetes 以 `runtime-local-db` 作为唯一运行时数据卷，规范�
 - [[adr-console-agent-resource-workbench]]
 - [[adr-otel-observability-platform]]
 - [[adr-unified-process-mode-and-limiter-integration]]
+- [[adr-kubernetes-production-deployment]]
+- [[kubernetes-production-sop]]

@@ -29,21 +29,11 @@ import (
 
 // GetConfigClientOpenMethod .
 func GetConfigClientOpenMethod(protocol string) (map[string]bool, error) {
-	openMethods := []string{
-		"GetConfigFile",
-		"CreateConfigFile",
-		"UpdateConfigFile",
-		"PublishConfigFile",
-		"WatchConfigFiles",
-		"GetConfigFileMetadataList",
-		"UpsertAndPublishConfigFile",
-		"Discover",
-	}
+	openMethods := []string{"Discover"}
 
 	openMethod := make(map[string]bool)
 
 	for _, item := range openMethods {
-		openMethod[legacyMethod("PolarisConfig", protocol, item)] = true
 		openMethod[newMethod("ConfigGRPC", item)] = true
 	}
 
@@ -56,16 +46,7 @@ func GetDiscoverClientOpenMethod(include []string, protocol string) (map[string]
 	clientAccess[apiserver.DiscoverAccess] = []string{"Discover", "ReportClient", "ReportServiceContract", "GetServiceContract", "Issue", "Renew"}
 	clientAccess[apiserver.RegisterAccess] = []string{"RegisterInstance", "DeregisterInstance"}
 	clientAccess[apiserver.HealthcheckAccess] = []string{"Heartbeat", "BatchHeartbeat", "BatchGetHeartbeat", "BatchDelHeartbeat"}
-	clientAccess[apiserver.ConfigAccess] = []string{
-		"GetConfigFile",
-		"CreateConfigFile",
-		"UpdateConfigFile",
-		"PublishConfigFile",
-		"WatchConfigFiles",
-		"GetConfigFileMetadataList",
-		"UpsertAndPublishConfigFile",
-		"Discover",
-	}
+	clientAccess[apiserver.ConfigAccess] = []string{"Discover"}
 
 	openMethod := make(map[string]bool)
 	// 如果为空，开启全部接口
@@ -80,7 +61,7 @@ func GetDiscoverClientOpenMethod(include []string, protocol string) (map[string]
 			for _, method := range methods {
 				recordMethod := legacyMethod("Polaris", protocol, method)
 				if item == apiserver.ConfigAccess {
-					recordMethod = legacyMethod("PolarisConfig", protocol, method)
+					recordMethod = newMethod("ConfigGRPC", method)
 				}
 				if item == apiserver.HealthcheckAccess && method != "Heartbeat" {
 					recordMethod = legacyMethod("PolarisHeartbeat", protocol, method)

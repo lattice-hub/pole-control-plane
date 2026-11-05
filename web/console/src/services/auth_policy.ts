@@ -27,13 +27,17 @@ export function isAuthMutationSuccessful(response: unknown): boolean {
         return mutation.responses.length > 0
             && mutation.responses.every(item => Number(item.code) === SuccessCode)
     }
+    // 单资源写接口（例如用户/用户组 Token）成功时会把更新后的资源放在 data，
+    // request 层解包后只剩资源对象。HTTP/业务错误已由请求层抛出，有资源 ID 即成功。
+    if ('id' in mutation && typeof (mutation as { id?: unknown }).id === 'string') {
+        return Boolean((mutation as { id: string }).id)
+    }
     return Number(mutation.code) === SuccessCode
 }
 
 export enum PolicySourceType {
     Namespaces = "Namespaces",
     Services = "Services",
-    ConfigGroups = "ConfigGroups",
     RouteRules = "RouteRules",
     RateLimitRules = "RateLimitRules",
     CircuitBreakerRules = "CircuitBreakerRules",
@@ -97,8 +101,6 @@ export interface PolicyResources {
     namespaces?: PolicyResource[]
     // 服务ID列表
     services?: PolicyResource[]
-    // 配置组ID列表
-    config_groups?: PolicyResource[]
     // 路由规则ID列表
     route_rules?: PolicyResource[]
     // 泳道规则ID列表
@@ -448,10 +450,7 @@ export const ServerFunctionZhDesc = {
         "DiscoverFaultDetectRule": "查询探测规则",
         "DiscoverServiceContract": "查询服务契约",
         "DiscoverLaneRule": "查询泳道规则",
-        "DiscoverConfigFile": "查询配置文件",
-        "WatchConfigFile": "监听配置文件",
-        "DiscoverConfigFileNames": "查询配置分组下已发布的文件列表",
-        "DiscoverConfigGroups": "查询配置分组列表"
+        "DiscoverConfig": "查询配置"
     },
     "Namespace": {
         "CreateNamespace": "创建单个命名空间",
@@ -529,36 +528,10 @@ export const ServerFunctionZhDesc = {
         "EnableLaneGroups": "批量启用/禁用泳道组",
         "DescribeLaneGroups": "查询泳道组规则列表",
     },
-    "ConfigGroup": {
-        "CreateConfigFileGroup": "创建配置分组",
-        "DeleteConfigFileGroup": "删除配置分组",
-        "UpdateConfigFileGroup": "更新配置分组",
-        "DescribeConfigFileGroups": "查询配置分组列表"
-    },
-    "ConfigFile": {
-        "PublishConfigFile": "发布配置文件",
-        "CreateConfigFile": "创建配置文件",
-        "UpdateConfigFile": "更新配置文件",
-        "DeleteConfigFile": "删除配置文件",
-        "DescribeConfigFileRichInfo": "查询单个配置文件详细",
-        "DescribeConfigFiles": "查询配置文件列表",
-        "BatchDeleteConfigFiles": "批量删除配置文件",
-        "ExportConfigFiles": "导出配置文件",
-        "ImportConfigFiles": "导入配置文件",
-        "DescribeConfigFileReleaseHistories": "查询配置文件发布历史",
-        "DescribeAllConfigFileTemplates": "查询配置模版列表",
-        "DescribeConfigFileTemplate": "查询单个配置模版",
-        "CreateConfigFileTemplate": "创建配置模版"
-    },
-    "ConfigRelease": {
-        "RollbackConfigFileReleases": "批量回滚配置发布",
-        "DeleteConfigFileReleases": "批量删除已发布配置版本",
-        "StopGrayConfigFileReleases": "批量停止灰度发布配置版本",
-        "PromoteGrayConfigFileRelease": "提交灰度配置为正式草稿",
-        "DescribeConfigFileRelease": "查询单个配置发布版本详细",
-        "DescribeConfigFileReleases": "查询配置发布列表",
-        "DescribeConfigFileReleaseVersions": "查询某一配置文件的发布版本列表",
-        "UpsertAndReleaseConfigFile": "创建/更新并发布配置文件"
+    "Config": {
+        "InspectConfig": "查看配置状态与历史",
+        "ManageConfig": "管理配置草稿与发布",
+        "PreviewConfig": "预览配置"
     },
     "User": {
         "CreateUsers": "批量创建用户",

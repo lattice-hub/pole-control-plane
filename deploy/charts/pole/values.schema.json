@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["deploymentMode", "image", "secrets", "mysql", "greptimedb", "otelCollector"],
+  "properties": {
+    "deploymentMode": {"enum": ["split", "full"]},
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string"},
+        "digest": {"type": "string", "pattern": "^$|^sha256:[a-f0-9]{64}$"},
+        "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "required": ["create", "existingSecret"],
+      "properties": {
+        "create": {"type": "boolean"},
+        "existingSecret": {"type": "string"},
+        "authSalt": {"type": "string"}
+      }
+    },
+    "controlPlane": {
+      "type": "object",
+      "properties": {
+        "replicas": {"type": "integer", "minimum": 1},
+        "persistence": {
+          "type": "object",
+          "properties": {"existingClaim": {"type": "string"}}
+        }
+      }
+    },
+    "console": {
+      "type": "object",
+      "properties": {"replicas": {"type": "integer", "minimum": 1}}
+    },
+    "limiter": {
+      "type": "object",
+      "properties": {"replicas": {"type": "integer", "minimum": 1}}
+    },
+    "mysql": {
+      "type": "object",
+      "required": ["enabled", "database", "observabilityDatabase"],
+      "properties": {
+        "enabled": {"const": true},
+        "database": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+        "observabilityDatabase": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+        "persistence": {
+          "type": "object",
+          "properties": {"existingClaim": {"type": "string"}}
+        }
+      }
+    },
+    "greptimedb": {
+      "type": "object",
+      "required": ["enabled", "database"],
+      "properties": {
+        "enabled": {"const": true},
+        "database": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+        "persistence": {
+          "type": "object",
+          "properties": {"existingClaim": {"type": "string"}}
+        }
+      }
+    },
+    "otelCollector": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {"enabled": {"const": true}}
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "host": {"type": "string", "minLength": 1}
+      }
+    },
+    "backup": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "schedule": {"type": "string", "minLength": 1},
+        "timeZone": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

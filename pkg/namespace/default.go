@@ -28,6 +28,7 @@ import (
 	cacheapi "github.com/pole-io/pole-server/apis/cache"
 	"github.com/pole-io/pole-server/apis/store"
 	"github.com/pole-io/pole-server/pkg/cache"
+	"github.com/pole-io/pole-server/pkg/compatibility"
 )
 
 var (
@@ -88,6 +89,7 @@ func InitServer(ctx context.Context, nsOpt *Config, storage store.Store,
 	actualSvr.caches = cacheMgr
 	actualSvr.storage = storage
 	actualSvr.cfg = *nsOpt
+	actualSvr.compatibilityResolver, _ = compatibility.ResolverFromContext(ctx)
 	actualSvr.createNamespaceSingle = &singleflight.Group{}
 
 	var proxySvr NamespaceOperateServer

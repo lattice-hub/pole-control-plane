@@ -1,0 +1,185 @@
+nameOverride: ""
+fullnameOverride: ""
+
+# split: production-oriented independent Control Plane, Console and Limiter workloads.
+# full: demo/lightweight topology; one Control Plane Pod runs all three modules.
+deploymentMode: split
+
+global:
+  clusterName: pole-production
+  environment: production
+  imagePullSecrets: []
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+image:
+  repository: ghcr.io/lattice-hub/pole-control-plane
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+secrets:
+  # Production recommendation: create this native Kubernetes Secret before Helm install.
+  create: false
+  existingSecret: pole-runtime-secrets
+  mysqlRootPassword: ""
+  mysqlUser: pole
+  mysqlPassword: ""
+  consoleJwtSecret: ""
+  authSalt: ""
+  systemSecretMasterKey: ""
+  selfManagerProbeKey: ""
+  ossAccessKeyId: ""
+  ossAccessKeySecret: ""
+
+controlPlane:
+  replicas: 1
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
+console:
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+limiter:
+  replicas: 1
+  service:
+    type: ClusterIP
+    grpcPort: 8101
+    maintainPort: 8102
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
+mysql:
+  enabled: true
+  image:
+    repository: mysql
+    tag: "8.4.6"
+    digest: ""
+    pullPolicy: IfNotPresent
+  database: pole_server
+  observabilityDatabase: pole_observability
+  service:
+    port: 3306
+  persistence:
+    existingClaim: ""
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+    size: 50Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+greptimedb:
+  enabled: true
+  image:
+    repository: greptime/greptimedb
+    tag: v1.1.4
+    digest: ""
+    pullPolicy: IfNotPresent
+  database: pole_observability
+  retention: 7d
+  persistence:
+    existingClaim: ""
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+    size: 100Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+otelCollector:
+  enabled: true
+  image:
+    repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+    tag: 0.158.0
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: pole.example.com
+  path: /
+  pathType: Prefix
+  tls: []
+
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  timeZone: Asia/Shanghai
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  mysql:
+    enabled: true
+    image:
+      repository: amazon/aws-cli
+      tag: 2.27.49
+      digest: ""
+      pullPolicy: IfNotPresent
+  greptimedb:
+    enabled: true
+  oss:
+    bucket: ""
+    endpoint: ""
+    region: ""
+    prefix: pole
+
+networkPolicy:
+  enabled: false

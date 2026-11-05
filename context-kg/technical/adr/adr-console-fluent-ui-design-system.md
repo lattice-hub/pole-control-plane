@@ -2,8 +2,8 @@
 title: Console Fluent UI v9 设计系统迁移
 tags: [adr, console, frontend, fluent-ui, design-system]
 links: [architecture, service-discovery, configuration, governance-rules, console-ui-quality-gates]
-updated: 2026-07-25
-sources: 10
+updated: 2026-08-11
+sources: 12
 ---
 
 # Console Fluent UI v9 设计系统迁移
@@ -37,6 +37,16 @@ Console 当前约 102 个 TypeScript/TSX 文件直接依赖 TDesign，覆盖页�
 - 高级筛选使用草稿状态，取消、Esc 或点击外部不写回半成品；确认后以可删除 Tag 展示已选条件。远程数据页显式点击查询，本地数据页即时过滤，同一页面不得混用两种提交语义。
 - 日期时间范围始终作为主查询行的独立控件，不进入高级筛选或条件 Tag；查询与重置继续沿用页面原有 API 参数和第一页语义。
 - 桌面端主搜索、独立时间、筛选和操作可以同排并安全换行；720px 以下高级筛选切换为单列、内部滚动且底部操作保持可达。
+
+## 侧边编辑抽屉规范
+
+- Drawer 只承载创建、短表单编辑、关联和发布等可在单次上下文内完成的任务；多 Tab、长内容、可深链的复杂详情继续使用独立页面。
+- 编辑抽屉统一通过 `components/EditorDrawer` 建立标题、任务说明、遮罩、内容滚动和固定底栏边界，页面不得再用任意百分比或 `large` 拼接私有尺寸。
+- 宽度只使用四档：`compact=560px` 用于单组字段或关联选择，`standard=720px` 用于普通资源表单，`wide=960px` 用于多列/配置发布表单，`workspace=1180px` 用于必须保留上下文的复杂工作区。
+- 所有档位最大宽度为 `100vw - 32px`；640px 以下字段网格降为单列，抽屉左右至少保留 16px 安全边距，标题和底栏水平 padding 收敛为 18px。
+- 标题必须说明“创建/编辑什么”，副标题说明完成后的下一步或本次修改边界；表单按身份、归属、能力/内容等语义分段，不用连续单列字段和大面积空白制造层级。
+- 创建/保存与取消固定在底栏右侧；提交时显示 loading 并禁用重复提交。遮罩默认开启且点击遮罩不关闭，避免误丢表单；Esc 关闭仅在没有不可恢复草稿时允许。
+- 自定义表面、分段卡片、边框和文字必须使用 `--app-*` 主题 token，并分别验证 light/dark；抽屉验收还必须覆盖必填校验、连续输入、动态行增删、窄视口和关闭路径。
 
 ## 验证要求
 

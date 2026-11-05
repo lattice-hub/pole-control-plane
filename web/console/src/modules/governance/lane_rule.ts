@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { deleteLaneRules, modifyLaneRules, createLaneRules, LaneGroupView, CreateLaneRulesRequest, ModifyLaneRulesRequest, LaneRuleView } from "services/lane"
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 
 export interface LaneRuleState {
     datas: LaneGroupView[]

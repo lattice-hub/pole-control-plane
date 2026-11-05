@@ -1,0 +1,148 @@
+.viewBar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 0;
+}
+
+.viewSwitch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface-subtle);
+}
+
+.viewButton,
+.viewButtonActive {
+  min-height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--app-text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.viewButtonActive {
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+  font-weight: 600;
+}
+
+.viewHint,
+.muted {
+  color: var(--app-text-secondary);
+  font-size: 12px;
+}
+
+.metricRail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  margin: 18px 0;
+  overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface-subtle);
+
+  > div {
+    min-height: 74px;
+    padding: 14px 18px;
+    border-right: 1px solid var(--app-border-subtle);
+
+    &:last-child {
+      border-right: 0;
+    }
+  }
+
+  span {
+    display: block;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 24px;
+    font-weight: 650;
+    line-height: 30px;
+  }
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+
+  > :first-child {
+    width: min(360px, 42vw);
+  }
+}
+
+.tableSurface {
+  overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+
+  :global(.fluent-table-shell) {
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+.definitionCell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    color: var(--app-text-secondary);
+    font-size: 12px;
+  }
+}
+
+.environmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  p {
+    margin: 0;
+    color: var(--app-text-secondary);
+    font-size: 13px;
+    line-height: 21px;
+  }
+}
+
+@media (max-width: 900px) {
+  .viewBar,
+  .toolbarActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbarActions > :first-child {
+    width: 100%;
+  }
+}

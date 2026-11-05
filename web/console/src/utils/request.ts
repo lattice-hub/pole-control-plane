@@ -88,8 +88,9 @@ function unwrapResponse(body: unknown): unknown {
 }
 
 export const SuccessCode = 299999
-export const TokenNotExistCode = 407
-export const NotAllowedAccessCode = 401001
+export const LegacySessionInvalidCode = 407
+export const TokenDisabledCode = 401003
+export const TokenNotExistCode = 401004
 
 const clearLoginState = () => {
   window.localStorage.removeItem(PoleTokenKey)
@@ -112,7 +113,11 @@ const shouldResetLogin = (error: any, action: string) => {
   }
   const status = error.response?.status
   const code = error.response?.data?.code
-  return status === 401 || status === TokenNotExistCode || code === TokenNotExistCode || code === NotAllowedAccessCode
+  if (action === '/auth/v1/user/session' && status === 401) {
+    return true
+  }
+  return status === LegacySessionInvalidCode || code === LegacySessionInvalidCode ||
+    code === TokenDisabledCode || code === TokenNotExistCode
 }
 
 const toRequestError = (reqId: string, error: unknown) => {

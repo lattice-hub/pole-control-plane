@@ -61,7 +61,6 @@ var (
 // GRPCServer GRPC API服务器
 type GRPCServer struct {
 	grpcserver.BaseGrpcServer
-	configServer      config.ConfigCenterServer
 	namingServer      service.DiscoverServer
 	ruleServer        goverrule.GoverRuleServer
 	healthCheckServer *healthcheck.Server
@@ -105,10 +104,6 @@ func (g *GRPCServer) Initialize(ctx context.Context, option map[string]interface
 		namingLog.Errorf("%v", err)
 		return err
 	}
-	if g.configServer, err = config.GetServer(); err != nil {
-		namingLog.Errorf("%v", err)
-		return err
-	}
 
 	g.dsvr = v1.NewDiscoverGRPCServer(
 		v1.WithDAllowAccess(g.allowAccess),
@@ -118,10 +113,11 @@ func (g *GRPCServer) Initialize(ctx context.Context, option map[string]interface
 		v1.WithNamingServer(g.namingServer),
 		v1.WithWorkloadCredentialServer(workloadcredential.GetServer()),
 	)
+	unifiedService, _ := config.GetUnifiedService()
 	g.csvr = v1.NewConfigGRPCServer(
+		v1.WithUnifiedConfigServer(unifiedService),
 		v1.WithCAllowAccess(g.allowAccess),
 		v1.WithCEnterRateLimit(g.enterRateLimit),
-		v1.WithConfigServer(g.configServer),
 	)
 	return nil
 }
@@ -154,7 +150,26 @@ func (g *GRPCServer) registerServices(server *grpc.Server) {
 	apiservice.RegisterDiscoverGRPCServer(server, g.dsvr)
 	apiservice.RegisterPoleHeartbeatGRPCServer(server, g.dsvr)
 	apisecurity.RegisterWorkloadCredentialServiceServer(server, g.dsvr)
-	apiconfig.RegisterConfigGRPCServer(server, g.csvr)
+	if g.configClientEnabled() {
+		apiconfig.RegisterConfigGRPCServer(server, g.csvr)
+	}
+}
+
+// configClientEnabled 在未开启客户端配置 API 时不注册 ConfigGRPC，避免空方法表默认放行。
+func (g *GRPCServer) configClientEnabled() bool {
+	client := g.openAPI["client"]
+	if !client.Enable {
+		return false
+	}
+	if len(client.Include) == 0 {
+		return true
+	}
+	for _, item := range client.Include {
+		if item == apiserver.ConfigAccess {
+			return true
+		}
+	}
+	return false
 }
 
 // Stop 关闭GRPC

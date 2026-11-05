@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Button, Drawer, Input, Select, Table } from 'components/Fluent'
+import { Button, Input, Select, Table } from 'components/Fluent'
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer'
 import { useNavigate, useSearchParams } from 'components/Router'
 
 import { ResourceHeader, ResourceToolbar } from 'components/ResourceLayout'
@@ -206,13 +207,14 @@ export default function LogicalServiceDetail() {
           </section>
         </section>
       )}
-      <Drawer
+      <EditorDrawer
         visible={bindingVisible}
-        header="关联已有环境服务"
-        size="min(640px, 94vw)"
-        destroyOnClose
+        bodyClassName={style.serviceOperationBody}
+        title="关联已有环境服务"
+        description="一个逻辑服务在同一环境空间只能关联一个运行时服务。"
+        width="compact"
         onClose={() => setBindingVisible(false)}
-        footer={<><Button onClick={() => setBindingVisible(false)}>取消</Button><Button theme="primary" disabled={!selectedServiceId} onClick={() => void bind()}>确认关联</Button></>}
+        footer={<EditorDrawerActions onCancel={() => setBindingVisible(false)} onSubmit={() => void bind()} submitText="确认关联" submitDisabled={!selectedServiceId} />}
       >
         <div className={style.logicalForm}>
           <p>一个逻辑服务在同一 Namespace 只能关联一个运行时服务。</p>
@@ -236,7 +238,7 @@ export default function LogicalServiceDetail() {
             />
           </label>
         </div>
-      </Drawer>
+      </EditorDrawer>
     </div>
   )
 }

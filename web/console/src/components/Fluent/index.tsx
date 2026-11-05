@@ -45,6 +45,7 @@ import {
 } from '@fluentui/react-components';
 import { Dismiss20Regular } from '@fluentui/react-icons';
 import { showFluentToast } from './toast';
+import { formControlKind } from './form';
 
 export {
   Breadcrumb,
@@ -250,17 +251,26 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>((props, ref)
 });
 Input.displayName = 'Input';
 
-export const InputNumber: React.FC<any> = ({ value, defaultValue, min, max, step = 1, onChange, disabled, readonly, suffix, className, style, placeholder }) => (
+export const InputNumber: React.FC<any> = ({ value, defaultValue, min, max, step = 1, onChange, disabled, readonly, suffix, className, style, placeholder, ...props }) => (
   <span className={`fluent-number-input ${className || ''}`} style={style}>
     <SpinButton
+      {...props}
       value={value === undefined || value === '' ? null : Number(value)}
       defaultValue={defaultValue === undefined ? undefined : Number(defaultValue)}
       min={min}
       max={max}
       step={step}
       disabled={disabled}
+      readOnly={readonly}
       input={{ readOnly: readonly, placeholder }}
-      onChange={(event, data) => onChange?.(data.value, { e: event })}
+      onChange={(event, data) => {
+        const nextValue = data.value ?? (data.displayValue === '' || data.displayValue === undefined
+          ? undefined
+          : Number(data.displayValue));
+        if (nextValue !== undefined && Number.isFinite(nextValue)) {
+          onChange?.(nextValue, { e: event });
+        }
+      }}
     />
     {suffix && <span className="fluent-input-suffix">{suffix}</span>}
   </span>
@@ -274,7 +284,7 @@ export const InputAdornment: React.FC<any> = ({ prepend, append, children, class
   </span>
 );
 
-export const TagInput: React.FC<any> = ({ value = [], onChange, placeholder, disabled, readonly, className, style }) => {
+export const TagInput: React.FC<any> = ({ value = [], onChange, placeholder, disabled, readonly, className, style, ...props }) => {
   const values = Array.isArray(value) ? value : [];
   const [draft, setDraft] = React.useState('');
   const commit = () => {
@@ -292,6 +302,7 @@ export const TagInput: React.FC<any> = ({ value = [], onChange, placeholder, dis
       ))}
       {!readonly && (
         <FluentInput
+          {...props}
           appearance="underline"
           value={draft}
           disabled={disabled}
@@ -310,11 +321,11 @@ export const TagInput: React.FC<any> = ({ value = [], onChange, placeholder, dis
   );
 };
 
-export const RangeInput: React.FC<any> = ({ value = [], onChange, separator = '—', disabled, readonly, className, style, ...props }) => (
-  <span className={`fluent-range-input ${className || ''}`} style={style}>
-    <FluentInput {...props} value={value?.[0] ?? ''} disabled={disabled} readOnly={readonly} onChange={(_, data) => onChange?.([data.value, value?.[1] ?? ''])} />
+export const RangeInput: React.FC<any> = ({ value = [], onChange, separator = '—', disabled, readonly, className, style, id, ...props }) => (
+  <span id={id} role="group" aria-labelledby={props['aria-labelledby']} aria-describedby={props['aria-describedby']} className={`fluent-range-input ${className || ''}`} style={style}>
+    <FluentInput {...props} aria-labelledby={undefined} aria-label="起始值" value={value?.[0] ?? ''} disabled={disabled} readOnly={readonly} onChange={(_, data) => onChange?.([data.value, value?.[1] ?? ''])} />
     <span>{separator}</span>
-    <FluentInput {...props} value={value?.[1] ?? ''} disabled={disabled} readOnly={readonly} onChange={(_, data) => onChange?.([value?.[0] ?? '', data.value])} />
+    <FluentInput {...props} aria-labelledby={undefined} aria-label="结束值" value={value?.[1] ?? ''} disabled={disabled} readOnly={readonly} onChange={(_, data) => onChange?.([value?.[0] ?? '', data.value])} />
   </span>
 );
 
@@ -369,7 +380,7 @@ export const Select: React.FC<any> = ({
       {...props}
       className={className}
       style={style}
-      aria-label={typeof label === 'string' ? label : placeholder || '请选择'}
+      aria-label={props['aria-label'] ?? (props['aria-labelledby'] ? undefined : typeof label === 'string' ? label : placeholder || '请选择')}
       placeholder={placeholder}
       disabled={disabled || readonly}
       multiselect={Boolean(multiple)}
@@ -454,11 +465,12 @@ Textarea.displayName = 'Textarea';
 
 export const Switch: React.FC<any> = ({ value, checked, defaultValue, label, customValue, onChange, ...props }) => {
   const resolved = checked ?? value ?? defaultValue ?? false;
+  const isChecked = Boolean(Array.isArray(customValue) ? resolved === customValue[0] : resolved);
   return (
     <FluentSwitch
       {...props}
-      checked={Boolean(Array.isArray(customValue) ? resolved === customValue[0] : resolved)}
-      label={label}
+      checked={isChecked}
+      label={Array.isArray(label) ? label[isChecked ? 0 : 1] : label}
       onChange={(event, data) => onChange?.(Array.isArray(customValue) ? customValue[data.checked ? 0 : 1] : data.checked, { e: event })}
     />
   );
@@ -1141,3 +1153,7 @@ export const MessagePlugin = {
   warning: (content: React.ReactNode) => message('warning', content),
   info: (content: React.ReactNode) => message('info', content),
 };
+
+// FormItem links labels to each adapter's primary input, while compound controls use group semantics.
+[Input, InputNumber, TagInput, Select, Textarea, Switch, Checkbox].forEach(control => Object.assign(control, { [formControlKind]: 'input' }));
+[RangeInput, RadioGroup].forEach(control => Object.assign(control, { [formControlKind]: 'group' }));

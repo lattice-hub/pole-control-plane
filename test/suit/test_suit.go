@@ -47,20 +47,18 @@ import (
 	"github.com/pole-io/pole-server/pkg/common/utils"
 	"github.com/pole-io/pole-server/pkg/config"
 	"github.com/pole-io/pole-server/pkg/goverrule"
+	_ "github.com/pole-io/pole-server/pkg/goverrule/interceptor"
 	"github.com/pole-io/pole-server/pkg/namespace"
 	ns "github.com/pole-io/pole-server/pkg/namespace"
+	_ "github.com/pole-io/pole-server/pkg/namespace/interceptor"
 	"github.com/pole-io/pole-server/pkg/service"
 	"github.com/pole-io/pole-server/pkg/service/batch"
 	"github.com/pole-io/pole-server/pkg/service/healthcheck"
+	_ "github.com/pole-io/pole-server/pkg/service/interceptor"
 	"github.com/pole-io/pole-server/plugin/access_control/auth"
 	storeplugin "github.com/pole-io/pole-server/plugin/store"
 	sqldb "github.com/pole-io/pole-server/plugin/store/mysql"
 	testdata "github.com/pole-io/pole-server/test/data"
-
-	_ "github.com/pole-io/pole-server/pkg/config/interceptor"
-	_ "github.com/pole-io/pole-server/pkg/goverrule/interceptor"
-	_ "github.com/pole-io/pole-server/pkg/namespace/interceptor"
-	_ "github.com/pole-io/pole-server/pkg/service/interceptor"
 )
 
 func init() {
@@ -119,8 +117,6 @@ func SetTestDataClean(callback func() TestDataClean) {
 
 type DiscoverTestSuit struct {
 	cfg                 *TestConfig
-	configServer        config.ConfigCenterServer
-	configOriginSvr     config.ConfigCenterServer
 	server              service.DiscoverServer
 	originSvr           service.DiscoverServer
 	ruleSvr             goverrule.GoverRuleServer
@@ -170,14 +166,6 @@ func (d *DiscoverTestSuit) GoverRuleServer() goverrule.GoverRuleServer {
 
 func (d *DiscoverTestSuit) OriginGoverRuleServer() goverrule.GoverRuleServer {
 	return d.originRuleSvr
-}
-
-func (d *DiscoverTestSuit) ConfigServer() config.ConfigCenterServer {
-	return d.configServer
-}
-
-func (d *DiscoverTestSuit) OriginConfigServer() *config.Server {
-	return d.configOriginSvr.(*config.Server)
 }
 
 func (d *DiscoverTestSuit) HealthCheckServer() *healthcheck.Server {
@@ -230,7 +218,6 @@ func (d *DiscoverTestSuit) loadConfig() error {
 		return err
 	}
 	d.cfg.Naming.Interceptors = service.GetChainOrder()
-	d.cfg.Config.Interceptors = config.GetChainOrder()
 	return err
 }
 
@@ -376,15 +363,6 @@ func (d *DiscoverTestSuit) initialize(opts ...options) error {
 	d.server = val
 	d.originSvr = originVal
 
-	if !d.cfg.DisableConfig {
-		confVal, confOriginVal, err := config.TestInitialize(ctx, d.cfg.Config, d.Storage, cacheMgn, namespaceSvr, d.userMgn, d.strategyMgn)
-		if err != nil {
-			panic(err)
-		}
-		d.configServer = confVal
-		d.configOriginSvr = confOriginVal
-	}
-
 	// 多等待一会
 	d.updateCacheInterval = d.cacheMgr.GetUpdateCacheInterval() + time.Millisecond*500
 	if err := cache.TestRun(ctx, d.cacheMgr); err != nil {
@@ -409,9 +387,6 @@ func TestNamespaceInitialize(ctx context.Context, nsOpt *namespace.Config, stora
 
 func (d *DiscoverTestSuit) Destroy() {
 	d.cancel()
-	if svr, ok := d.configOriginSvr.(*config.Server); ok {
-		svr.WatchCenter().Close()
-	}
 	d.healthCheckServer.Destroy()
 	_ = d.cacheMgr.Close()
 	_ = d.Storage.Destroy()
@@ -797,28 +772,7 @@ func (d *DiscoverTestSuit) ClearTestDataWhenUseRDS() error {
 		tx := proxyTx.GetDelegateTx().(*sqldb.BaseTx)
 
 		defer tx.Rollback()
-
-		_, err = tx.Exec("delete from config_file_group where namespace = ? ", testNamespace)
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec("delete from config_file where namespace = ? ", testNamespace)
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec("delete from config_file_release where namespace = ? ", testNamespace)
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec("delete from config_file_release_history where namespace = ? ", testNamespace)
-		if err != nil {
-			return err
-		}
 		_, err = tx.Exec("delete from namespace where name = ? ", testNamespace)
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec("delete from config_file_template where name in (?,?) ", templateName1, templateName2)
 		if err != nil {
 			return err
 		}

@@ -38,7 +38,6 @@ var cleanFuncMapping = map[string]func(timeout time.Duration, job *cleanDeletedR
 	"governance_rule_release": func(timeout time.Duration, job *cleanDeletedResourceJob) {
 		cleanDeletedRules("governance_rule_release", timeout, job)
 	},
-	"config_file_release": cleanDeletedConfigFiles,
 }
 
 var defaultCleanDeletedResourceConfig = CleandeletedResourceConf{
@@ -65,10 +64,6 @@ var defaultCleanDeletedResourceConfig = CleandeletedResourceConf{
 		},
 		{
 			Resource: "governance_rule_release",
-			Enable:   true,
-		},
-		{
-			Resource: "config_file_release",
 			Enable:   true,
 		},
 	},
@@ -155,21 +150,6 @@ func (job *cleanDeletedResourceJob) clear() {
 
 func (job *cleanDeletedResourceJob) interval() time.Duration {
 	return time.Minute
-}
-
-func cleanDeletedConfigFiles(timeout time.Duration, job *cleanDeletedResourceJob) {
-	batchSize := uint32(100)
-	for {
-		count, err := job.storage.BatchCleanDeletedConfigFiles(timeout, batchSize)
-		if err != nil {
-			jobLog().Error("[Maintain][Job][CleanDeletedConfigFiles] batch clean deleted config_files failed", zap.Error(err))
-			break
-		}
-		jobLog().Info("[Maintain][Job][CleanDeletedConfigFiles] clean deleted config_files", zap.Uint32("count", count))
-		if count < batchSize {
-			break
-		}
-	}
 }
 
 func cleanDeletedServices(timeout time.Duration, job *cleanDeletedResourceJob) {

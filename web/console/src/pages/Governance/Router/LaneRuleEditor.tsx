@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-    Drawer,
     Form,
     Input,
     Button,
@@ -14,6 +13,7 @@ import {
     InputNumber,
     Table,
 } from 'components/Fluent';
+import EditorDrawer from 'components/EditorDrawer';
 
 import { useAppDispatch, useAppSelector } from 'modules/store';
 import Text from 'components/Text';
@@ -261,16 +261,16 @@ const LaneRuleEditor: React.FC<LaneRuleEditorProps> = ({ op, visible, onClose })
 
     return (
         <>
-            <Drawer
+            <EditorDrawer
                 visible={visible}
                 onClose={onClose}
-                header="添加泳道规则"
-                placement="right"
-                size="50%"
+                title="添加泳道规则"
+                description="定义流量进入泳道的匹配条件与优先级。"
+                width="wide"
                 footer={null}
             >
                 {rendierEditor()}
-            </Drawer>
+            </EditorDrawer>
         </>
     );
 };

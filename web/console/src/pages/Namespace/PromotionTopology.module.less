@@ -1,19 +1,150 @@
-.page { min-height: 100%; padding: 20px 24px 40px; background: #f6f7f9; }
-.toolbarActions { display: flex; align-items: center; gap: 8px; }
-.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 12px 0; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
-.summary > div { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; border-right: 1px solid #edf0f2; }
-.summary > div:last-child { border-right: 0; }
-.summary span, .sectionHeading span { color: #6b7280; font-size: 12px; }
-.summary strong { color: #1f2937; font-size: 18px; }
-.graph { display: flex; min-height: 116px; align-items: center; gap: 12px; overflow-x: auto; padding: 20px; border: 1px solid #dce3ea; border-radius: 8px; background: #fbfcfe; }
-.graphEdge { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
-.graphEdge span { min-width: 112px; padding: 12px 16px; border: 1px solid #cfd8e3; border-radius: 6px; background: #fff; text-align: center; font-weight: 600; }
-.editorCard { margin-top: 12px; padding: 18px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
-.sectionHeading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.sectionHeading > div { display: flex; flex-direction: column; gap: 4px; }
-.edgeTable { display: flex; flex-direction: column; gap: 8px; }
-.edgeRow { display: grid; grid-template-columns: minmax(150px, 1fr) 24px minmax(150px, 1fr) 100px 100px 80px 52px; align-items: center; gap: 10px; padding: 10px; border-radius: 6px; background: #f8fafc; }
-.edgeRow label { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 13px; }
-.bindingRow { display: grid; grid-template-columns: minmax(180px, 1fr) 24px minmax(180px, 1fr) 52px; gap: 10px; align-items: center; max-width: 780px; margin-top: 8px; }
-.publishBar { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 12px; padding: 14px 18px; border: 1px solid #d9e2ec; border-radius: 8px; background: #fff; }
-@media (max-width: 1100px) { .summary { grid-template-columns: repeat(2, 1fr); } .edgeRow { grid-template-columns: 1fr 24px 1fr; } }
+.page {
+  min-height: 100%;
+  padding: 20px 24px 40px;
+  color: var(--app-text);
+  background: var(--app-bg);
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 12px 0;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-right: 1px solid var(--app-border-subtle);
+}
+
+.summary > div:last-child {
+  border-right: 0;
+}
+
+.summary span,
+.sectionHeading span {
+  color: var(--app-text-secondary);
+  font-size: 12px;
+}
+
+.summary strong {
+  color: var(--app-text);
+  font-size: 18px;
+}
+
+.graph {
+  display: flex;
+  min-height: 116px;
+  align-items: center;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 20px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface-subtle);
+}
+
+.graphEdge {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.graphEdge span {
+  min-width: 112px;
+  padding: 12px 16px;
+  border: 1px solid var(--app-brand-border);
+  border-radius: 6px;
+  color: var(--app-text);
+  background: var(--app-brand-subtle);
+  text-align: center;
+  font-weight: 600;
+}
+
+.editorCard {
+  margin-top: 12px;
+  padding: 18px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.sectionHeading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.edgeTable {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edgeRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 24px minmax(150px, 1fr) 100px 100px 80px 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--app-surface-subtle);
+}
+
+.edgeRow label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--app-text);
+  font-size: 13px;
+}
+
+.bindingRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 24px minmax(180px, 1fr) 52px;
+  gap: 10px;
+  align-items: center;
+  max-width: 780px;
+  margin-top: 8px;
+}
+
+.publishBar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+@media (max-width: 1100px) {
+  .summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .edgeRow {
+    grid-template-columns: 1fr 24px 1fr;
+  }
+}

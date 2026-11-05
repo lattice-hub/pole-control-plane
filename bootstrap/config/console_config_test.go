@@ -24,6 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pole-io/pole-server/pkg/systemconfig"
 )
 
 func TestLoad_LoadsEmbeddedConsoleConfig(t *testing.T) {
@@ -38,6 +40,8 @@ bootstrap:
       listenPort: 8080
     poleServer:
       address: 127.0.0.1:8090
+    limiterServer:
+      address: 127.0.0.1:8102
 `), 0o644))
 
 	cfg, err := Load(cfgPath)
@@ -47,6 +51,7 @@ bootstrap:
 	assert.Equal(t, "127.0.0.1", cfg.Bootstrap.Console.WebServer.ListenIP)
 	assert.Equal(t, 8080, cfg.Bootstrap.Console.WebServer.ListenPort)
 	assert.Equal(t, "127.0.0.1:8090", cfg.Bootstrap.Console.PoleServer.Address)
+	assert.Equal(t, "127.0.0.1:8102", cfg.Bootstrap.Console.LimiterServer.Address)
 }
 
 func TestLoad_LoadsDeployDefaultAllConfig(t *testing.T) {
@@ -57,6 +62,7 @@ func TestLoad_LoadsDeployDefaultAllConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, StartModeAll, cfg.Bootstrap.Mode)
 	assert.Equal(t, 8080, cfg.Bootstrap.Console.WebServer.ListenPort)
+	assert.Equal(t, 7200, cfg.Bootstrap.Console.WebServer.JWT.Expired)
 	assert.Equal(t, "greptimedb", cfg.Bootstrap.Console.ObservabilityQuery.Provider)
 	assert.Equal(t, "http://127.0.0.1:4000", cfg.Bootstrap.Console.ObservabilityQuery.Endpoint)
 	require.Len(t, cfg.Plugin.Statis.Entries, 3)
@@ -66,6 +72,9 @@ func TestLoad_LoadsDeployDefaultAllConfig(t *testing.T) {
 	require.NotNil(t, cfg.Naming.Batch["register"])
 	require.NotNil(t, cfg.Naming.HealthChecks.Batch)
 	require.NotEmpty(t, cfg.Naming.HealthChecks.Checkers)
+	dsn, ok := systemconfig.LookupValue(cfg.Store.Option, "master", "dns").(string)
+	require.True(t, ok)
+	assert.Contains(t, dsn, "parseTime=true", "MySQL timestamp columns must scan into time.Time")
 }
 
 func TestLoadAPIEntries_LoadsDeployAIMCPAccess(t *testing.T) {

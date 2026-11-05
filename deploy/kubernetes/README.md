@@ -1,6 +1,8 @@
 # Pole 本地 Kubernetes 部署
 
-本目录在 `pole-system` namespace 编排 Pole Control Plane 和 OpenTelemetry Collector。观测存储复用 `tidemind/maas-greptimedb-frontend`，Pole 通过本 namespace 的 `pole-greptimedb` ExternalName Service 保持稳定依赖接口，并使用独立逻辑库 `pole_observability`。MySQL 不进入 Kubernetes，Pod 通过 `pole-mysql` ExternalName Service 访问宿主机 `host.docker.internal:3306`。Console 复用 `tidemind/tidemind-gateway`，通过跨 namespace `HTTPRoute` 暴露域名。
+> 当前独立 Helm 环境（`orbstack/pole-ui-review`）通过 `http://lattice-hub.localhost/` 访问，见 [OrbStack 域名入口](README.orbstack.md)。下文为依赖 `tidemind` 的既有共享部署方式。
+
+本目录在 `pole-system` namespace 编排 Pole Control Plane（`full` profile，内含 Limiter Server）和 OpenTelemetry Collector。观测存储复用 `tidemind/maas-greptimedb-frontend`，Pole 通过本 namespace 的 `pole-greptimedb` ExternalName Service 保持稳定依赖接口，并使用独立逻辑库 `pole_observability`。MySQL 不进入 Kubernetes，Pod 通过 `pole-mysql` ExternalName Service 访问宿主机 `host.docker.internal:3306`。Console 复用 `tidemind/tidemind-gateway`，通过跨 namespace `HTTPRoute` 暴露域名。
 
 ## 部署
 
@@ -41,7 +43,7 @@ http://pole.localhost/
 http://pole.localhost/agent
 ```
 
-`.localhost` 由浏览器和系统解析到本机，不需要修改 `/etc/hosts`。`HTTPRoute` 位于 `tidemind` namespace；`pole-system` 中的 `ReferenceGrant` 按来源 namespace 和目标 Service 收敛授权，只允许 `tidemind` 的 HTTPRoute 引用 `pole-control-plane:8080`，不会暴露 GreptimeDB、Collector 或 MySQL。
+`.localhost` 由浏览器和系统解析到本机，不需要修改 `/etc/hosts`。`HTTPRoute` 位于 `tidemind` namespace；`pole-system` 中的 `ReferenceGrant` 按来源 namespace 和目标 Service 收敛授权，只允许 `tidemind` 的 HTTPRoute 引用 `pole-control-plane:8080`，不会暴露 GreptimeDB、Collector、Limiter 运维端口或 MySQL。集群内 SDK 通过 `pole-limiter:8101` 使用限流协议，Console 通过内部 `8102` 查询租约运行态。
 
 ```bash
 kubectl -n pole-system get pods,svc,pvc
@@ -61,18 +63,13 @@ kubectl -n pole-system rollout restart deployment/pole-control-plane
 kubectl -n pole-system rollout status deployment/pole-control-plane --timeout=240s
 ```
 
-如需绕过 Gateway 排障或从宿主机调试 Pole 的 gRPC、Nacos、Apollo、Eureka、xDS 等协议，OrbStack 仍会为 `LoadBalancer` Service 分配本机集群地址。该直连入口是本地开发边界；生产部署应按协议暴露需求拆分或收敛 Service：
+`pole-control-plane` 默认使用 `ClusterIP`，宿主机只通过 `pole.localhost` 的 Gateway 访问 Console，
+不会再把 `127.0.0.1:8080` 作为隐式入口。如需绕过 Gateway 排障或调试 Pole 的 HTTP、gRPC、
+Nacos、Apollo、Eureka、xDS 等协议，显式启动临时端口转发：
 
 ```bash
-POLE_IP=$(kubectl -n pole-system get service pole-control-plane -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl -fsS "http://${POLE_IP}:8080/"
-curl -fsS "http://${POLE_IP}:8080/agent"
-```
-
-如果本地 Kubernetes 没有 LoadBalancer 实现，可以使用：
-
-```bash
-kubectl -n pole-system port-forward service/pole-control-plane 18080:8080 18090:8090
+kubectl --context orbstack -n pole-system port-forward service/pole-control-plane 18080:8080 18090:8090
+curl -fsS http://127.0.0.1:18080/
 ```
 
 ## 数据边界

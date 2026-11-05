@@ -18,7 +18,7 @@
 package v1
 
 import (
-	"github.com/pole-io/pole-server/pkg/config"
+	"github.com/pole-io/pole-server/pkg/config/unified"
 	"github.com/pole-io/pole-server/pkg/goverrule"
 	"github.com/pole-io/pole-server/pkg/service"
 	"github.com/pole-io/pole-server/pkg/service/healthcheck"
@@ -96,14 +96,13 @@ func WithCAllowAccess(f func(method string) bool) COption {
 	}
 }
 
-func WithConfigServer(svr config.ConfigCenterServer) COption {
-	return func(s *ConfigGRPCServer) {
-		s.configServer = svr
-	}
+// WithUnifiedConfigServer 为现有客户端 ConfigGRPC 注入统一读取核心；不提供管理 RPC。
+func WithUnifiedConfigServer(service *unified.Service) COption {
+	return func(server *ConfigGRPCServer) { server.unifiedService = service }
 }
 
 type ConfigGRPCServer struct {
-	configServer   config.ConfigCenterServer
+	unifiedService *unified.Service
 	enterRateLimit func(ip string, method string) uint32
 	allowAccess    func(method string) bool
 }

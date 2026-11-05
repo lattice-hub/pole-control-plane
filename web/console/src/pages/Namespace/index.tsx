@@ -28,7 +28,10 @@ const protectedNamespaceReason = (namespace?: Pick<NamespaceView, 'name' | 'kind
     return '';
 };
 
-const columns = (operateNamespace: (op: Op, row: TableRowData) => void): PrimaryTableProps['columns'] => [
+const columns = (
+    operateNamespace: (op: Op, row: TableRowData) => void,
+    openEnvironment: (row: TableRowData) => void,
+): PrimaryTableProps['columns'] => [
     {
         colKey: 'name',
         title: '名称',
@@ -38,7 +41,11 @@ const columns = (operateNamespace: (op: Op, row: TableRowData) => void): Primary
             const isSystem = row.kind === 'SYSTEM' || row.name === SYSTEM_NAMESPACE;
             return (
                 <div className={style.namespaceNameRow}>
-                    <ResourceNameLink name={row.name} onClick={() => operateNamespace('view', row)} />
+                    <ResourceNameLink
+                        name={row.name}
+                        ariaLabel={isSystem ? `查看系统空间 ${row.name}` : `查看环境 ${row.name} 的全部资源`}
+                        onClick={() => isSystem ? operateNamespace('view', row) : openEnvironment(row)}
+                    />
                     {isDefault && <Tag size="small" variant="light">默认空间</Tag>}
                     {isSystem && (
                         <Tooltip content="Pole 内部组件使用的系统命名空间">
@@ -249,6 +256,10 @@ export default React.memo(() => {
         refreshTable(1, limit, keyword);
     };
 
+    const openEnvironment = (row: TableRowData) => {
+        navigate(`/namespace/environment?name=${encodeURIComponent(String(row.name || ''))}`);
+    };
+
     const resetFilter = () => {
         setQuery('');
         refreshTable(1, limit, '');
@@ -334,7 +345,7 @@ export default React.memo(() => {
                         <section className={`${style.tableSurface} ${style.namespaceTableSurface}`}>
                             <Table
                                 data={datas}
-                                columns={columns(operateNamespace)}
+                                columns={columns(operateNamespace, openEnvironment)}
                                 loading={loading}
                                 rowKey="name"
                                 size="large"
@@ -386,7 +397,7 @@ export default React.memo(() => {
                                 <Button size="small" variant="outline" onClick={() => navigate('/discovery/service?scope=system&namespace=pole-system')}>
                                     查看系统服务
                                 </Button>
-                                <Button size="small" variant="outline" onClick={() => navigate('/configuration/group?scope=system&namespace=pole-system')}>
+                                <Button size="small" variant="outline" onClick={() => navigate('/configuration?environment=pole-system')}>
                                     查看配置资源
                                 </Button>
                                 <Button size="small" variant="outline" onClick={() => navigate('/system-configuration')}>
@@ -421,7 +432,7 @@ export default React.memo(() => {
                         <section className={`${style.tableSurface} ${style.namespaceTableSurface}`}>
                             <Table
                                 data={systemNamespaces}
-                                columns={columns(operateNamespace)}
+                                columns={columns(operateNamespace, openEnvironment)}
                                 loading={systemLoading}
                                 rowKey="name"
                                 size="large"

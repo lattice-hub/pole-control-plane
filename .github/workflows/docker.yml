@@ -1,104 +1,69 @@
-# Tencent is pleased to support the open source community by making Polaris available.
-#
-# Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
-#
-# Licensed under the BSD 3-Clause License (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# https://opensource.org/licenses/BSD-3-Clause
-#
-# Unless required by applicable law or agreed to in writing, software distributed
-# under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-# CONDITIONS OF ANY KIND, either express or implied. See the License for the
-# specific language governing permissions and limitations under the License.
-
-name: DockerImage
+name: Publish GHCR image
 
 on:
   release:
-    types: [ published ]
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
 
 jobs:
-  release:
-    name: Release Polaris Docker Image
+  publish:
+    name: Publish linux/amd64 and linux/arm64
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [ linux ]
-        goarch: [ amd64 ]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - name: Get version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.21.5"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
-          config-inline: |
-            insecure-entitlements = [ "network.host" ]
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
-          username: ${{ secrets.POLARIS_DOCKER_NAME }}
-          password: ${{ secrets.POLARIS_DOCKER_PASSWORD }}
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.created=${{ github.event.release.published_at }}
 
-      - name: Build Server
-        id: build-hub-server
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          DOCKER_TAG: ${{ steps.get_version.outputs.VERSION }}
-        run: |
-          ls -lstrh
-          make build-docker IMAGE_TAG=${DOCKER_TAG}
-
-      - name: Build Prometheus
-        id: build-hub-prom
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          DOCKER_TAG: ${{ steps.get_version.outputs.VERSION }}
-        run: |
-          cd release/standalone/docker/prometheus
-          ls -lstrh
-          bash build_docker_prom.sh ${DOCKER_TAG}
-
-      - name: Log in to Tencent CCR
-        uses: docker/login-action@v1
+      - name: Build and publish image
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
-          registry: ccr.ccs.tencentyun.com
-          username: ${{ secrets.TENCENT_DOCKER_NAME }}
-          password: ${{ secrets.TENCENT_DOCKER_PASSWORD }}
+          context: .
+          file: deploy/kubernetes/Dockerfile.release
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.event.release.tag_name }}
+            BUILD_DATE=${{ github.event.release.published_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          sbom: true
+          provenance: false
 
-      - name: Build Server
-        id: build-tencent-server
-        env:
-          DOCKER_REPOSITORY: ccr.ccs.tencentyun.com/polarismesh
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          DOCKER_TAG: ${{ steps.get_version.outputs.VERSION }}
-        run: |
-          ls -lstrh
-          make build-docker IMAGE_TAG=${DOCKER_TAG}
-
-      - name: Build Prometheus
-        id: build-tencent-prom
-        env:
-          DOCKER_REPOSITORY: ccr.ccs.tencentyun.com/polarismesh
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          DOCKER_TAG: ${{ steps.get_version.outputs.VERSION }}
-        run: |
-          cd release/standalone/docker/prometheus
-          ls -lstrh
-          bash build_docker_prom.sh ${DOCKER_TAG}
+      - name: Attest published image
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

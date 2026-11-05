@@ -163,9 +163,6 @@ export function describeOperationLog(params: DescribeOperationLogRequest) {
 // RUserGroupRelation  Resource = "UserGroupRelation"
 // RAuthStrategy       Resource = "AuthStrategy"
 // RAuthRole           Resource = "Role"
-// RConfigGroup        Resource = "ConfigGroup"
-// RConfigFile         Resource = "ConfigFile"
-// RConfigFileRelease  Resource = "ConfigFileRelease"
 // RCircuitBreakerRule Resource = "CircuitBreakerRule"
 // RFaultDetectRule    Resource = "FaultDetectRule"
 // RServiceContract    Resource = "ServiceContract"
@@ -203,18 +200,6 @@ export const ResourceType = [
     {
         value: 'RateLimit',
         label: '限流规则',
-    },
-    {
-        value: 'ConfigGroup',
-        label: '配置组',
-    },
-    {
-        value: 'ConfigFile',
-        label: '配置文件',
-    },
-    {
-        value: 'ConfigFileRelease',
-        label: '配置文件发布',
     },
     {
         value: 'CircuitBreakerRule',

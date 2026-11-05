@@ -8,13 +8,11 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 const namespaceApi = read('src/services/namespace.ts');
 const namespaceModule = read('src/modules/namespace/index.ts');
 const namespacePage = read('src/pages/Namespace/index.tsx');
-const templatePage = read('src/pages/Configuration/Template/index.tsx');
+const configPage = read('src/pages/Configuration/Unified/index.tsx');
 const logicalService = read('src/services/logical_service.ts');
-const configGroups = read('src/services/config_group.ts');
-const configFiles = read('src/services/config_files.ts');
 const servicePage = read('src/pages/Discovery/Services/index.tsx');
+const serviceList = read('src/pages/Discovery/Services/services.tsx');
 const systemServices = read('src/pages/Discovery/Services/SystemNamespaceServices.tsx');
-const configGroupPage = read('src/pages/Configuration/Group/group.tsx');
 
 assert.match(namespaceApi, /type NamespaceKind = 'BUSINESS' \| 'SYSTEM'/,
   '前端必须使用类型化 NamespaceKind');
@@ -45,24 +43,20 @@ assert.match(namespacePage, /查看系统服务[\s\S]*查看配置资源/,
   '系统空间必须提供原始服务与配置资源入口');
 assert.match(servicePage, /scope.*system[\s\S]*SystemNamespaceServices/,
   '服务页必须提供单 Namespace 的系统维护模式');
+assert.match(serviceList, /<TabPanel value="logical"[\s\S]*<TabPanel value="unbound"[\s\S]*<TabPanel value="system"/,
+  '服务首页必须并列提供逻辑服务、未关联环境服务和系统服务三个一级页签');
+assert.match(serviceList, /activeTab === ['"]system['"][\s\S]*SystemNamespaceServices/,
+  '系统服务页签必须复用按 SYSTEM Namespace 查询的原始服务列表');
+assert.match(serviceList, /scope=system&namespace=/,
+  '系统服务页签必须保留可分享的 scope=system 深链');
 assert.match(systemServices, /describeServices\([\s\S]*namespace/,
   '系统服务维护模式必须按 pole-system 显式查询原始服务');
-assert.match(configGroupPage, /scope.*system[\s\S]*describeSystemConfigGroups/,
-  '配置页必须提供单 Namespace 的系统维护模式');
+assert.match(configPage, /params\.get\('environment'\)/,
+  '配置页必须按显式 environment key 定位，支持 pole-system');
 assert.match(namespacePage, /refreshTable\(page, limit, query\);[\s\S]*refreshSystemNamespaces\(\)/,
   '编辑 Drawer 关闭后必须同时刷新业务和系统空间');
 
-assert.match(templatePage, /describeBusinessNamespaces/,
-  '模板 Value 的 Namespace 选择器不得包含系统空间');
 assert.match(logicalService, /namespace !== ['"]pole-system['"]/,
   '逻辑服务前端必须对旧后端结果做系统空间防御过滤');
-assert.match(configGroups, /group\.namespace !== SYSTEM_NAMESPACE/,
-  '配置分组跨环境聚合必须排除 pole-system');
-assert.doesNotMatch(configGroups, /describeBusinessNamespaces/,
-  '配置分组不得用另一套 Namespace 授权结果二次过滤直接授权资源');
-assert.match(configFiles, /file\.namespace !== SYSTEM_NAMESPACE/,
-  '配置文件跨环境聚合必须排除 pole-system');
-assert.doesNotMatch(configFiles, /describeBusinessNamespaces/,
-  '配置文件不得用另一套 Namespace 授权结果二次过滤直接授权资源');
 
 console.log('system namespace kind contract verified');

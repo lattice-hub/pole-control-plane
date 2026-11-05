@@ -34,6 +34,7 @@ import (
 	cachebase "github.com/pole-io/pole-server/pkg/cache/base"
 	"github.com/pole-io/pole-server/pkg/common/eventhub"
 	"github.com/pole-io/pole-server/pkg/common/log"
+	commonotel "github.com/pole-io/pole-server/pkg/common/otel"
 	"github.com/pole-io/pole-server/pkg/common/syncs/container"
 	matchs "github.com/pole-io/pole-server/pkg/common/utils/match"
 )
@@ -185,7 +186,11 @@ func (nsCache *namespaceCache) singleUpdate() (error, bool) {
 }
 
 func (nsCache *namespaceCache) Query(ctx context.Context, args *cacheapi.NamespaceArgs) (uint32, []*types.Namespace, error) {
+	ctx, end := commonotel.StartSpan(ctx, "cache.namespace.query", "cache")
+	defer end(nil)
+
 	if err := nsCache.forceQueryUpdate(); err != nil {
+		end(err)
 		return 0, nil, err
 	}
 

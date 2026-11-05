@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Input, InputNumber, Select, Switch, TagInput } from 'components/Fluent';
+import { Button, Input, InputNumber, Select, Switch, TagInput } from 'components/Fluent';
+import EditorDrawer from 'components/EditorDrawer';
 import { EffectiveSystemSetting, ManagedSystemDomain, saveManagedSystemDraft } from 'services/system_configuration';
 import { toRequestErrorPayload } from 'utils/request';
 
@@ -77,10 +78,11 @@ export default function ManagedDomainDraftPanel({ visible, settings, domain, onC
   };
 
   return (
-    <Drawer
+    <EditorDrawer
       visible={visible}
-      size="720px"
-      header={`${settings[0]?.domain || ''} 配置草稿`}
+      width="standard"
+      title={`${settings[0]?.domain || ''} 配置草稿`}
+      description="保存仅生成待发布草稿，不会立即改变当前实例。"
       onClose={onClose}
       footer={(
         <div className={style.managedDrawerFooter}>
@@ -151,6 +153,6 @@ export default function ManagedDomainDraftPanel({ visible, settings, domain, onC
           })}
         </div>
       </div>
-    </Drawer>
+    </EditorDrawer>
   );
 }

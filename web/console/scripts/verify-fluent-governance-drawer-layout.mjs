@@ -18,8 +18,6 @@ const routeStyle = read('src/pages/Governance/Router/CustomRouteEditor.module.le
 const securityStyle = read('src/pages/Governance/Security/index.module.less');
 const rateLimitTable = read('src/pages/Governance/RateLimit/RateLimitTable.tsx');
 const circuitBreakerEditor = read('src/pages/Governance/CircuitBreaker/CircuitBreakerEditor.tsx');
-const configTabs = read('src/pages/Configuration/Group/Files/index.module.less');
-const subscribe = read('src/pages/Configuration/Group/Files/SubscribeTable.tsx');
 
 assert(fluent.includes("{ ...style, width: size, maxWidth: 'calc(100vw - 32px)' }"), 'Fluent Drawer must preserve custom governance drawer widths and keep size authoritative');
 assert(fluent.includes('headerClassName') && fluent.includes('bodyClassName'), 'Fluent Drawer must expose stable layout classes');
@@ -43,9 +41,4 @@ assert(securityStyle.includes('.ruleWorkspace') && securityStyle.includes('min-w
 assert(rateLimitTable.includes('size={WIDE_RULE_DETAIL_DRAWER_SIZE}'), 'Rate-limit details must use the same wide drawer in direct and workbench entrypoints');
 assert(circuitBreakerEditor.includes("op === 'create' || viewRule?.editable !== false"), 'Circuit-breaker actions must remain available unless the API explicitly denies editing');
 
-assert(configTabs.includes('> :global(.fluent-tab-content)'), 'Configuration file tabs must size the Fluent tab content');
-assert(configTabs.includes('overflow: auto'), 'Configuration file tab content must remain scrollable');
-assert(!subscribe.includes('<Tree'), 'Configuration subscribers must not reserve an empty version rail');
-assert(!subscribe.includes('versionRail'), 'Configuration subscribers must use the full table width');
-
-console.log('Fluent governance drawer and configuration layout contracts verified');
+console.log('Fluent governance drawer layout contracts verified');

@@ -1,73 +1,32 @@
 ---
+type: Feature
 title: 配置中心（`pkg/config/`）
+description: 统一配置定义、草稿、原子发布与多灰度，原生客户端本地渲染，兼容协议按发布开关转换。
+status: stable
 tags: [business, feature, config]
-links: [namespace, architecture, storage, cache-layer, adr-config-template-client-rendering, adr-environment-promotion-topology, pole-product-capability-matrix-research]
-updated: 2026-08-10
-sources: 1
+links: [namespace, adr-config-template-values-unification]
+updated: 2026-11-05
+sources:
+  - resource: ../../../pkg/config/unified/service.go
+    title: 统一配置领域核心
+  - resource: ../../../pkg/config/unified/discover.go
+    title: 标签选择与原生渲染快照
 ---
 
 # 配置中心（`pkg/config/`）
 
-管理支持灰度发布的版本化配置文件。相同分组名，以及相同分组下的相同文件名，表示同一配置资源在不同命名空间中的独立环境实例；各环境分别维护草稿、版本和发布状态。整体架构见 [[architecture]]，命名空间依赖见 [[namespace]]，存储接口见 [[storage]]，缓存层见 [[cache-layer]]。
+用户管理一份完整配置定义：模板、参数、默认 values、标签取值规则和 Apollo/Nacos/Consul 转换开关。每个 environment/group/name 独立维护草稿、一个正式版本、多个灰度版本和不可变历史；模板与 values 一起发布。
 
-## `ConfigCenterServer` 接口
+2026-10-03 用户纠正管理源归属：共享模板包含正文与变量声明；具体 values 和标签规则按环境维护，发布允许只选部分环境，并在各目标环境冻结完整版本。正式实现现已新增共享正文CAS、绑定环境及目录管理；各环境独立保存完整草稿，发布冻结完整快照。具体设计与待补边界见[当前 ADR 的跨环境修正](../../technical/adr/adr-config-template-values-unification.md)。
 
-`ConfigCenterServer` 接口由以下子接口组合而成：
-- `ConfigFileGroupOperate` — 配置分组的增删改查
-- `ConfigFileOperate` — 文件的增删改查、导入/导出
-- `ConfigFileReleaseOperate` — 发布、释放、回滚、灰度发布
-- `ConfigFileClientOperate` — 客户端拉取操作
-- `ConfigFileWatchOperate` — 长轮询监听
+2026-11-05 用户进一步确认目标：条件组包含整组AND判断，各key独立关联组与值，兜底可选；未命中且无兜底的key不进入取值结果，显式空字符串保持存在。正式v1现已增加逐参数条件组绑定与可选fallback；旧全配置winning规则保留兼容，新旧模型不能混用。冲突顺序、模板缺值和发布完整性边界见[当前 ADR 的逐key修正](../../technical/adr/adr-config-template-values-unification.md)。
 
-## 限制
+正式v1现已恢复 EXACT、REGEX、NOT_EQUALS、IN、NOT_IN、RANGE 六种客户端标签条件；灰度选版和版本内取值共用后端匹配器，条件 AND，缺标签时负条件也不命中。旧 labels 精确数据保留，正式前端可编辑、保存、预览和查看历史条件。详见[六匹配合同与验证边界](../../technical/adr/adr-config-template-values-unification.md#正式链路恢复六种匹配2026-11-05已实现)。
 
-- 最大分页大小：100
-- 最大文件内容：20,000 个字符
+control-plane 先从生效集合按标签选择唯一版本，再选择该版本内的有效 values。原生 `Discover` 和管理 `Preview` 下发原模板及有效 values，由 SDK/控制台本地渲染。Discover 在双向流上逐次请求、逐次完整响应，没有原生 Watch、Resolve 或主动 push。
 
-## 关键流程
+控制面保留九个核心 HTTP 管理动作：草稿保存、状态读取、预览、发布、停止单版本、停止全部灰度、复制历史到草稿、回滚和下线。草稿及生效集合分别使用 CAS；管理历史使用有界摘要分页和按需单版本详情。另有目录、共享正文读写与灰度转正式四个动作，共13个。环境内仍有配置聚合（包括下线历史）或共享正文绑定时不能删除环境。
 
-1. **编辑**：创建/更新配置文件（以草稿形式存储）
-2. **发布**：创建发布快照
-3. **灰度发布**：通过标签匹配向部分客户端发布
-4. **回滚**：恢复到之前的某个版本
-5. **监听**：客户端对变更进行长轮询；当版本号变化时，服务端响应
+全部读取重新认证并授权到业务环境；客户端标签和 Staffname 不授予权限。适配器部署启用且选中发布明确开启转换后，才在外部协议适配层渲染。失败不能转换为空内容或缺失，literal 空值和二进制保留。
 
-## 配置模板与 Namespace Value
-
-配置模板客户端渲染能力已经完成 specification、control-plane 参考实现和 Console 管理入口，
-SDK 与组合 Watch 尚待接入，完整方案见 [[adr-config-template-client-rendering]]：
-
-- 模板全局只复用逻辑身份，内容、格式、Schema 和引擎草稿按 Namespace 隔离；配置文件绑定逻辑模板，由当前环境组合版本决定实际模板快照与 Value 快照。
-- Value 按 `Namespace + Template` 独立维护，并支持正式与灰度发布。
-- 服务端根据客户端标签选择唯一命中的 Value Release，不向 SDK 下发灰度规则。
-- SDK 获取模板与 Value 的原子组合快照，按 `pole-mustache-v1` 在本地缓存并确定性渲染。
-- 服务端提供渲染预览、格式诊断和参考哈希，但预览内容不是客户端运行时权威配置。
-- 模板升级必须通过目标 Namespace 的原子环境组合发布；只影响该环境中绑定同一逻辑模板的配置文件，不跨环境自动生效。
-- `ConfigFile` 只有纯文本与模板两种类型；渲染后的 Value 是 SDK 的运行时结果，不是第三种文件类型。
-- 配置分组使用统一配置清单；创建时选择直接文本或配置模板，两类文件在同一文件树中以来源类型区分，
-  当前 Namespace 的逻辑模板作为同级节点直接可见并用尾部标签区分，不增加模板目录，也不再使用同级页签拆分；点击
-  模板后保持当前页面，由右侧画布就地展示模板详情；模板与配置文件详情共享摘要头、字段网格、任务页签和
-  内容画布的视觉骨架。模板任务依次为模板内容、参数 Schema、环境 Value、版本管理和基本信息；名称、
-  格式、说明与标签只在基本信息页签中展开，新建模板默认进入该页签。
-- 配置分组的环境切换器固定显示在统一清单上方，选择文件或模板后不会消失；资源详情复用该环境上下文，
-  不再渲染第二套环境切换器。分组顶部只保留路径面包屑，不增加重复的工作区身份卡片。
-- Console 提供模板草稿与发布、参数 Schema、Namespace Value 正式/灰度发布、服务端参考预览，
-  配置文件不再手工拼装模板版本与 Value 版本。模板定义页只保存草稿，环境 Value 页通过唯一发布确认弹窗
-  将当前模板草稿与当前环境 Value 草稿原子发布为完整环境配置版本；全量与灰度都绑定两个不可变快照。
-  版本管理保持只读，以一张表展示当前草稿组合和真实历史环境版本，支持直接渲染预览。
-
-## 监听机制（`pkg/config/watcher.go`）
-
-- 客户端使用文件 key + 版本号进行注册
-- 服务端通过 EventHub 在发布事件时通知客户端
-- 支持 SSE（服务器推送事件）和长轮询
-
-## 相关页面
-
-- [[namespace]]
-- [[architecture]]
-- [[storage]]
-- [[cache-layer]]
-- [[adr-config-template-client-rendering]]
-- [[adr-environment-promotion-topology]]
-- [[pole-product-capability-matrix-research]]
+旧文件/分组/独立模板/Value/Binding 管理和 WatchCenter 已移除。当前 Console 以配置文件目录进入共享正文/环境取值编辑，再按ConfigKey发布，Agent Workbench 通过 state/draft 保存完整定义及 CAS。兼容 profile 与已验证范围见[当前 ADR](../../technical/adr/adr-config-template-values-unification.md)；真实外部 SDK、原生 SDK 接纳/缓存和部署业务验收仍需分别验证。

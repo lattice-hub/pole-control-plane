@@ -54,9 +54,6 @@ const (
 	RUserGroup         Resource = "UserGroup"
 	RUserGroupRelation Resource = "UserGroupRelation"
 	RAuthStrategy      Resource = "AuthStrategy"
-	RConfigGroup       Resource = "ConfigGroup"
-	RConfigFile        Resource = "ConfigFile"
-	RConfigFileRelease Resource = "ConfigFileRelease"
 )
 
 // OperationType 操作类型
@@ -82,18 +79,15 @@ const (
 
 var (
 	ResourceTypeInfos = map[string]string{
-		string(RNamespace):         "命名空间",
-		string(RService):           "服务",
-		string(RInstance):          "服务实例",
-		string(RRouting):           "路由规则",
-		string(RRateLimit):         "限流规则",
-		string(RCircuitBreaker):    "熔断规则",
-		string(RUser):              "用户",
-		string(RUserGroup):         "用户组",
-		string(RAuthStrategy):      "鉴权策略",
-		string(RConfigGroup):       "配置分组",
-		string(RConfigFile):        "配置文件",
-		string(RConfigFileRelease): "配置发布",
+		string(RNamespace):      "命名空间",
+		string(RService):        "服务",
+		string(RInstance):       "服务实例",
+		string(RRouting):        "路由规则",
+		string(RRateLimit):      "限流规则",
+		string(RCircuitBreaker): "熔断规则",
+		string(RUser):           "用户",
+		string(RUserGroup):      "用户组",
+		string(RAuthStrategy):   "鉴权策略",
 	}
 
 	OperationTypeInfos = map[string]string{

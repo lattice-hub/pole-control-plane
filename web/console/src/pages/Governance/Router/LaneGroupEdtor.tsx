@@ -441,13 +441,13 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                         {editorState.editable ? (
                             <>
                                 {renderEditField('规则名称', (
-                                    <Input value={draft.name} placeholder="spec-check-lane-group" onChange={(value) => updateDraft(prev => ({ ...prev, name: value, laneGroup: { ...prev.laneGroup, name: value } }))} />
+                                    <Input aria-label="泳道组规则名称" value={draft.name} placeholder="spec-check-lane-group" onChange={(value) => updateDraft(prev => ({ ...prev, name: value, laneGroup: { ...prev.laneGroup, name: value } }))} />
                                 ), styles.formField)}
                                 {renderEditField('优先级', (
-                                    <InputNumber theme="normal" min={0} value={draft.priority} onChange={(value) => updateDraft(prev => ({ ...prev, priority: Number(value || 0) }))} />
+                                    <InputNumber aria-label="泳道组规则优先级" theme="normal" min={0} value={draft.priority} onChange={(value) => updateDraft(prev => ({ ...prev, priority: Number(value || 0) }))} />
                                 ), styles.formField)}
                                 {renderEditField('描述', (
-                                    <Textarea value={draft.desc} autosize={{ minRows: 2, maxRows: 4 }} onChange={(value) => updateDraft(prev => ({ ...prev, desc: value }))} />
+                                    <Textarea aria-label="泳道组规则描述" value={draft.desc} autosize={{ minRows: 2, maxRows: 4 }} onChange={(value) => updateDraft(prev => ({ ...prev, desc: value }))} />
                                 ), `${styles.formField} ${styles.fullWidth}`)}
                                 {renderEditField('规则标签', (
                                     <RuleLabelField
@@ -457,7 +457,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                     />
                                 ), `${styles.formField} ${styles.fullWidth}`)}
                                 <div className={`${styles.formField} ${styles.fullWidth}`}>
-                                    <Switch value={draft.enabled} onChange={(value) => updateDraft(prev => ({ ...prev, enabled: value }))} />
+                                    <Switch aria-label="泳道组启用状态" value={draft.enabled} onChange={(value) => updateDraft(prev => ({ ...prev, enabled: value }))} />
                                     <span className={styles.inlineHint}>启用状态 - 保存后立即下发到数据面</span>
                                 </div>
                             </>
@@ -497,12 +497,13 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                 <div className={styles.prdTableRow} key={`${entry.kind}-${entry.ns}-${entry.svc}-${index}`}>
                                     <div><span className={styles.indexPill}>{index + 1}</span></div>
                                     {editorState.editable && !fixedEntry && !entry.svc ? (
-                                        <Select value={entry.kind} options={[{ label: '网关入口', value: 'gateway' }, { label: '应用入口', value: 'app' }]} onChange={(value) => updateDraft(prev => ({ ...prev, entries: prev.entries.map((item, idx) => idx === index ? { ...item, kind: value as 'gateway' | 'app', ns: '', svc: '' } : item) }))} />
+                                        <Select aria-label={`第 ${index + 1} 个泳道组入口类型`} value={entry.kind} options={[{ label: '网关入口', value: 'gateway' }, { label: '应用入口', value: 'app' }]} onChange={(value) => updateDraft(prev => ({ ...prev, entries: prev.entries.map((item, idx) => idx === index ? { ...item, kind: value as 'gateway' | 'app', ns: '', svc: '' } : item) }))} />
                                     ) : (
                                         <span className={entry.kind === 'gateway' ? styles.gatewayPill : styles.appPill}>{entry.kind === 'gateway' ? '网关入口' : '应用入口'}</span>
                                     )}
                                     {editorState.editable && !fixedEntry ? (
                                         <Select
+                                            aria-label={`第 ${index + 1} 个泳道组入口命名空间`}
                                             filterable
                                             value={entry.ns || undefined}
                                             options={getNamespaceOptions(servicePool)}
@@ -520,6 +521,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                     ) : <Text title={entry.ns || '-'}>{entry.ns || '-'}</Text>}
                                     {editorState.editable && !fixedEntry ? (
                                         <Select
+                                            aria-label={`第 ${index + 1} 个泳道组入口服务`}
                                             filterable
                                             value={entry.svc || undefined}
                                             options={getServiceOptions(servicePool, entry.ns)}
@@ -562,6 +564,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                         <div><span className={styles.indexPill}>{index + 1}</span></div>
                                         {editorState.editable && !fixedDestination ? (
                                             <Select
+                                                aria-label={`第 ${index + 1} 个组内服务命名空间`}
                                                 filterable
                                                 value={rowNamespace || undefined}
                                                 options={getNamespaceOptions(services)}
@@ -580,6 +583,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                         ) : <Text title={rowNamespace || '-'}>{rowNamespace || '-'}</Text>}
                                         {editorState.editable && !fixedDestination ? (
                                             <Select
+                                                aria-label={`第 ${index + 1} 个组内服务`}
                                                 filterable
                                                 value={serviceName || undefined}
                                                 options={getServiceOptions(services, rowNamespace, draft.selected.filter((_, idx) => idx !== index))}
@@ -599,6 +603,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                 <div className={`${styles.prdTableRow} ${styles.serviceDraftRow}`}>
                                     <div><span className={styles.indexPill}>{draft.selected.length + 1}</span></div>
                                     <Select
+                                        aria-label="新增组内服务命名空间"
                                         filterable
                                         value={serviceDraft.ns || undefined}
                                         options={getNamespaceOptions(services)}
@@ -606,6 +611,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                         onChange={(value) => setServiceDraft({ ns: value as string, svc: '' })}
                                     />
                                     <Select
+                                        aria-label="新增组内服务"
                                         filterable
                                         value={serviceDraft.svc || undefined}
                                         options={getServiceOptions(services, serviceDraft.ns, draft.selected)}
@@ -695,7 +701,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                     <span className={styles.laneSummary}>{laneRuleSummary(lane)}</span>
                                 </div>
                                 <Space>
-                                    <Switch size="small" disabled={!editorState.editable} value={lane.on} onChange={(value) => updateLane(laneIndex, { on: value })} />
+                                    <Switch aria-label={`第 ${laneIndex + 1} 个泳道启用状态`} size="small" disabled={!editorState.editable} value={lane.on} onChange={(value) => updateLane(laneIndex, { on: value })} />
                                     {editorState.editable && (
                                         <Button
                                             shape="square"
@@ -714,10 +720,10 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                         {editorState.editable ? (
                                             <>
                                                 {renderEditField('泳道名称', (
-                                                    <Input value={lane.name} placeholder="shadow-lane" onChange={(value) => updateLane(laneIndex, { name: value })} />
+                                                    <Input aria-label={`第 ${laneIndex + 1} 个泳道名称`} value={lane.name} placeholder="shadow-lane" onChange={(value) => updateLane(laneIndex, { name: value })} />
                                                 ), styles.formField)}
                                                 {renderEditField('泳道标签 Value', (
-                                                    <Input value={lane.laneValue} placeholder="shadow" onChange={(value) => updateLane(laneIndex, { laneValue: value })} />
+                                                    <Input aria-label={`第 ${laneIndex + 1} 个泳道标签值`} value={lane.laneValue} placeholder="shadow" onChange={(value) => updateLane(laneIndex, { laneValue: value })} />
                                                 ), styles.formField)}
                                             </>
                                         ) : (
@@ -745,6 +751,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                             }));
                                             return (
                                                 <TrafficMatchConditionEditor
+                                                    contextLabel={`第 ${laneIndex + 1} 个泳道`}
                                                     rows={rows}
                                                     editable={Boolean(editorState.editable)}
                                                     relation={lane.relation}
@@ -761,7 +768,7 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                                         <div className={styles.laneRatioControl}>
                                                             <span className={styles.ratioLabel}>命中后放量</span>
                                                             <InputAdornment append="%">
-                                                                <InputNumber theme="normal" disabled={!editorState.editable} min={0} max={100} value={lane.matchRatio} onChange={(value) => updateLane(laneIndex, { matchRatio: Number(value || 0) })} />
+                                                                <InputNumber aria-label={`第 ${laneIndex + 1} 个泳道命中后放量比例`} theme="normal" disabled={!editorState.editable} min={0} max={100} value={lane.matchRatio} onChange={(value) => updateLane(laneIndex, { matchRatio: Number(value || 0) })} />
                                                             </InputAdornment>
                                                         </div>
                                                     )}
@@ -793,16 +800,16 @@ const LaneGroupEditor: React.FC<ILaneGroupEditorProps> = ({ op, refresh, editabl
                                             {lane.serviceTags.map((serviceTag, serviceIndex) => (
                                                 <div className={styles.serviceTagRow} key={`lane-service-tag-${serviceIndex}`}>
                                                     {editorState.editable ? (
-                                                        <Select value={serviceTag.service} options={draft.selected.map(service => ({ label: service, value: service }))} onChange={(value) => updateDraft(prev => ({ ...prev, lanes: prev.lanes.map((item, idx) => idx === laneIndex ? { ...item, serviceTags: item.serviceTags.map((tag, tidx) => tidx === serviceIndex ? { service: value as string } : tag) } : item) }))} />
+                                                        <Select aria-label={`第 ${laneIndex + 1} 个泳道的第 ${serviceIndex + 1} 个服务`} value={serviceTag.service} options={draft.selected.map(service => ({ label: service, value: service }))} onChange={(value) => updateDraft(prev => ({ ...prev, lanes: prev.lanes.map((item, idx) => idx === laneIndex ? { ...item, serviceTags: item.serviceTags.map((tag, tidx) => tidx === serviceIndex ? { service: value as string } : tag) } : item) }))} />
                                                     ) : (
                                                         <Text title={serviceTag.service}>{serviceTag.service}</Text>
                                                     )}
-                                                    <Input disabled value={`${LANE_TRAFFIC_TAG_KEY}=${lane.laneValue || '-'}`} />
+                                                    <Input aria-label={`第 ${laneIndex + 1} 个泳道的第 ${serviceIndex + 1} 个服务标签`} disabled value={`${LANE_TRAFFIC_TAG_KEY}=${lane.laneValue || '-'}`} />
                                                     {editorState.editable && (
                                                         <Button
                                                             shape="square"
                                                             variant="text"
-                                                            aria-label={`删除泳道服务 ${serviceIndex + 1}`}
+                                                            aria-label={`删除第 ${laneIndex + 1} 个泳道的第 ${serviceIndex + 1} 个服务`}
                                                             disabled={lane.serviceTags.length <= 1}
                                                             icon={<DeleteIcon />}
                                                             onClick={() => updateDraft(prev => ({ ...prev, lanes: prev.lanes.map((item, idx) => idx === laneIndex ? { ...item, serviceTags: item.serviceTags.filter((_, sidx) => sidx !== serviceIndex) } : item) }))}

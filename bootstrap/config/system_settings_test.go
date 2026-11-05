@@ -69,8 +69,8 @@ func TestServerSystemSettingsHaveExplicitFieldEditPolicies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Describe() error = %v", err)
 	}
-	if len(definitions) != 29 {
-		t.Fatalf("definition count = %d, want 29", len(definitions))
+	if len(definitions) != 30 {
+		t.Fatalf("definition count = %d, want 30", len(definitions))
 	}
 	editable := 0
 	for _, definition := range definitions {
@@ -81,8 +81,8 @@ func TestServerSystemSettingsHaveExplicitFieldEditPolicies(t *testing.T) {
 			editable++
 		}
 	}
-	if editable != 21 {
-		t.Fatalf("editable count = %d, want 21", editable)
+	if editable != 22 {
+		t.Fatalf("editable count = %d, want 22", editable)
 	}
 }
 

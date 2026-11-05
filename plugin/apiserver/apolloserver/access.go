@@ -6,7 +6,8 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful/v3"
-	"go.uber.org/zap"
+
+	configv1 "github.com/pole-io/specification/source/go/api/v1/config"
 
 	httputils "github.com/pole-io/pole-server/pkg/common/utils/http"
 )
@@ -53,6 +54,7 @@ func (a *ApolloServer) fetchConfig(req *restful.Request, rsp *restful.Response) 
 		DataCenter: req.QueryParameter("dataCenter"),
 		Filename:   filename,
 		ClientIP:   req.QueryParameter("ip"),
+		Version:    req.QueryParameter("releaseKey"),
 	})
 
 	if err != nil {
@@ -64,9 +66,9 @@ func (a *ApolloServer) fetchConfig(req *restful.Request, rsp *restful.Response) 
 		return
 	}
 
-	// 如果没有数据，返回 404
+	// 相同快照返回304。
 	if ret == nil {
-		rsp.WriteHeader(http.StatusNotFound)
+		rsp.WriteHeader(http.StatusNotModified)
 		return
 	}
 
@@ -76,46 +78,16 @@ func (a *ApolloServer) fetchConfig(req *restful.Request, rsp *restful.Response) 
 
 // queryProperties 处理 apollo 客户端获取配置文件
 func (a *ApolloServer) queryProperties(req *restful.Request, rsp *restful.Response) {
-	appId := req.PathParameter("appId")
-	cluster := req.PathParameter("cluster")
-	filename := req.PathParameter("namespace")
-
-	ret, err := a.GetConfigFile(httputils.ParseHeaderContext(req, rsp), &GetConfigFileRequest{
-		AppId:      appId,
-		Cluster:    cluster,
-		DataCenter: req.QueryParameter("dataCenter"),
-		Filename:   filename,
-		ClientIP:   req.QueryParameter("ip"),
-	})
-
+	result, err := a.readConfig(httputils.ParseHeaderContext(req, rsp), &GetConfigFileRequest{AppId: req.PathParameter("appId"), Cluster: req.PathParameter("cluster"), DataCenter: req.QueryParameter("dataCenter"), Filename: req.PathParameter("namespace"), ClientIP: req.QueryParameter("ip")})
+	if err == nil && result.Result.Presence != configv1.ConfigPresence_CONFIG_PRESENCE_PRESENT {
+		err = Err_NotFoundConfig
+	}
 	if err != nil {
-		errRsp := newErrorResponse(req, err)
-		if errRsp.Status == http.StatusNotFound {
-			errRsp.Message = fmt.Sprintf(Tpl_NotFoundConfig, appId, cluster, filename)
-		}
-		_ = rsp.WriteHeaderAndJson(errRsp.Status, errRsp, restful.MIME_JSON)
+		failure := newErrorResponse(req, err)
+		_ = rsp.WriteHeaderAndJson(failure.Status, failure, restful.MIME_JSON)
 		return
 	}
-
-	// 如果没有数据，返回 404
-	if ret == nil {
-		rsp.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	// Convert configurations map to properties format string
-	var d []byte
-	if ret.Configurations != nil {
-		d = []byte(PropertiesToString(ret.Configurations))
-	} else {
-		d = []byte("")
-	}
-	apollolog.Debug("queryProperties response", zap.String("appId", appId), zap.String("cluster", cluster), zap.String("namespace", filename),
-		zap.String("ret", string(d)))
-	// 返回正常的数据
-	httputils.HTTPRawResponse(rsp, http.StatusOK, map[string]string{
-		restful.HEADER_ContentType: "text/plain;charset=UTF-8",
-	}, d)
+	httputils.HTTPRawResponse(rsp, http.StatusOK, map[string]string{restful.HEADER_ContentType: "text/plain;charset=UTF-8"}, result.Content)
 }
 
 // queryJson 处理 apollo 客户端获取配置文件
@@ -149,8 +121,6 @@ func (a *ApolloServer) queryJson(req *restful.Request, rsp *restful.Response) {
 	}
 
 	d, _ := json.Marshal(ret.Configurations)
-	apollolog.Debug("queryJson response", zap.String("appId", appId), zap.String("cluster", cluster), zap.String("namespace", filename),
-		zap.String("ret", string(d)))
 	// 返回正常的数据
 	httputils.HTTPRawResponse(rsp, http.StatusOK, map[string]string{
 		restful.HEADER_ContentType: "application/json;charset=UTF-8",
@@ -188,8 +158,12 @@ func (a *ApolloServer) watchConfig(req *restful.Request, rsp *restful.Response) 
 		return
 	}
 
-	// 返回正常的数据
-	_ = rsp.WriteHeaderAndJson(http.StatusOK, ret, restful.MIME_JSON)
+	// Apollo 长轮询直接返回通知数组，超时无变化返回304。
+	if len(ret.Notifications) == 0 {
+		rsp.WriteHeader(http.StatusNotModified)
+		return
+	}
+	_ = rsp.WriteHeaderAndJson(http.StatusOK, ret.Notifications, restful.MIME_JSON)
 }
 
 func (a *ApolloServer) addMetaAccess(ws *restful.WebService) {

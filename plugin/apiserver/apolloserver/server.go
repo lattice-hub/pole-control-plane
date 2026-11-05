@@ -28,6 +28,7 @@ import (
 	connlimit "github.com/pole-io/pole-server/pkg/common/conn/limit"
 	"github.com/pole-io/pole-server/pkg/common/utils"
 	httputils "github.com/pole-io/pole-server/pkg/common/utils/http"
+	compatconfig "github.com/pole-io/pole-server/pkg/compatibility/config"
 	"github.com/pole-io/pole-server/pkg/config"
 	"github.com/pole-io/pole-server/pkg/service"
 )
@@ -46,8 +47,7 @@ type ApolloServer struct {
 	policySvr   auth.StrategyServer
 	userSvr     auth.UserServer
 	discoverSvr service.DiscoverServer
-	configSvr   config.ConfigCenterServer
-	innerSvr    *config.Server
+	configSvr   compatconfig.Discoverer
 
 	listenPort uint32
 	listenIP   string
@@ -121,12 +121,7 @@ func (a *ApolloServer) Run(errCh chan error) {
 		errCh <- err
 		return
 	}
-	a.configSvr, err = config.GetServer()
-	if err != nil {
-		errCh <- err
-		return
-	}
-	a.innerSvr, err = config.GetOriginServer()
+	a.configSvr, err = config.GetUnifiedService()
 	if err != nil {
 		errCh <- err
 		return

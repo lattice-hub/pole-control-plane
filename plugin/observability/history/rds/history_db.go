@@ -153,7 +153,7 @@ func (h *HistoryDB) Record(entry *types.RecordEntry) {
 		entry.ResourceName,
 		entry.OperationType,
 		entry.Operator,
-		entry.Detail,
+		types.SanitizeOperationDetail(entry.ResourceType, entry.Detail),
 		entry.HappenTime,
 		entry.Server)
 	if err != nil {

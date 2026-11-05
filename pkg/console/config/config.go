@@ -58,6 +58,7 @@ type Config struct {
 	Logger               log.Options                           `yaml:"logger"`
 	WebServer            WebServer                             `yaml:"webServer"`
 	PoleServer           PoleServer                            `yaml:"poleServer"`
+	LimiterServer        PoleServer                            `yaml:"limiterServer"`
 	MonitorServer        MonitorServer                         `yaml:"monitorServer"`
 	Futures              string                                `yaml:"futures"`
 	Store                store.Config                          `yaml:"store"`
@@ -205,7 +206,7 @@ func LoadConfig(filePath string) (*Config, error) {
 	config := &Config{
 		Logger: DefaultLoggerOptions(),
 	}
-	config.WebServer.JWT.Expired = 1800 // 默认30分钟
+	config.WebServer.JWT.Expired = 7200 // 默认2小时
 	config.WebServer.JWT.SecretKey = "polarismesh@2021"
 	err = yaml.NewDecoder(bytes.NewBuffer([]byte(finalContent))).Decode(config)
 	if err != nil {

@@ -20,7 +20,6 @@ package httpserver
 import (
 	"github.com/golang/protobuf/proto"
 
-	apiconfig "github.com/pole-io/specification/source/go/api/v1/config_manage"
 	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 	apisecurity "github.com/pole-io/specification/source/go/api/v1/security"
 	apiservice "github.com/pole-io/specification/source/go/api/v1/service_manage"
@@ -61,18 +60,6 @@ func (m *ServiceAliasArr) String() string { return proto.CompactTextString(m) }
 
 // ProtoMessage proto message
 func (*ServiceAliasArr) ProtoMessage() {}
-
-// ConfigFileArr 配置文件数组定义
-type ConfigFileArr []*apiconfig.ConfigFile
-
-// Reset reset initialization
-func (m *ConfigFileArr) Reset() { *m = ConfigFileArr{} }
-
-// String return string
-func (m *ConfigFileArr) String() string { return proto.CompactTextString(m) }
-
-// ProtoMessage proto message
-func (*ConfigFileArr) ProtoMessage() {}
 
 // UserArr 命名空间数组定义
 type UserArr []*apisecurity.User

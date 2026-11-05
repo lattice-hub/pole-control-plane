@@ -1,16 +1,22 @@
 ---
+type: Architecture Decision
+status: deprecated
 title: ADR：配置模板与环境组合版本客户端渲染
 tags: [adr, config, template, namespace, sdk, gray-release]
-links: [config-center, namespace, cache-layer, api-servers, adr-config-template-labels-sensitive-values, adr-environment-promotion-topology]
-updated: 2026-08-10
-sources: 20
+links: [config-center, namespace, cache-layer, api-servers, adr-config-template-labels-sensitive-values, adr-environment-promotion-topology, adr-config-template-values-unification]
+updated: 2026-10-03
+legacy_source_count: 20
+sources:
+  - resource: adr-config-template-values-unification.md
+    title: 当前统一配置 v1 决策与实现
+
 ---
 
 # ADR：配置模板与环境组合版本客户端渲染
 
 ## 状态
 
-Accepted。Template + Value 原子环境版本已实现；模板草稿环境化、晋升适配器、SDK 与组合 Watch 待接入。
+Deprecated。本文保留旧配置模式的历史设计与证据；旧代码已移除，不能作为当前实现或 SDK 验收状态。现行定义、发布、Discover、本地渲染与兼容转换边界见[统一配置 v1 ADR](adr-config-template-values-unification.md)。
 
 ## 背景
 
@@ -403,3 +409,5 @@ dev/lane 中未发布的开发会改变 pre/pro 的预览和下一次发布基�
 - [[api-servers]]
 - [[adr-config-template-labels-sensitive-values]]
 - [[adr-environment-promotion-topology]]
+
+- [统一模板与 values 及多协议兼容方案](adr-config-template-values-unification.md)

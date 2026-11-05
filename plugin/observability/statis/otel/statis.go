@@ -22,7 +22,6 @@ const (
 	attrCacheType        = "pole.cache.type"
 	attrClientKind       = "pole.client.kind"
 	attrComponent        = "pole.component"
-	attrConfigGroup      = "pole.config.group"
 	attrErrorCode        = "pole.error.code"
 	attrNamespace        = "pole.namespace"
 	attrOperation        = "pole.operation"
@@ -50,9 +49,6 @@ type StatisWorker struct {
 	clientConnectionCount otelmetric.Int64Gauge
 	serviceCount          otelmetric.Int64Gauge
 	instanceCount         otelmetric.Int64Gauge
-	configGroupCount      otelmetric.Int64Gauge
-	configFileCount       otelmetric.Int64Gauge
-	configFileRelease     otelmetric.Int64Gauge
 }
 
 func (s *StatisWorker) Name() string {
@@ -134,21 +130,6 @@ func (s *StatisWorker) ReportDiscoveryMetrics(metric ...metricstypes.DiscoveryMe
 	}
 }
 
-func (s *StatisWorker) ReportConfigMetrics(metric ...metricstypes.ConfigMetrics) {
-	for i := range metric {
-		m := metric[i]
-		attrs := configAttrs(m.Labels)
-		switch m.Type {
-		case metricstypes.ConfigGroupMetric:
-			s.configGroupCount.Record(context.Background(), m.Total, otelmetric.WithAttributes(attrs...))
-		case metricstypes.FileMetric:
-			s.configFileCount.Record(context.Background(), m.Total, otelmetric.WithAttributes(attrs...))
-		case metricstypes.ReleaseFileMetric:
-			s.configFileRelease.Record(context.Background(), m.Total, otelmetric.WithAttributes(attrs...))
-		}
-	}
-}
-
 func (s *StatisWorker) ReportDiscoverCall(metric metricstypes.ClientDiscoverMetric) {
 	attrs := []attribute.KeyValue{
 		attribute.String(attrOperation, valueOrUnknown(metric.Action)),
@@ -177,6 +158,7 @@ func (s *StatisWorker) registerMetrics() error {
 	if s.requestDuration, err = meter.Float64Histogram("pole.control_plane.request.duration",
 		otelmetric.WithDescription("control-plane API request duration"),
 		otelmetric.WithUnit("s"),
+		otelmetric.WithExplicitBucketBoundaries(0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
 	); err != nil {
 		return err
 	}
@@ -240,24 +222,6 @@ func (s *StatisWorker) registerMetrics() error {
 	); err != nil {
 		return err
 	}
-	if s.configGroupCount, err = meter.Int64Gauge("pole.config.group.count",
-		otelmetric.WithDescription("Pole config group count"),
-		otelmetric.WithUnit("{group}"),
-	); err != nil {
-		return err
-	}
-	if s.configFileCount, err = meter.Int64Gauge("pole.config.file.count",
-		otelmetric.WithDescription("Pole config file count"),
-		otelmetric.WithUnit("{file}"),
-	); err != nil {
-		return err
-	}
-	if s.configFileRelease, err = meter.Int64Gauge("pole.config.file.release.count",
-		otelmetric.WithDescription("Pole config file release count"),
-		otelmetric.WithUnit("{release}"),
-	); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -283,13 +247,6 @@ func discoveryAttrs(labels []attribute.KeyValue) []attribute.KeyValue {
 	return []attribute.KeyValue{
 		attribute.String(attrNamespace, valueOrUnknown(labelValue(labels, metricstypes.LabelNamespace))),
 		attribute.String(attrService, labelValue(labels, metricstypes.LabelService)),
-	}
-}
-
-func configAttrs(labels []attribute.KeyValue) []attribute.KeyValue {
-	return []attribute.KeyValue{
-		attribute.String(attrNamespace, valueOrUnknown(labelValue(labels, metricstypes.LabelNamespace))),
-		attribute.String(attrConfigGroup, labelValue(labels, metricstypes.LabelGroup)),
 	}
 }
 
@@ -323,7 +280,7 @@ func times(metric metricstypes.CallMetric) int64 {
 }
 
 func resultFromCode(code int, success bool) string {
-	if success || code == 0 || code == 200000 {
+	if success || code == 0 || code == 200000 || code >= 200 && code < 300 {
 		return "success"
 	}
 	return "failure"

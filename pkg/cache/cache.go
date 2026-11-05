@@ -257,16 +257,6 @@ func (nc *CacheManager) Client() cachetypes.ClientCache {
 	return nc.caches[cachetypes.CacheClient].(cachetypes.ClientCache)
 }
 
-// ConfigFile get config file cache information
-func (nc *CacheManager) ConfigFile() cachetypes.ConfigFileCache {
-	return nc.caches[cachetypes.CacheConfigFile].(cachetypes.ConfigFileCache)
-}
-
-// ConfigGroup get config group cache information
-func (nc *CacheManager) ConfigGroup() cachetypes.ConfigGroupCache {
-	return nc.caches[cachetypes.CacheConfigGroup].(cachetypes.ConfigGroupCache)
-}
-
 // Gray get Gray cache information
 func (nc *CacheManager) Gray() cachetypes.GrayCache {
 	return nc.caches[cachetypes.CacheGray].(cachetypes.GrayCache)

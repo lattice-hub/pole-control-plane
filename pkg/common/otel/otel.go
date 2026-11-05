@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
@@ -80,6 +81,9 @@ func resourceAttributes(conf *Config) []attribute.KeyValue {
 		attribute.String("deployment.environment.name", conf.Environment),
 		attribute.String("pole.cluster", conf.Cluster),
 		attribute.String("pole.node.role", conf.NodeRole),
+	}
+	if hostname, err := os.Hostname(); err == nil && hostname != "" {
+		attrs = append(attrs, attribute.String("service.instance.id", hostname))
 	}
 	if conf.ServiceVersion != "" {
 		attrs = append(attrs, attribute.String("service.version", conf.ServiceVersion))

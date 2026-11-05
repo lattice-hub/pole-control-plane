@@ -136,14 +136,15 @@ func (svr *Server) UpdateGroup(ctx context.Context, req *apisecurity.UserGroup) 
 
 	updateData, err := svr.createGroupModel(req)
 	if err != nil {
-		log.Info("create update group model", utils.RequestID(ctx), zap.String("group", req.String()), zap.Error(err))
+		log.Info("create update group model", utils.RequestID(ctx),
+			zap.String("group-id", req.GetId()), zap.Error(err))
 		return api.NewGroupResponse(apimodel.Code_ExecuteException, req)
 	}
 
-	saveData, needUpdate := updateGroupAttribute(ctx, saveData, updateData)
+	saveData, needUpdate := updateGroupFromModel(ctx, saveData, updateData)
 	if !needUpdate {
 		log.Info("update group data no change, no need update",
-			utils.RequestID(ctx), zap.String("group", req.String()))
+			utils.RequestID(ctx), zap.String("group-id", req.GetId()))
 		return api.NewGroupResponse(apimodel.Code_NoNeedUpdate, req)
 	}
 
@@ -382,16 +383,22 @@ func (svr *Server) checkUpdateGroup(ctx context.Context, req *apisecurity.UserGr
 }
 
 // updateGroupAttribute 更新计算用户组更新时的结构体数据，并判断是否需要执行更新操作
+func updateGroupFromModel(ctx context.Context, saveData, newData *authtypes.UserGroupDetail) (*authtypes.UserGroupDetail, bool) {
+	// Token state is changed only by EnableGroupToken, not ordinary edits.
+	newData.TokenEnable = saveData.TokenEnable
+	return updateGroupAttribute(ctx, saveData, newData)
+}
+
 func updateGroupAttribute(ctx context.Context, saveData, newData *authtypes.UserGroupDetail) (
 	*authtypes.UserGroupDetail, bool) {
 	needUpdate := false
 
-	// 只有 owner 可以修改这个属性
-	if utils.ParseIsOwner(ctx) {
-		if saveData.Comment != "" && saveData.Comment != newData.Comment {
-			needUpdate = true
-			saveData.Comment = newData.Comment
-		}
+	// 通过 UpdateUserGroups 权限检查的操作者可以修改用户组备注。
+	// 不能以 owner 身份或旧值是否为空作为额外条件，否则 Console
+	// 会在返回 HTTP 200 后静默丢弃已授权的备注修改。
+	if saveData.Comment != newData.Comment {
+		needUpdate = true
+		saveData.Comment = newData.Comment
 	}
 
 	if saveData.Source != newData.Source {
@@ -515,7 +522,7 @@ func userGroupRecordEntry(ctx context.Context, req *apisecurity.UserGroup, md *a
 	operationType types.OperationType) *types.RecordEntry {
 
 	detailBytes, _ := protojson.Marshal(req)
-	datail := string(detailBytes)
+	datail := types.SanitizeOperationDetail(types.RUserGroup, string(detailBytes))
 
 	entry := &types.RecordEntry{
 		ResourceType:  types.RUserGroup,
@@ -534,7 +541,7 @@ func modifyUserGroupRecordEntry(ctx context.Context, req *apisecurity.UserGroup,
 	operationType types.OperationType) *types.RecordEntry {
 
 	detailBytes, _ := protojson.Marshal(req)
-	detail := string(detailBytes)
+	detail := types.SanitizeOperationDetail(types.RUserGroup, string(detailBytes))
 
 	entry := &types.RecordEntry{
 		ResourceType:  types.RUserGroup,
@@ -553,7 +560,7 @@ func userRelationRecordEntry(ctx context.Context, req *apisecurity.UserGroupRela
 	operationType types.OperationType) *types.RecordEntry {
 
 	detailBytes2, _ := protojson.Marshal(req)
-	detail := string(detailBytes2)
+	detail := types.SanitizeOperationDetail(types.RUserGroupRelation, string(detailBytes2))
 
 	entry := &types.RecordEntry{
 		ResourceType:  types.RUserGroupRelation,

@@ -1,0 +1,153 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pole.mysqlName" . }}-init
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+data:
+  00-grants.sh: |
+    #!/bin/sh
+    set -eu
+    mysql --protocol=socket -uroot -p"${MYSQL_ROOT_PASSWORD}" <<SQL
+    CREATE DATABASE IF NOT EXISTS \`{{ .Values.mysql.database }}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+    CREATE DATABASE IF NOT EXISTS \`{{ .Values.mysql.observabilityDatabase }}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+    GRANT ALL PRIVILEGES ON \`{{ .Values.mysql.database }}\`.* TO '${MYSQL_USER}'@'%';
+    GRANT ALL PRIVILEGES ON \`{{ .Values.mysql.observabilityDatabase }}\`.* TO '${MYSQL_USER}'@'%';
+    FLUSH PRIVILEGES;
+    SQL
+  10-pole-server.sql: |
+{{ .Files.Get "files/pole_server.sql" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pole.mysqlName" . }}-config
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+data:
+  pole.cnf: |
+    [mysqld]
+    character-set-server=utf8mb4
+    collation-server=utf8mb4_0900_ai_ci
+    skip-name-resolve=ON
+    default-time-zone=+00:00
+    innodb-flush-log-at-trx-commit=1
+    sync-binlog=1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pole.mysqlName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "pole.componentLabels" (dict "root" . "component" "mysql") | nindent 4 }}
+  ports:
+    - name: mysql
+      port: {{ .Values.mysql.service.port }}
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "pole.mysqlName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  serviceName: {{ include "pole.mysqlName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "mysql") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pole.componentLabels" (dict "root" . "component" "mysql") | nindent 8 }}
+        {{- with .Values.global.podLabels }}{{ toYaml . | nindent 8 }}{{- end }}
+      annotations:
+        checksum/init: {{ printf "%s|%s|%s" (.Files.Get "files/pole_server.sql") .Values.mysql.database .Values.mysql.observabilityDatabase | sha256sum }}
+        {{- with .Values.global.podAnnotations }}{{ toYaml . | nindent 8 }}{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: mysql
+          image: {{ include "pole.image" .Values.mysql.image | quote }}
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_ROOT_PASSWORD}}
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.database | quote }}
+            - name: MYSQL_USER
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_USER}}
+            - name: MYSQL_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_PWD}}
+          ports:
+            - name: mysql
+              containerPort: 3306
+          startupProbe:
+            exec: {command: [sh, -ec, 'mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent']}
+            failureThreshold: 60
+            periodSeconds: 5
+          readinessProbe:
+            exec: {command: [sh, -ec, 'mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent']}
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: mysql}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources: {{ toYaml .Values.mysql.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            # The official MySQL entrypoint starts as root, fixes volume
+            # ownership, then switches to the mysql user. Keep only the
+            # capabilities required for that one-way privilege drop.
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/mysql}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d}
+            - {name: config, mountPath: /etc/mysql/conf.d/pole.cnf, subPath: pole.cnf, readOnly: true}
+      volumes:
+        - name: init
+          configMap: {name: {{ include "pole.mysqlName" . }}-init, defaultMode: 0555}
+        - name: config
+          configMap: {name: {{ include "pole.mysqlName" . }}-config}
+        {{- if .Values.mysql.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim: {claimName: {{ .Values.mysql.persistence.existingClaim | quote }}}
+        {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity: {{ toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if not .Values.mysql.persistence.existingClaim }}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: {{ toYaml .Values.mysql.persistence.accessModes | nindent 10 }}
+        {{- with .Values.mysql.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests: {storage: {{ .Values.mysql.persistence.size }}}
+  {{- end }}
+{{- end }}

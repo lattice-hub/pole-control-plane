@@ -68,8 +68,6 @@ assert(component.includes("viewEdit: '查看'"), '查看/编辑合并入口必�
 assert(component.includes('viewEdit: <BrowseIcon />'), '查看/编辑合并入口必须使用查看图标');
 
 [
-  'src/pages/Configuration/Group/group.tsx',
-  'src/pages/Configuration/Group/Releases/ReleaseTable.tsx',
   'src/pages/Namespace/index.tsx',
   'src/pages/Auth/Principal/UserTable.tsx',
   'src/pages/Auth/Principal/GroupTable.tsx',
@@ -105,8 +103,6 @@ assert(mcpPage.includes('编辑 Server'), 'MCP 详情抽屉内部必须保留可
   'FileIcon',
 ].forEach((icon) => {
   const offenders = [
-    'src/pages/Configuration/Group/group.tsx',
-    'src/pages/Configuration/Group/Releases/ReleaseTable.tsx',
     'src/pages/Namespace/index.tsx',
     'src/pages/Auth/Principal/UserTable.tsx',
     'src/pages/Auth/Principal/GroupTable.tsx',

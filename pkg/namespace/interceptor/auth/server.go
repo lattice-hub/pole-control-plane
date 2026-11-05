@@ -290,6 +290,7 @@ func (svr *Server) processNamespacesWithPermissions(
 	if resp == nil || resp.Code != uint32(apimodel.Code_ExecuteSuccess) || len(resp.Data) == 0 {
 		return resp
 	}
+	authCtx.SetAttachment(authtypes.PermissionCheckPurposeKey, authtypes.PermissionCheckPurposeCapability)
 
 	// 注释：Data字段处理 - 遍历Data中的每个namespace，设置权限信息，适应新的API结构
 	for _, anyData := range resp.Data {

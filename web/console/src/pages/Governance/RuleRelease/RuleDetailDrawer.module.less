@@ -67,7 +67,7 @@
   border: 1px solid var(--app-brand-border);
   border-radius: var(--app-radius);
   background: var(--app-brand-subtle);
-  color: var(--app-brand);
+  color: var(--app-brand-foreground);
   font-size: 12px;
   font-weight: 500;
   line-height: 18px;
@@ -117,6 +117,26 @@
   min-height: 0;
   overflow: hidden;
   background: var(--app-bg);
+}
+
+// Fluent inputs have intrinsic minimum widths; rule columns can be narrower
+// than those defaults even when the viewport itself is fairly wide.
+.pageFrame,
+.drawer {
+  :global(.fui-Combobox),
+  :global(.fui-Input),
+  :global(.fluent-number-input) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  :global(.fui-Combobox__input),
+  :global(.fui-Input__input) {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
 }
 
 .createPane {
@@ -248,5 +268,13 @@
 
   .tabs > :global(.fluent-tab-content) {
     padding: 12px;
+  }
+
+  .createPane {
+    padding: 8px;
+  }
+
+  .header {
+    flex-wrap: wrap;
   }
 }

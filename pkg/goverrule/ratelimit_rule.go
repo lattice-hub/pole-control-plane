@@ -62,6 +62,9 @@ func (s *Server) CreateRateLimit(ctx context.Context, req *apitraffic.RateLimit)
 		log.Error(err.Error(), utils.RequestID(ctx))
 		return api.NewAnyDataResponse(apimodel.Code_ParseException, req)
 	}
+	if resp := s.resolveRateLimitService(ctx, req, data, nil); resp != nil {
+		return resp
+	}
 
 	// 存储层操作
 	if err := s.storage.CreateRateLimit(data); err != nil {
@@ -180,6 +183,9 @@ func (s *Server) UpdateRateLimit(ctx context.Context, req *apitraffic.RateLimit)
 		return api.NewAnyDataResponse(apimodel.Code_ParseException, req)
 	}
 	rateLimit.ID = data.ID
+	if resp := s.resolveRateLimitService(ctx, req, rateLimit, data); resp != nil {
+		return resp
+	}
 	if err := s.storage.UpdateRateLimit(rateLimit); err != nil {
 		log.Error(err.Error(), utils.RequestID(ctx))
 		return wrapperRateLimitStoreResponse(req, err)
@@ -333,6 +339,27 @@ func api2RateLimit(req *apitraffic.RateLimit) (*rules.RateLimit, error) {
 	return out, nil
 }
 
+func (s *Server) resolveRateLimitService(ctx context.Context, req *apitraffic.RateLimit, rateLimit, existing *rules.RateLimit) *apimodel.Response {
+	serviceName := req.GetCallee().GetService()
+	if serviceName == "" || serviceName == "*" {
+		if existing != nil {
+			rateLimit.ServiceID = existing.ServiceID
+		}
+		return nil
+	}
+
+	service, err := s.storage.GetService(serviceName, req.GetCallee().GetNamespace())
+	if err != nil {
+		log.Error(err.Error(), utils.RequestID(ctx))
+		return api.NewAnyDataResponse(storeapi.StoreCode2APICode(err), req)
+	}
+	if service == nil {
+		return api.NewAnyDataResponse(apimodel.Code_NotFoundResource, req)
+	}
+	rateLimit.ServiceID = service.ID
+	return nil
+}
+
 // rateLimit2api 把内部数据结构转化为API参数
 func rateLimit2Console(rateLimit *rules.RateLimit) (*apitraffic.RateLimit, error) {
 	if rateLimit == nil {
@@ -352,6 +379,7 @@ func rateLimit2Console(rateLimit *rules.RateLimit) (*apitraffic.RateLimit, error
 	rule.Id = rateLimit.ID
 	rules.SetOwnerNamespaceOnProto(rule, rateLimit.Namespace)
 	rule.Name = rateLimit.Name
+	rule.Callee = rateLimit.Proto.GetCallee()
 	rule.Priority = rateLimit.Priority
 	rule.Ctime = commontime.Time2String(rateLimit.CreateTime)
 	rule.Mtime = commontime.Time2String(rateLimit.ModifyTime)
@@ -423,12 +451,14 @@ func rateLimit2Client(
 func marshalRateLimitRules(req *apitraffic.RateLimit) (string, error) {
 	// 根据新的 pole-io/specification，包含完整的Rules结构
 	r := &apitraffic.RateLimit{
-		Name:    req.GetName(),
-		Type:    req.GetType(),
-		Rules:   req.GetRules(),
-		Disable: req.GetDisable(),
-		Report:  req.GetReport(),
-		Cluster: req.GetCluster(),
+		Name:      req.GetName(),
+		Namespace: rules.OwnerNamespaceFromProto(req),
+		Callee:    req.GetCallee(),
+		Type:      req.GetType(),
+		Rules:     req.GetRules(),
+		Disable:   req.GetDisable(),
+		Report:    req.GetReport(),
+		Cluster:   req.GetCluster(),
 	}
 	rule, err := json.Marshal(r)
 	if err != nil {

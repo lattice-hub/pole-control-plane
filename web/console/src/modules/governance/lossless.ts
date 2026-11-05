@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { MatchString, MatchType, MatchValueType, RuleRelease } from 'services/types';
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 import { createLossLessRule, CreateLossLessRuleRequest, deleteLosslessRelease, deleteLossLessRule, describeLossLessRules, DescribeLossLessRulesRequest, describeLosslessVersions, DescribeLosslessVersionsRequest, describeOneLossLessRules, LossLessRuleView, modifyLossLessRule, ModifyLossLessRuleRequest, publishLossless, rollbackLossless } from 'services/lossless';
 import { RateLimitRuleState } from './ratelimit';
 import { deleteFaultDetectRelease } from 'services/faultdetect';

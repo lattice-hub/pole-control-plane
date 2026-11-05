@@ -2,7 +2,7 @@
 title: 操作日志
 tags: [meta, log]
 links: [index, schema]
-updated: 2026-08-09
+updated: 2026-10-10
 sources: 0
 ---
 
@@ -1382,6 +1382,99 @@ sources: 0
   - control-plane 删除 `go.work` 本地覆盖并升级 `go.mod`；Rust SDK 根 crate 与 e2e crate 同步升级 tag。
   - 两个消费者均在无本地 replace/patch 条件下完成全量测试。
 
+## [2026-08-04] deliver | Streaming TPM 限流产品闭环
+
+- 更新页面：adr-quota-lease-streaming-rate-limit、index、todo、lessons。
+- 变更摘要：
+  - Console 将底层资源枚举提升为 QPS、RPM、TPM 和并发四个场景模板。
+  - TPM 编辑器明确请求前预留、流中累计用量和结束归还，不再使用普通请求中途 429 的描述。
+  - Limiter 增加按服务过滤的租约快照，展示活跃、结算、TTL 回收以及预留、消费、归还和可用量。
+  - Console 通过认证代理访问内部 Limiter HTTP 运维面，前端不直接暴露 8102。
+
+## [2026-08-04] release | RateLimit callee ALPHA.45 与完整产品验收
+
+- 更新页面：adr-quota-lease-streaming-rate-limit、todo。
+- 变更摘要：
+  - specification `v0.1.0-ALPHA.45` 正式增加 `RateLimit.callee`，Java、Rust、C++、npm/PyPI 发布工作流全部成功。
+  - control-plane 通过正式 tag 升级依赖，以 namespace 表达归属环境、callee 表达目标服务。
+  - 修复限流列表 owner/callee 混用和公共数字输入多位值回退问题。
+  - OrbStack full 模式和真实 8080 浏览器完成 `120000 Token / 60s` TPM 规则创建、回读与 Quota Lease 运行态验收。
+
+## [2026-08-04] refine | 限流计量场景收敛
+
+- 更新页面：adr-quota-lease-streaming-rate-limit、governance-rules、index、todo、lessons。
+- 变更摘要：
+  - 移除与可配置统计窗口重复的 RPM 场景卡片。
+  - Console 只保留 QPS 请求数、TPM Token 数和并发三类资源场景，QPS/TPM 分别提供 1 秒和 60 秒默认窗口。
+  - 请求数使用 60 秒窗口即表达 RPM，修改窗口不会改变资源场景选中状态。
+  - 前端契约、构建和真实 `pole.localhost` 浏览器验收通过，并已更新 OrbStack 集群。
+
+## [2026-08-04] refine | 限流资源交互去重
+
+- 更新页面：adr-quota-lease-streaming-rate-limit、todo、lessons。
+- 变更摘要：
+  - QPS、TPM、并发场景卡成为资源类型的唯一选择入口。
+  - 移除卡片下方重复的请求数、Token 数、并发数单选组。
+  - 场景选择后直接展示阈值窗口或并发上限，前端契约、构建、OrbStack 部署和真实页面验收通过。
+
+## [2026-08-04] fix | 限流接口编辑行布局
+
+- 更新页面：todo、lessons。
+- 变更摘要：
+  - 修复 Fluent Combobox 默认最小宽度撑破接口网格、覆盖方法和匹配类型列的问题。
+  - 约束 grid item、Combobox 根节点和内部 input 可收缩，并为窄容器保留可滚动的最小网格宽度。
+  - 生产构建、OrbStack 部署、截图和浏览器边界测量均通过，接口行控件无交叠。
+
+## [2026-08-04] refine | 准入策略提示视觉
+
+- 更新页面：todo、lessons。
+- 变更摘要：
+  - 移除把“快速失败”配置误表现为当前错误的大面积红色结果卡。
+  - 改为中性、紧凑的策略说明条，按 TPM、快速失败和排队模式解释实际执行行为。
+  - 前端契约、生产构建、OrbStack 部署和真实页面截图验收通过。
+
+## [2026-08-05] deliver | 系统接口指标与 Trace 下钻闭环
+
+- 更新页面：adr-otel-observability-platform、index、todo。
+- 变更摘要：
+  - 系统监控接口明细改为请求量、时间窗 QPS 和 Histogram P95/P99 的准确口径。
+  - control-plane HTTP/gRPC 入口生成 OTel server spans，Collector 将 Trace 写入带 TTL 的 GreptimeDB `pole_traces`。
+  - Console 增加平台 Trace 列表与详情 API，接口聚合行可下钻同时间窗 Trace 和 Span 瀑布。
+
+## [2026-08-05] fix | control-plane 内部 Span 层级补齐
+
+- 更新页面：adr-otel-observability-platform、todo、lessons。
+- 变更摘要：
+  - 保留 HTTP 请求父 Context，并由 Console 反向代理 CLIENT Span 传播 W3C TraceContext。
+  - 在 handler、限流、鉴权、namespace service、cache 和 store 稳定边界生成 INTERNAL Span。
+  - 鉴权 Span 按动作在单次请求内去重，避免资源列表逐项权限判断导致调用树刷屏。
+  - OrbStack 真实 `GET:/core/v1/namespaces` Trace 回读为 9 个 Span，父子层级和状态均正确。
+
+## [2026-08-05] refine | Trace 调用树可视化重构
+
+- 更新页面：adr-otel-observability-platform、todo、lessons。
+- 变更摘要：
+  - Trace 详情保留微秒级开始和结束时间，避免短 Span 全部挤在同一毫秒刻度。
+  - Span 由开始时间平铺改为父先子后的深度优先调用树，并提供连接线与展开折叠。
+  - 增加全局时间概览、类型图例、选中态和 Span 检查器，明确调用层级与真实时间顺序。
+
+## [2026-08-05] fix | 鉴权 Span 写操作语义澄清
+
+- 更新页面：adr-otel-observability-platform、todo、lessons。
+- 变更摘要：
+  - 确认命名空间查询中的 Update/Delete 是 `editable/deleteable` 权限能力探测，不是业务写操作。
+  - 请求授权 Span 增加 `authorize` 层级，列表操作能力检查增加 `capability` 层级。
+  - OrbStack 新 Trace 已从 GreptimeDB 回读验证三类鉴权 Span 命名。
+
+## [2026-08-07] implement | A2A 与 MCP 环境化资源视图
+
+- 更新页面：ai-features、index、todo。
+- 变更摘要：
+  - A2A 与 MCP 一级页面统一为“全局逻辑资源 + 环境实例”两层视图。
+  - 逻辑资源目录展示环境覆盖，并提供创建逻辑定义和显式绑定已有环境实例的入口。
+  - 从环境空间进入时默认按当前 Namespace 查询实例，创建表单锁定当前环境，MCP 服务候选同环境过滤。
+  - 环境实例列表显式展示环境空间，`pole-system` 不进入业务逻辑资源聚合。
+
 ## [2026-08-08] implement | 配置模板标签与敏感 Value 加密
 
 - 更新页面：adr-config-template-labels-sensitive-values、adr-config-template-client-rendering、index、todo、lessons。
@@ -1584,6 +1677,30 @@ sources: 0
   - 配置模板内容、格式、Schema 和引擎改为 Namespace 草稿，组合发布读取环境定义；全局只保留逻辑身份信息。
   - 完成旧环境发布快照兼容初始化、全量测试、OrbStack 部署与真实浏览器验收；Adapter、Bundle 和晋升工作台仍待实现。
 
+## [2026-08-10] design implementation | Nacos Eureka 默认环境动态兼容
+
+- 更新页面：terminology、adr-system-configuration-control-plane、index、todo、lessons。
+- 变更摘要：
+  - Nacos `public`/空 Namespace 与 Eureka 缺省 `x-namespace` 分别使用独立的 GuardedHotReload 配置，初值均为 `dev`。
+  - 协议别名不创建公共环境；实例从共享发布版本校验并原子切换，失败保留 last-known-good 并写应用回执。
+  - 当前 effective 目标受 Namespace 删除保护；存量 Nacos 订阅固定创建时环境，动态切换只影响新请求与新订阅。
+
+## [2026-08-10] fix | 环境晋升拓扑暗黑模式适配
+
+- 更新页面：todo、lessons。
+- 变更摘要：
+  - 将晋升拓扑私有样式中的浅色硬编码替换为应用主题 token。
+  - 覆盖页面画布、摘要、拓扑节点、编辑卡片、行背景、文字、边框和发布栏。
+  - 通过现有暗色主题静态门禁、双主题 computed style 和真实 OrbStack 页面验证。
+
+## [2026-08-11] design implementation | Console 侧边编辑抽屉统一规范
+
+- 更新页面：adr-console-fluent-ui-design-system、todo。
+- 变更摘要：
+  - 统一 compact、standard、wide、workspace 四档宽度以及标题说明、遮罩、内容滚动和固定底栏边界。
+  - 新增 `components/EditorDrawer` 作为创建/短表单编辑的共享框架，配置分组成为首个迁移样板。
+  - 暗黑主题、窄视口、提交防重和动态标签连续输入纳入抽屉验收矩阵。
+
 ## [2026-08-11] design | Skill Marketplace 与 pole-ai-cli 分工边界
 
 - 新增页面：skill-marketplace、adr-skill-marketplace-federation。
@@ -1641,7 +1758,379 @@ sources: 0
   - 五个 Skill 抽屉入口统一使用局部正文容器，不影响共享 EditorDrawer 的复杂工作区调用方。
   - 审核、Registry Source、访问策略与空态补齐桌面/窄屏安全留白，并增加全入口数量契约。
 
+## [2026-08-15] ingest | Kubernetes 生产部署基线与 SOP
+
+- 新增页面：adr-kubernetes-production-deployment、kubernetes-production-sop。
+- 更新页面：configuration、index、todo、log。
+- 变更摘要：
+  - 以通用 Helm Chart 交付拆分的 Pole 三 workload 与 Kubernetes 内 MySQL、GreptimeDB、OTel Collector。
+  - ACK profile 仅公网暴露 Console ALB HTTPS，其余端口保持 ClusterIP，并使用 ACK CSI 云盘。
+  - 原生 Secret 管理运行与 OSS 凭据；GitHub Release 发布公开 GHCR 多架构不可变镜像。
+  - 补齐安装、验收、升级、回滚、OSS 备份恢复、卸载和故障排查门禁。
+
+## [2026-08-18] validate | ACK 内部生产栈部署验收
+
+- 更新页面：todo、log。
+- 变更摘要：
+  - 在用户指定 ACK context 部署 Helm revision 2，验证 7 个 Pod、3 个云盘 PVC 与内部 Service。
+  - 验证公开 GHCR digest、MySQL schema、Pole 三组件入口及 OTel 到 GreptimeDB 的 canary 落库回读。
+  - 记录 MySQL 最小 Linux capabilities 修复和 NetworkPolicy、ALB HTTPS、OSS 备份尚未完成的真实边界。
+
+## [2026-08-18] investigate | ACK Pole 运行拓扑收敛
+
+- 更新页面：todo、lessons、log。
+- 变更摘要：
+  - 以源码和测试确认 `all` 只包含 Control Plane 与 Console，Limiter 仅由 `full` 或独立 mode 启动。
+  - 明确 Limiter 对分布式限流数据面和 quota-leases 页面负责，不是基础 Control Plane/Console 的启动依赖。
+  - 记录合并 Console 后副本数、故障域、扩缩容和滚动发布耦合的待确认取舍。
+
+## [2026-08-18] deploy | ACK demo full 合并模式
+
+- 更新页面：adr-kubernetes-production-deployment、kubernetes-production-sop、todo、lessons、log。
+- 变更摘要：
+  - Chart 增加默认 split、demo 可选 full 的显式部署模式，并提供 ACK demo overlay。
+  - Helm revision 3 将 Control Plane、Console、Limiter 收敛到单 Pod，保留三个稳定 ClusterIP Service。
+  - 验证全部监听端口、核心 HTTP、Limiter 运行态、固定镜像 digest 和 OTel 到 GreptimeDB canary 回读。
+
+## [2026-08-18] fix | ACK Helm 资源命名规范化
+
+- 更新页面：adr-kubernetes-production-deployment、kubernetes-production-sop、todo、lessons、log。
+- 变更摘要：
+  - 修复 release 与 chart 同名时 fullname 重复拼接，运行资源从 `pole-pole-*` 规范为 `pole-*`。
+  - 增加 existingClaim 迁移能力，有序停机后让新 StatefulSet 复用原有三块 ACK 云盘。
+  - 通过 PV/数据库指纹、六项 HTTP smoke、固定镜像和 OTel canary 证明改名未重置数据。
+
+## [2026-08-18] operate | ACK Demo Console 临时管理员初始化入口
+
+- 更新页面：todo、log。
+- 变更摘要：
+  - 清理账号风控拒绝的临时 CLB Service，改用 ACK AlbConfig 创建公网 Basic ALB HTTP Listener。
+  - ALB ACL 仅允许当前公网 IPv4 `/32`，验证允许来源 200、独立外部来源不可访问。
+  - 将入口明确限定为无 TLS 的一次性管理员初始化通道，等待用户完成后删除 ALB 与 EIP。
+
+## [2026-08-18] operate | 临时 Console 入口放开全公网
+
+- 更新页面：todo、lessons、log。
+- 变更摘要：
+  - 根据用户明确选择移除 ALB HTTP Listener 的 `/32` White ACL。
+  - 保留无 TLS、一次性管理员初始化和完成后立即删除的安全边界。
+
+## [2026-08-19] fix | ACK Demo 创建用户空标签提交异常
+
+- 更新页面：todo、lessons、log。
+- 变更摘要：
+  - 从 ACK 在线哈希资源确认创建用户的 `user_labels.reduce` 在 API 请求前读取未初始化字段。
+  - 为共享 LabelInput 注册空数组默认值，并在 UserEditor 提交边界增加数组归一化与专项回归。
+  - 发布带 SBOM/provenance 的多架构 GHCR digest，升级 ACK Helm revision 5 并验证新 SPA 哈希、Pod 和数据库保留状态。
+
+## [2026-08-19] fix | ACK 临时 ALB ACL 与 IP 后端调谐
+
+- 更新页面：todo、lessons、log。
+- 变更摘要：
+  - 区分 Pod/Service 200 与公网 ALB 静默超时，确认省略 aclConfig 没有解除旧 White ACL。
+  - 以显式空 Black ACL 表达全公网放开，并让 Ingress 使用预先创建的 IP 类型临时后端 Service。
+  - ACK 调谐后两个 ALB EIP 均恢复 HTTP 200，临时清理范围同步包含该 Service。
+
+## [2026-08-19] verify | OrbStack Console 全链路浏览器验收
+
+- 更新页面：console-orbstack-browser-acceptance、index、todo、log。
+- 变更摘要：
+  - 以真实浏览器完成环境、配置、注册发现、实例、认证、A2A、MCP 和关键响应式交互的增删改查回归。
+  - 修复实例 metadata/删除键、服务删除键、配置删除路由、A2A 绑定、MCP 长地址和窄屏头部问题并重放。
+  - 明确 Skill 外部导入、Agent 模型、系统配置发布、服务监控 Mock 与九类治理规则逐类发布的未验收边界。
+
+## [2026-08-19] fix | OrbStack Console 验收缺口补齐
+
+- 更新页面：console-orbstack-browser-acceptance、configuration、todo、lessons、log。
+- 变更摘要：
+  - 为 A2A 逻辑定义补齐带绑定保护和二次确认的 Console 删除入口，并通过真实浏览器清理遗留定义。
+  - 安装固定版本 Metrics Server，使用 APIService Available 与 `kubectl top node/pod` 证明资源指标链路可用。
+  - 通过 Console 上传并回读自包含 Skill ZIP；修复 MySQL DSN 缺少 `parseTime=true` 导致的时间字段扫描错误。
+
+## [2026-08-19] deploy | ACK Demo 同步 Console 验收修复
+
+- 更新页面：kubernetes-production-sop、todo、log。
+- 变更摘要：
+  - 首次升级因构建版本超过实例字段长度导致自注册失败，安全回滚后修复自注册版本边界并增加字段级错误上下文。
+  - 发布带 SBOM/provenance 的 amd64/arm64 GHCR digest，以 Helm revision 8 部署到用户指定 ACK context。
+  - 验证 Pod 零重启、公网 Console/API 200、PVC/MySQL 数据保留、Limiter Endpoint、OTel 写入回读和 ACK Metrics API。
+
+## [2026-08-20] fix | Console 认证态与授权拒绝分离
+
+- 更新页面：auth-system、index、todo、lessons、log。
+- 变更摘要：
+  - 修复前端把普通 HTTP 401 与 `401001` 资源无权当成 Session 失效并跳回登录页的问题。
+  - Console Proxy 只对 `401003/401004` 清除 HttpOnly Cookie，并让无效 Token 使用明确的 `401004` 认证错误码。
+  - 发布双架构 GHCR digest 并升级 ACK Helm revision 9；以有效普通用户、无效 Token 和受控浏览器三层回归验证边界。
+
+## [2026-10-02] ingest | 配置中心统一模板与 values 及协议兼容方案
+
+- 新增统一模型 ADR 与 Apollo/Nacos/Consul 官方协议核查基线，记录用户确认方向、协议 profile、原子发布、渲染、写入限制、监听游标、迁移顺序和验收矩阵。
+- 对照当前源码区分原生组合 Watch 已实现与兼容订阅未接入，记录 Apollo/Nacos 模板读取及协议映射缺口；未发现 Consul server adapter，按新增能力规划。
+- 保留 Pole 原生 SDK 渲染合同，为第三方协议建议服务端最终内容交付；现有多文件共享 values 和协议地址保持迁移可追溯。
+- 同步配置中心、旧渲染 ADR、任务记录和渐进导航；本轮仅设计文档，无业务代码修改、数据迁移、提交、推送或部署。
+
+## [2026-10-02] ingest | 澄清发布定义与按客户端标签渲染
+
+- 根据用户澄清，原子发布固定模板、默认 values 与标签取值规则；同一发布版本允许产生不同客户端结果，撤回把最终渲染内容视为唯一发布产物的假设。
+- 区分版本投放和版本内取值，补齐有效 values、结果 revision、缓存隔离、标签变化重新订阅/解析、输入相关校验与预览。
+- 保留原生 SDK 本地渲染与第三方协议服务端内容交付的分工；Consul 基础 KV 保持统一 key 视图，协议不能提供的标签不宣称透明兼容。
+- 更新方案、功能页、研究中的设计建议、任务、索引和既有 lesson；只更新文档，没有实现或运行时行为变更。
+
+## [2026-10-02] ingest | 补齐多个灰度版本并存的统一配置方案
+
+- 明确同一配置环境为一个正式版与多个灰度版的生效集合，按客户端标签和稳定优先级唯一选版本，再在该版本内解析有效 values；禁止跨版本混用模板、默认值或取值规则。
+- 补齐定向停止/替换/回滚、灰度转正式草稿及正式发布不自动停止其他灰度的合同；增加生效集合 revision、缓存与监听重新选择、重叠受众预览及三灰度并存验收。
+- 用当前源码确认普通文件与模板环境版本的排序差异，更新既有多灰度 ADR 的历史状态边界并保留迁移等价要求。
+- 本轮只更新方案及相关导航/记录，未修改业务代码或执行发布部署。
+
+## [2026-10-02] review | 完整复核统一配置模型与兼容方案
+
+- 对固定文档快照执行 Standards / Spec 双轴审查，修正删除作用域、literal 灰度写入与 CAS 目标、Consul 固定视图事务物化、缓存完整集合切换、灰度回滚受众转移及 Apollo 草稿生效边界。
+- 补明地址 tombstone、明确缺失/拒绝与 last-known-good、跨出口校验、无 CAS 请求覆盖及过期游标重查；公开 spec 仍收敛为配置草稿、统一发布和解析结果。
+- 两路独立复核确认上述问题在设计层关闭；目标文档检查通过，全库旧格式 lint 基线不变。未修改业务代码、执行迁移或运行 SDK E2E，具体客户端矩阵与能力协商留在 P0 定稿。
+
+## [2026-10-02] review | 统一配置方案第二轮边界审查
+
+- 固定修订后快照，重新推演原生 SDK、条件写与删除重建；核实 Nacos casMd5 无法隔离同内容重建、Consul 完整条目不变时保留 ModifyIndex，两项协议合同仍需修订。
+- 另确认 literal 迁移缺少旧 Pole SDK 原始内容交付例外；独立调用当前渲染器，复现 ADR double-mustache 示例语法失败，triple-mustache 对照成功。
+- 将 1 项 P1、3 项 P2 记录到任务 Review 和待修订清单。本轮仅审查并记录，不修改方案正文或业务代码，不执行协议 E2E、提交或部署。
+
+## [2026-10-02] refine | 取消 Pole 历史兼容约束并简化渲染链路
+
+- 根据用户明确指示，取消旧 SDK、旧 wire/API、绑定发布、旧灰度排序及存量迁移的设计约束；撤销第二轮审查的旧 SDK 兼容 P1。
+- 新方案建议原生 SDK 与外部客户端统一消费服务端按标签渲染的结果，spec/control-plane/Console/SDK 按单一模型实现；发布权威仍为模板、values 与规则定义。
+- 保留 Apollo/Nacos/Consul 外部协议需求，修订 Nacos MD5 CAS 存在期保证和 Consul 无变化 PUT 索引行为，并修正 triple-mustache 示例；同步历史 ADR 入口、功能页、索引、任务和 lesson。
+- 本轮仅更新方案，不修改业务代码、不迁移或清理数据、不提交或部署。
+
+## [2026-10-02] review | 无历史兼容约束的新配置模型复审
+
+- 固定服务端统一渲染方案快照，独立复核外部协议一致性和原生 SDK 上下文/响应时序；不重新引入旧 Pole 模型与迁移要求。
+- 协议一致性轴未确认新增问题；Spec 轴确认 1 项 P2：原生 SDK 缺少旧请求/订阅回调失效与响应接纳顺序合同，停止灰度或切换标签后可能被迟到响应覆盖。记录最小修正建议与逆序验收场景，未增加发布对象。
+- 本次只更新任务 Review、待办和导航/日志，方案正文保持被审快照，未执行实现、SDK E2E、提交或部署。
+
+## [2026-10-02] refine | 补齐原生配置 SDK 的响应接纳合同
+
+- 根据用户确认，将迟到响应 P2 写入统一模型 ADR 第 4.1 节：同配置串行协调、本地上下文/请求世代、观察游标读取下限及应用通知接纳规则。
+- 存在/缺失结果与 observation_cursor 取自同一一致视图；拒绝按当前请求身份处理，不要求披露资源游标；通知位置与已接纳位置分开，覆盖重读失败、断线恢复、日志换代和旧回调失效。
+- 同步原生读取合同、版本表、实施顺序、验收矩阵、功能页、导航与任务记录。补充停止灰度后旧响应、标签 A→B→A、旧缺失/拒绝、删除重建、通知先到但读取失败等场景；仅更新设计，未修改业务代码或执行 SDK E2E。
+
 ## 相关页面
 
 - [[index]]
 - [[schema]]
+
+
+## [2026-10-02] implement | 统一配置新 spec 与核心首批落地
+
+- 新增 pole.config.v2、Go/Rust 生成合同与统一配置核心；原子发布完整 definition、多灰度选择、标签 values、服务端渲染、生命周期 CAS 和读取/监听游标。
+- 接入 MySQL 主库一致快照、不可变 release 行、事务事件及显式恢复换代；原生 HTTP/gRPC 复用资源鉴权。管理历史采用有界元数据分页与单版本详情，HTTP Watch 预留响应写入预算。
+- 核心、存储与入口回归/race、定向 vet、Go/Rust 契约检查通过；真实隔离 MySQL 验证并发、事件失败回滚及 34 个大版本；默认 gRPC 接收上限下验证 9 个大版本分页读取。临时测试数据库与容器已清理。
+- 同步 ADR 第 10.1 节、配置中心功能页、任务 Review 与导航；SDK、Console、地址生命周期和外部适配继续按后续阶段推进。未提交、发布、部署或迁移；临时 modfile 用于相邻 spec 联调，正式依赖版本尚待发布。
+- 本机 golangci-lint 缺失；spec 旧测试全量 vet copylock 基线保留；知识库结构检查无新增诊断，未修订无关旧格式。
+
+
+## [2026-10-02] refine | 配置契约直接沿用 v1
+
+- 用户确认尚未完整对外发布，不另起配置协议版本。将此前新增的配置契约收回 pole.config.v1、api/v1/config、Rust pole::config::v1 和 /config/v1，旧本任务版本产物清理；协议文档改为 specification/CONFIG.md。上述实现日志保留当时记录，以本条为最新版本决定。
+- HTTP 合并为唯一配置 WebService，新 11 个 JSON 动作与分组入口同 root；gRPC 不注册旧版本别名。生产容器分派与开关测试、生成客户端测试、六包 race、核心/存储回归、定向 vet 和本地主程序构建通过。
+- 同步 ADR、功能页、任务 Review、索引和 lessons；未改变字段/编号或发布语义，也未修改第三方协议与限流自身的版本。知识库无新增 lint 诊断。
+- 无提交、推送、部署；无真实业务数据操作。
+
+
+## 2026-10-02
+
+- 操作：update。
+- 变更摘要：按用户纠正，配置管理仅走 HTTP；config.proto 只保留消息，现有 v1.ConfigGRPC 仅声明 Discover/Resolve/Watch，删除并行 ConfigService 与管理 RPC。同步 Go/Rust 生成代码、服务注册与 client/config 开关；将管理历史容量验证迁至 HTTP。
+- 更新页面：adr-config-template-values-unification、config-center、tasks/todo、tasks/lessons、_meta/index、technical/adr/index；相邻 specification 的 CONFIG.md、README 与任务记录同步。
+- 验证：Go/Rust spec 测试、定向 vet、Rust check/fmt、control-plane 六包 race、核心/存储普通回归和主程序构建通过；HTTP 管理发布后可用生成客户端读取/监听，管理 RPC 不可调用。知识库 lint 无新增诊断；既有 spec 全量 vet 与 golangci-lint 缺失限制保留。未提交或部署。
+
+
+## 2026-10-02
+
+- 操作：update。
+- 变更摘要：按用户要求，原生配置 gRPC 收敛为唯一 Discover，在双向流上逐次请求/逐次响应；直接调用统一选版渲染核心，无请求不发送。删除重复 Resolve/Watch RPC 与原生旧读取转换，HTTP 管理和长轮询保持原合同。
+- 更新页面：统一配置 ADR、config-center、tasks/todo、tasks/lessons 和两级索引；相邻 specification 同步 service、Go/Rust 生成代码、CONFIG.md、README 与合同测试。
+- 验证：协议 Go/Rust 测试、定向 vet、Rust check/fmt、control-plane 核心/存储回归和主程序构建通过；入口六包 race 通过，包含重复请求、无主动发送、逐帧授权、灰度/下线重读、取消/deadline/EOF 和生产流包装。既有 spec 全量 vet copylock 与 golangci-lint 缺失限制保留；SDK 刷新/缓存实现仍为后续工作。未提交、推送或部署。
+
+- 配置跨语言命名补正：grpc_config_api.proto 的 Java 外层类名改为 PoleConfigGRPCService，Rust proto 副本和 Go 描述符同步。配置 Go 契约测试、Rust 构建及临时 Java 生成检查通过；不改版权声明或其他模块命名。
+
+- Polaris 命名只读审计：确认服务发现 Java 选项、限流真实 wire 包名、冗余 gRPC 方法路径、启动 YAML/metadata、认证头与日志路径仍有旧名。旧辅助脚本制品名不一致列为候选，未确认当前发布包使用；版权头不列为清理项。细节与证据见 tasks/todo；本轮未改运行代码。
+
+
+## 2026-10-03 统一配置 v1 实现与旧链路清理
+
+- 当前 ADR 和配置功能页以 sibling specification 最新标准为权威，明确原生 Discover/Preview 下发模板与有效 values、SDK/控制台本地渲染及显式兼容转换。
+- 记录独立内部聚合、不可变发布、主库事务游标、业务环境权限和 namespace→clock→state 锁序；旧配置文件/模板/values/binding/watch/cache/store 及无生产者指标移除。
+- 更新协议 profile、Console 与 Workbench 接线和验收边界；旧模板/多灰度 ADR 标为 deprecated 并指向当前决策。相关导航、存储/缓存/API 描述同步。
+- 本轮验证和缺口见 tasks/todo.md；没有提交、推送、部署或共享业务数据清理。
+
+
+## 2026-10-03 配置管理 HTML 交互原型
+
+- 按用户要求先提供独立 HTML demo，将配置列表、草稿编辑、标签预览、整份发布、多灰度生效和历史回滚按管理任务组织；隐藏常规操作中的协议 JSON 和手填版本标识。
+- 原型位于 web/console/output/configuration-demo/index.html，本地示例数据仅存在内存；未接真实 API，未修改正式前后端、spec，未提交、推送或部署。
+- Playwright 主流程及补充状态共 31 项检查通过；验证 1440px/390px 布局并检查截图。修复窄屏 grid 被配置列表撑宽、选择替换灰度后条件与优先级未同步，以及仅灰度/无生效版本的误导文案。
+- 更新 tasks/todo、tasks/lessons 与导航摘要；原型设计待用户审阅，不能代替真实服务协议或业务验收。
+
+
+## 2026-10-03 配置原型对齐现有控制台设计
+
+- 用户指出独立 HTML 与现有页面风格未对齐。按当前 AppLayout/Menu/Header、ResourceLayout、Fluent token 与 EditorDrawer 修正原型外壳、导航层级、品牌资产、图标、密度、按钮和抽屉尺寸；保留单份草稿、标签预览和多灰度交互。
+- 浏览器实测 232px/64px 侧栏、24px 页面边距、32px 按钮、560px/960px 抽屉和 390px 安全边距；执行草稿/线上预览隔离、标签选版和新增灰度，桌面及窄窗口无页面横向溢出，所查日志无 error/warn。
+- 当前正式控制台入口与 file: 标签不可由浏览器工具访问；采用当前源码为对齐基准，验证并刷新已有 HTTP 原型，不宣称正式控制台同屏验收。修改仍只限 HTML 原型和任务/经验/导航记录。
+
+
+## 2026-10-03 共享模板与环境取值归属修正
+
+- 用户指出模板应跨环境共享，具体 values 归属环境，并允许只发布到部分环境。核对最新 spec，确认当前环境内完整草稿模型缺少共享管理源层。
+- 独立 HTML 改为共享模板/变量声明、环境取值/规则、选择目标环境发布；每个环境冻结自己的完整版本并保留独立多灰度。修复多环境发布提示、目标检查前的修改顺序与灰度表单输入保留。
+- 本轮浏览器验证共享模板保存不改变线上、目标环境使用新模板及自身 values、未选环境旧快照不变、多灰度独立、空值不继承及逐环境部分失败结果。桌面/390px 无页面横向溢出，发布底栏可达，所查运行日志为空。截图和具体数据在 tasks/todo 的本轮 Review。
+- 更新当前 ADR、术语、功能摘要、任务/经验及索引；共享管理协议/CAS/冻结候选和正式实现仍待补。没有修改 spec、正式前后端，没有提交、推送或部署。
+
+
+## 2026-10-10 模板编辑原型简化
+
+- 用户截图指出模板页仍复杂，按正文编辑主任务取消首屏变量大表、模式/格式选择和重复说明；变量定义与模板设置改为清楚命名、带数量的按需入口。沿用现有 Fluent 外壳。
+- 保留类型/必填编辑、新增/删除声明、正文引用删除保护、草稿状态、预览与目标环境发布；修正添加返回原变量视图和关闭后的焦点恢复。共享模板与环境 values 归属未改变。
+- 本轮浏览器验证展开/编辑/关闭后的正文保留、草稿与线上隔离、prod 单环境发布保留其他环境及两个灰度，1440px/390px 无页面横向溢出；JS 语法通过，所查日志无 error/warn。具体证据和截图见 tasks/todo。
+- 仅更新 HTML demo 与任务/经验/索引日志；正式协议和前后端未修改，无提交、推送或部署。已恢复示例、默认视口并刷新两个已有预览标签。
+
+## [2026-11-04] task | 创建服务抽屉 audit / polish
+
+- 更新tasks/todo与lessons：领域正文留白、纵向提示/错误去重、readonly环境和14组合验证；OrbStack revision6且数据保留。
+- 输出限定HTML/JSON报告并加入整合报告；共享抽屉焦点恢复另列P2，未扩大源码改动。
+
+## [2026-11-04] task | 真实操作页修整（浏览器复验待完成）
+
+- 更新tasks/todo与lessons，记录领域留白、开关状态和关闭焦点修复；OrbStack revision7数据保留，11项契约通过。
+- 当前Chrome实际复验因活动窗口变化待恢复，HTML/JSON报告明确区分实现、部署与未完成验收。
+
+## [2026-11-05] task | 真实浏览器操作页验收与修整完成
+
+- 用户改选独立受控浏览器并亲自登录；真实域名覆盖7类工作区、9种治理创建工作面，保存71张截图、77条布局/焦点记录。创建、编辑、别名和两向关联均使用经授权临时资源，7项资源全部清理，admin及系统资源保留。
+- 补齐AI/实例抽屉留白、窄屏栅格、暗色只读身份、可访问名称、步骤文字与焦点；服务创建确认后连接实例下一步。真实发现并修复用户组普通更新重启用Token与用户/组新建状态残留，保留专用凭据启停接口和权限。
+- 目标契约/lint、Go包测试、release/arm64镜像通过；TypeScript仍278条存量且无新增。OrbStack revision10、4Pod Ready/0restart、PVC UID/Secret哈希保留，Gateway域名首页匹配构建。未提交、推送或重置数据库。
+- 主整合报告回链限定HTML/JSON报告；新增治理字段命名P1和3项P2建议保留，明确未测外部AI/SDK、发布生效、物理触屏/完整读屏及故障注入。
+
+## [2026-11-05] task | 治理字段P1与三项P2关闭
+
+- 按用户授权完成治理字段可访问名称、配置/治理上手指引、通知定位及旧chunk恢复。真实浏览器验证9类创建页及动态行、配置示例与JSON恢复、390/1440浅暗色通知和键盘、11→12真实跨版本恢复；最终revision13。
+- 关联修复Mock响应头空行与重复键拒绝，保留有效Record和输入焦点；没有保存规则或配置。临时逻辑服务已清理。
+- 8契约、目标lint、release/arm64构建通过；类型271条存量无新增。额外旧布局脚本仍有存量过时断言，未列通过。4Pod Ready/0restart、PVC/Secret不变、域名匹配构建；未提交推送。
+- 更新tasks/todo、主报告及此前报告的后续关闭状态；完整证据在web/console/output/playwright/followup-fixes-2026-11-05。未将局部实测扩称全站AA或发布生效验收。
+
+
+## [2026-11-05] task | 配置中心交互原型启动
+
+- 用户要求先看对齐注册发现的操作 demo。已核对真实配置入口与 v1 九动作，沿用既定共享模板和环境取值归属，独立原型演示目录、环境发布与历史。新增管理能力明确标注待补，不修改正式流程或部署。
+
+## [2026-11-05] task | 配置中心交互原型交付
+
+- 独立React/Fluent原型完成目录→正文/环境取值→标签预览→指定环境发布→历史操作，保持既定共享归属。只读复核及真实受控浏览器验证后，修正严格标签、literal原样、变量重名覆盖、模态错误反馈、键盘焦点和短窗按钮可达性。
+- 目标TypeScript/oxlint/独立构建通过；1440/390和短窗实测，内存临时资源刷新重置。目录、共享管理及多环境编排仍明确为待补能力；未改正式页面、部署、提交或推送。
+
+## [2026-11-05] task | 配置正文与变量取值分任务页签
+
+- 根据用户“正文和key同屏拥挤”的反馈，将独立demo改为配置内容/变量与取值两个页签，移除双栏常驻，保留共用草稿和发布动作。真实浏览器验证双向草稿保留、默认宽度与390px布局，新的截图与README已更新；正式页和部署保留。
+
+## [2026-11-05] task | 条件取值就地整合
+
+- 用户确认条件应在变量值处配置。独立demo将默认值和条件值改为同一变量表格，条件标签/优先级就地编辑，删除独立规则管理区；保留整组条件优先级及默认回落语义。
+- 真实浏览器验证增删改、留空继承、非法条件和渲染预览，390px表格内部滚动可达；目标类型/lint/独立构建通过。证据和README更新，未改正式页面、业务数据或部署。
+
+## [2026-11-05] task | 逐key可选取值目标澄清
+
+- 用户提出条件组复用、各key关联组/匹配值与可选兜底，未命中且无兜底时key无value。已只读复核旧单winning规则、缺失与空字符串、模板引用和required合同；条件组是匹配维度还是条件集已提问，依赖此决定的原型尚未修改。
+
+## [2026-11-05] task | 条件组与逐key可选取值原型完成
+
+- 用户确认条件组为整组AND判断。独立demo改用环境条件组、逐key有序关联和可选兜底，未命中且无兜底不返回key，空串保持存在。组名可改且ID稳定，引用中禁止删除；上下移提供原型建议的首个命中策略。正文引用缺值仍明确报错，发布保守保持静态完整性边界，不将新取值目标当正式运行时。
+- 12项模型场景、目标类型/lint/独立构建通过；真实浏览器验证命中/缺项/空串/排序/组引用、环境隔离、部分失败重试、冻结历史和复制恢复，390/1440实际渲染无文档横溢出。独立只读复核后补具名控件。新schema统一到发布快照；ADR/功能页/README及证据同步，未改后端/正式页面/部署，示例内存重置，未提交推送。
+
+## [2026-11-05] task | 取值工作区密度修整
+
+- 根据用户控制区占用与留白反馈，将全部常驻表单改为紧凑key清单和单行展开编辑，条件组摘要/就地编辑，环境和管理工具栏合并，预览入口及双列结果收紧；解析模型与发布边界保留。
+- 实测默认key行高171→46px，1440×1000可同时呈现条件组/取值/预览；390px表格与容器同宽，无文档横溢出。编辑切换保留草稿、组管理及键盘焦点通过；类型/lint/独立构建通过，新页error为空。README与compact-values-*证据同步，未改后端/正式页/部署或提交推送。
+
+## [2026-11-05] task | 独立预览弹窗与条件组选取
+
+- 按用户要求移除常驻预览，仅保留入口；弹窗以渲染为主、取值来源为次。已有组多选生成标签，自定义按需补充，冲突/失效组/非法CSV拒绝；预览环境不改编辑环境，输入变化隐藏旧快照。
+- 16模型、目标类型/lint/独立构建通过；真实浏览器覆盖多选、补充冲突、空选缺项、未保存草稿、环境隔离、缺值/空内容，390×600关闭可达且焦点恢复。独立只读复核完成，README和preview-dialog-*同步；未接真实API、部署、提交或推送。
+
+## [2026-11-05] task | 后缀推断与自适应语法编辑器
+
+- 按用户要求移除格式选择，由单一后缀推断统一编辑语言/预览/快照；接入本地Monaco和本地workers，按需加载编辑器chunk。正文填充桌面剩余高度，窄/短窗自然滚动，格式只读展示。
+- 12格式案例、目标类型/lint/独立构建和只读复核通过；实测YAML/JSON/Properties/XML多色token、输入/切tab/预览保留、JSON worker格式化及390/1440/1920/短窗布局。常规底栏距视口底17px，无横向溢出；新页error为空。编辑器chunk约3.24MB保留大包提示，正式打包优化未验收。临时内存文件已刷新清除；仅demo与记录，未改正式协议、部署、提交或推送。
+
+## [2026-11-05] task | 发布记录与客户端查看交互补齐
+
+- 独立原型补齐显式正式/新增灰度入口，多个灰度条件/priority/状态展示，正文/变量/草稿对比与候选可读审阅、灰度快照转正式。客户端读取示例支持环境/搜索/历史版本与渲染来源，明确当前无正式枚举API、watch或下发回执。
+- 浏览器实测正式替换保留灰度、多环境失败重试、灰度转正式/停止重读/历史记录不自动改写及390×600可达；8选版+16取值+12后缀、目标类型/lint/构建通过，新页error为空。只读复核问题已修，内存操作已重置；未改正式源码/API/OrbStack，不提交推送。
+
+## [2026-11-05] task | 灰度受众按客户端标签澄清
+
+- 用户明确灰度范围是客户端请求标签，标签组只作快捷勾选/填写来源；独立demo增加标签勾选、自定义名值与最终AND条件，组带入后不关联组、可独立增删。变量取值条件组保持在版本内的value选择职责。
+- 13模型/目标类型/lint/构建及真实浏览器验证通过；组带入独立取消、冲突拒绝、空范围阻止和tier客户端实际选版已验证。窄屏按钮可达，新页error为空，临时内存发布重置；未部署/提交推送。
+
+## [2026-11-05] task | 发布抽屉与环境Tab审阅
+
+- 按用户标注将发布居中弹窗改为右侧Fluent抽屉，多环境候选改环境Tab并保留正文/变量子Tab；标题操作栏固定，正文滚动，取消/空环境及冻结候选均有明确查看状态。
+- 真实浏览器验证环境值隔离、Tab保留、范围取消、空范围、部分失败重试与焦点恢复；修复全局header污染和窄屏100vw裁切，390×600底栏可达。类型/lint/构建通过，新页error为空；临时内存发布重置，仅demo与记录，不部署提交推送。
+
+## [2026-11-05] task | 发布Step与原式客户端标签条件行
+
+- 用户要求环境→类型→灰度标签→确认，参考HEAD旧配置和当前共享组件，原型恢复IP/ID/语言、匹配方式和值条件行，当前仅完全匹配。前序无发布动作，冻结后只审阅/结果；示例请求显式提供CLIENT_*，不冒充自动采集。
+- 14选版/标签模型、目标类型/lint/构建、只读复核与真实浏览器验证通过；空/重复条件拒绝、回退保留、失败重试、目标客户端选版、390×600布局与切步顶部/focus已验证。内存临时发布重置，当前第3步未确认；仅demo和记录，未部署提交推送。
+
+## [2026-11-05] task | 灰度匹配能力回退核对
+
+- 用户指出正则/范围原有能力，核实统一v1将Audience简化为标签map且只做相等比较；原匹配类型未迁入。记录为能力回退，不以当前实现限制代替产品要求。
+- 本轮仅原因核对和待办记录，未恢复协议/匹配器、未改Demo或部署提交推送。
+
+
+## [2026-11-05] task | 正式配置六种匹配恢复
+
+- 同步协议/生成合同、统一后端匹配器和正式Console条件编辑；旧精确labels保留，六操作AND、缺项负条件、空值/RE2/集合/int64和保守歧义语义明确。补齐空预览提示与窄屏历史溢出。
+- 全量Go/race、协议合同、隔离MySQL持久性、真实HTTP/gRPC及正式源浏览器命中验证通过；目标前端lint/边界/构建通过，全量tsc既有错误保留。新增config-six-match验收页并更新ADR/功能/任务/lessons/索引；临时资源清理，未部署提交推送。
+
+
+## [2026-11-05] task | 灰度标签在发布类型下内联
+
+- 按浏览器标注移除原型独立客户端标签步骤，灰度标签与优先级在类型选项下展开；进入确认前按类型校验、切换返回保留输入。同步README/ADR/tasks/lessons/索引。
+- 真实浏览器桌面与390×600、空条件/正式跳过/保留输入验证通过；目标类型/lint/独立构建通过，未确认发布，未部署提交推送。
+
+
+## [2026-11-05] task | 交互原型同步六种匹配
+
+- 18084灰度编辑器补六类型、正则/集合成员/int64范围输入及JSON匹配测试；结构化条件随发布/历史/模拟读取保存，旧exact示例兼容。独立Go/WASM执行正式regexp/strconv语义，桥接/产物/重建脚本入原型目录。
+- 22选版模型、WASM边界、目标类型/lint/构建及构建冷启动通过；真实浏览器六类19项、组合AND、非法拒绝、发布读取和390×600验证通过，修复复合输入id/命名。临时发布与18087服务清理，README/ADR/验收/tasks/lessons/索引同步；不提交推送部署。
+
+
+## [2026-11-05] task | 正式配置页面与真实管理模型落地
+
+- 新增共享正文独立CAS/目录/绑定环境存储与13管理动作，逐参数条件组取值保留旧winning兼容；源创建旧草稿保护与namespace资源锁/计数补齐。正式页面模块化接真实API，内联六匹配/独立预览/历史对比与原子晋升/多环境发布抽屉，标签键改同高只读Input。
+- Go全量/race、真实隔离MySQL、协议与前端检查通过；candidate镜像config-formal-20261105-a部署Helm revision14，manifest仅镜像变化、域名路由仍正常。真实账号浏览器验收待重新登录后继续，未提交推送。
+
+
+## [2026-11-05] task | 正式候选 revision15 与真实登录交接
+
+- 真实MySQL并发补测修复共享正文/首次草稿间隙锁竞态，以共同clock锁序列化；三个交错与相关包回归通过，专用容器清理。
+- 新镜像config-formal-20261105-b升级Helm revision15，路由健康与六表存在已核实。独立浏览器回到登录页，已请求用户重新登录；真实业务操作验收待续，没有声明完成。未读取更改密码，无新增业务临时资源，未提交推送。
+
+## [2026-11-06] update | 统一配置真实登录页面验收进展
+
+- 更新浏览器与六匹配验收、统一配置 ADR、任务 review 和 lessons；区分真实 Preview/发布证据与最终镜像、清理待办。
+
+
+## [2026-11-06] task | 正式配置最终浏览器验收与本地部署
+
+- 修复真实保存Any元数据回写、组展开状态、原生确认、发布刷新结果丢失；补历史回滚目标ID与共享字段复制保护，历史条件与时间可读化。
+- 真实登录页面验证编辑/跨环境局部恢复/Preview/六匹配/正式与多灰度/快照/回滚/原子晋升/复制保护/390px，通过最终镜像f再次发布与截图；Helm revision18 deployed、路由True/HTTP200、Pod1/1重启0。
+- 精确清理模板1/绑定2/状态2/发布8/事件8和空测试环境，保留clock及既有资源；docs/review/索引同步。目标检查通过，全仓tsc/KG lint既有问题保留；外部SDK与客户端观测API不作完成声明。未提交推送。
+
+
+## [2026-11-06] task | 两仓业务代码同步 develop
+
+- 用户明确扩大提交范围至两个仓库当前全部业务改动，排除本地产物/临时文件。通过显式清单隔离候选，不混入截图、Demo输出、缓存或本地consoleassets；保留源码占位文件。
+- specification 已推送 f1d3771e58700ebf38b7e05cfa103fea664fb926；控制面将协议绑定到该远端固定伪版本，测试向量从Go实际依赖定位，避免隐式相邻工作区依赖。

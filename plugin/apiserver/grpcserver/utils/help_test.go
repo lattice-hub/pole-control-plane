@@ -90,7 +90,7 @@ func TestGetClientOpenMethod(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "config access includes legacy and spec service names",
+			name: "config access includes only Discover",
 			args: args{
 				include: []string{
 					apiserver.ConfigAccess,
@@ -98,16 +98,7 @@ func TestGetClientOpenMethod(t *testing.T) {
 				protocol: "grpc",
 			},
 			want: map[string]bool{
-				"/v1.PolarisConfigGRPC/CreateConfigFile":    true,
-				"/v1.PolarisConfigGRPC/UpdateConfigFile":    true,
-				"/v1.PolarisConfigGRPC/PublishConfigFile":   true,
-				"/v1.PolarisConfigGRPC/Discover":            true,
-				"/v1.ConfigGRPC/CreateConfigFile":           true,
-				"/v1.ConfigGRPC/UpdateConfigFile":           true,
-				"/v1.ConfigGRPC/PublishConfigFile":          true,
-				"/v1.ConfigGRPC/Discover":                   true,
-				"/v1.ConfigGRPC/UpsertAndPublishConfigFile": true,
-				"/v1.ConfigGRPC/GetConfigFileMetadataList":  true,
+				"/v1.ConfigGRPC/Discover": true,
 			},
 			wantErr: false,
 		},
@@ -125,5 +116,29 @@ func TestGetClientOpenMethod(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestConfigClientOpenMethodContainsOnlyRuntimeRPCs(t *testing.T) {
+	methods, err := GetDiscoverClientOpenMethod([]string{apiserver.ConfigAccess}, "grpc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(methods) != 1 {
+		t.Fatalf("unexpected config methods: %v", methods)
+	}
+	for _, method := range []string{"Discover"} {
+		if !methods["/v1.ConfigGRPC/"+method] {
+			t.Fatalf("missing runtime method %s", method)
+		}
+	}
+	standalone, err := GetConfigClientOpenMethod("grpc")
+	if err != nil || len(standalone) != 1 {
+		t.Fatalf("standalone config exposes other methods: %v %v", standalone, err)
+	}
+	for _, method := range []string{"Resolve", "Watch", "SaveDraft", "GetState", "Preview", "Publish", "Stop", "StopAllGray", "Promote", "Rollback", "Offline", "CreateConfigFile", "UpdateConfigFile", "PublishConfigFile", "PreviewConfigTemplate", "UpsertAndPublishConfigFile"} {
+		if methods["/v1.ConfigGRPC/"+method] || standalone["/v1.ConfigGRPC/"+method] {
+			t.Fatalf("management method is open: %s", method)
+		}
 	}
 }

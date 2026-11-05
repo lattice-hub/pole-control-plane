@@ -21,7 +21,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	apiconfig "github.com/pole-io/specification/source/go/api/v1/config_manage"
 	apifault "github.com/pole-io/specification/source/go/api/v1/fault_tolerance"
 	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 	apiservice "github.com/pole-io/specification/source/go/api/v1/service_manage"
@@ -432,14 +431,6 @@ func NewDiscoverFaultDetectorResponse(code apimodel.Code, service *apiservice.Se
 		Info:    code2info[uint32(code)],
 		Type:    apiservice.DiscoverResponse_FAULT_DETECTOR,
 		Service: service,
-	}
-}
-
-// 创建一个空白的 ConfigDiscoverResponse
-func NewConfigDiscoverResponse(code apimodel.Code) *apiconfig.ConfigDiscoverResponse {
-	return &apiconfig.ConfigDiscoverResponse{
-		Code: uint32(code),
-		Info: code2info[uint32(code)],
 	}
 }
 

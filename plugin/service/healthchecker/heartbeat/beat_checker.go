@@ -37,7 +37,8 @@ import (
 )
 
 var (
-	_ healthcheck.HealthChecker = (*HeartBeatHealthChecker)(nil)
+	_ healthcheck.HealthChecker      = (*HeartBeatHealthChecker)(nil)
+	_ healthcheck.CheckerPeerUpdater = (*HeartBeatHealthChecker)(nil)
 )
 
 const (
@@ -142,30 +143,34 @@ func (c *HeartBeatHealthChecker) Destroy() error {
 }
 
 // SetCheckerPeers
-func (c *HeartBeatHealthChecker) SetCheckerPeers(checkerPeers []healthcheck.CheckerPeer) {
+func (c *HeartBeatHealthChecker) SetCheckerPeers(checkerPeers []healthcheck.CheckerPeer) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	log.Info("[HealthCheck][P2P] receive checker peers change", zap.Any("peers", checkerPeers))
-	atomic.StoreInt64(&c.refreshPeerTimeSec, commontime.CurrentMillisecond())
-	c.refreshPeers(checkerPeers)
+	atomic.StoreInt64(&c.refreshPeerTimeSec, commontime.CurrentMillisecond()/1000)
+	if err := c.refreshPeers(checkerPeers); err != nil {
+		return err
+	}
+	if len(c.peers) == 0 {
+		c.hash = nil
+		atomic.StoreInt32(&c.initialize, uninitializeSignal)
+		return nil
+	}
 	c.calculateContinuum()
-	atomic.StoreInt64(&c.endRefreshPeerTimeSec, commontime.CurrentMillisecond())
-	atomic.StoreInt32(&c.initialize, 1)
+	atomic.StoreInt64(&c.endRefreshPeerTimeSec, commontime.CurrentMillisecond()/1000)
+	atomic.StoreInt32(&c.initialize, initializedSignal)
 	log.Info("[HealthCheck][P2P] end checker peers change", zap.Any("peers", c.peers))
+	return nil
 }
 
-func (c *HeartBeatHealthChecker) refreshPeers(checkerPeers []healthcheck.CheckerPeer) {
+func (c *HeartBeatHealthChecker) refreshPeers(checkerPeers []healthcheck.CheckerPeer) error {
 	tmp := map[string]healthcheck.CheckerPeer{}
 	for i := range checkerPeers {
 		peer := checkerPeers[i]
 		tmp[peer.ID] = peer
 	}
-	for i := range c.peers {
-		if _, ok := tmp[i]; !ok {
-			_ = c.peers[i].Close()
-		}
-	}
+	added := make([]string, 0, len(checkerPeers))
 	for i := range checkerPeers {
 		checkerPeer := checkerPeers[i]
 		if _, ok := c.peers[checkerPeer.ID]; ok {
@@ -173,26 +178,37 @@ func (c *HeartBeatHealthChecker) refreshPeers(checkerPeers []healthcheck.Checker
 		}
 		var peer Peer
 		if checkerPeer.Host == utils.LocalHost {
-			peer = newRemotePeer()
+			peer = NewLocalPeerFunc()
 		} else {
-			peer = newLocalPeer()
+			peer = NewRemotePeerFunc()
 		}
 		peer.Initialize(*c.conf)
 		if err := peer.Serve(context.Background(), c, checkerPeer.Host, checkerPeer.Port); err != nil {
-			log.Warnf("[HealthCheck][P2P] serve peer failed, err %s", err)
-			continue
+			for _, id := range added {
+				_ = c.peers[id].Close()
+				delete(c.peers, id)
+			}
+			return fmt.Errorf("serve checker peer %s at %s:%d: %w",
+				checkerPeer.ID, checkerPeer.Host, checkerPeer.Port, err)
 		}
 		c.peers[checkerPeer.ID] = peer
+		added = append(added, checkerPeer.ID)
 	}
+	for id := range c.peers {
+		if _, ok := tmp[id]; !ok {
+			_ = c.peers[id].Close()
+			delete(c.peers, id)
+		}
+	}
+	return nil
 }
 
 func (c *HeartBeatHealthChecker) calculateContinuum() {
 	// 重新计算 hash
 	bucket := map[commonhash.Bucket]bool{}
-	for i := range c.peers {
-		peer := c.peers[i]
+	for id := range c.peers {
 		bucket[commonhash.Bucket{
-			Host:   peer.Host(),
+			Host:   id,
 			Weight: 100,
 		}] = true
 	}
@@ -207,7 +223,7 @@ func (c *HeartBeatHealthChecker) CheckType() healthcheck.HealthCheckType {
 // Report process heartbeat info report
 func (c *HeartBeatHealthChecker) Report(ctx context.Context, request *healthcheck.ReportRequest) error {
 	if !c.isInitialize() {
-		return nil
+		return ErrorPeerNotInitialize
 	}
 	key := request.InstanceId
 	responsible, ok := c.findResponsiblePeer(key)
@@ -290,9 +306,7 @@ func (c *HeartBeatHealthChecker) BatchQuery(ctx context.Context, req *healthchec
 // Query queries the heartbeat time
 func (c *HeartBeatHealthChecker) Query(ctx context.Context, request *healthcheck.QueryRequest) (*healthcheck.QueryResponse, error) {
 	if !c.isInitialize() {
-		return &healthcheck.QueryResponse{
-			LastHeartbeatSec: 0,
-		}, nil
+		return nil, ErrorPeerNotInitialize
 	}
 	key := request.InstanceId
 	responsible, ok := c.findResponsiblePeer(key)
@@ -356,9 +370,12 @@ func (c *HeartBeatHealthChecker) SuspendTimeSec() int64 {
 }
 
 func (c *HeartBeatHealthChecker) findResponsiblePeer(key string) (Peer, bool) {
-	index := c.hash.Hash(commonhash.HashString(key))
 	c.lock.RLock()
 	defer c.lock.RUnlock()
+	if c.hash == nil {
+		return nil, false
+	}
+	index := c.hash.Hash(commonhash.HashString(key))
 	responsible, ok := c.peers[index]
 	return responsible, ok
 }

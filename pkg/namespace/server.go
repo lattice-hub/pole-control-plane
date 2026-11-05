@@ -18,6 +18,10 @@
 package namespace
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
 	"golang.org/x/sync/singleflight"
 
 	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
@@ -26,6 +30,7 @@ import (
 	"github.com/pole-io/pole-server/apis/observability/history"
 	"github.com/pole-io/pole-server/apis/pkg/types"
 	"github.com/pole-io/pole-server/apis/store"
+	"github.com/pole-io/pole-server/pkg/compatibility"
 )
 
 const (
@@ -40,7 +45,7 @@ const (
 )
 
 func isProtectedNamespace(name string) bool {
-	return name == DefaultNamespace || name == SystemNamespace
+	return name == SystemNamespace
 }
 
 func isSystemNamespace(namespace *types.Namespace) bool {
@@ -59,6 +64,36 @@ type Server struct {
 	caches                namespaceCacheManager
 	createNamespaceSingle *singleflight.Group
 	cfg                   Config
+	compatibilityResolver *compatibility.Resolver
+}
+
+// GetNamespace exposes a narrow read seam for runtime configuration guards.
+func (s *Server) GetNamespace(name string) (*types.Namespace, error) {
+	return s.storage.GetNamespace(name)
+}
+
+func (s *Server) isProtectedNamespace(name string) bool {
+	if isProtectedNamespace(name) ||
+		(s.compatibilityResolver != nil && s.compatibilityResolver.IsEffectiveTarget(name)) {
+		return true
+	}
+	runtimeStore, ok := s.storage.(store.SystemConfigRuntimeStore)
+	if !ok {
+		return false
+	}
+	release, err := runtimeStore.GetActiveSystemConfigRelease(compatibility.Component, compatibility.Domain)
+	if err != nil {
+		return true
+	}
+	if release == nil {
+		return false
+	}
+	values := map[string]any{}
+	if err := json.Unmarshal(release.Payload, &values); err != nil {
+		return true
+	}
+	return name == strings.TrimSpace(fmt.Sprint(values[compatibility.NacosPublicNamespaceTargetKey])) ||
+		name == strings.TrimSpace(fmt.Sprint(values[compatibility.EurekaDefaultNamespaceKey]))
 }
 
 // RecordHistory server对外提供history插件的简单封装

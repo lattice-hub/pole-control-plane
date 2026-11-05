@@ -300,7 +300,8 @@ func (a *Agent) RunTurn(ctx context.Context, actor agentworkbench.Actor, req Tur
 		}
 		messages = append(messages, assistant)
 		for _, call := range assistant.ToolCalls {
-			if _, exists := findTool(toolDefinitions, call.Name); !exists {
+			tool, exists := findTool(toolDefinitions, call.Name)
+			if !exists {
 				return nil, runtimeError(CategoryToolRejected, 403003,
 					"model requested an unavailable tool", false, nil)
 			}
@@ -308,7 +309,7 @@ func (a *Agent) RunTurn(ctx context.Context, actor agentworkbench.Actor, req Tur
 			if err != nil {
 				return nil, err
 			}
-			if err := enforceToolNamespace(req.NamespaceScope, arguments); err != nil {
+			if err := enforceToolNamespace(req.NamespaceScope, tool, arguments); err != nil {
 				return nil, runtimeError(CategoryToolRejected, 403007,
 					err.Error(), false, err)
 			}

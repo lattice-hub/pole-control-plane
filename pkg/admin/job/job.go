@@ -20,7 +20,6 @@ package job
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -55,8 +54,6 @@ func NewMaintainJobs(namingServer service.DiscoverServer, cacheMgn *cache.CacheM
 				namingServer: namingServer, storage: storage},
 			"DeleteEmptyService": &deleteEmptyServiceJob{
 				namingServer: namingServer, cacheMgn: cacheMgn, storage: storage},
-			"CleanConfigReleaseHistory": &cleanConfigFileHistoryJob{
-				storage: storage},
 			"CleanDeletedResources": &cleanDeletedResourceJob{
 				storage: storage},
 		},
@@ -156,16 +153,12 @@ type maintainJob interface {
 }
 
 func getMasterAccountToken(storage store.Store) (string, error) {
-	mainUser := os.Getenv("POLE_MAIN_USER")
-	if mainUser == "" {
-		mainUser = "pole"
-	}
-	user, err := storage.GetUserByName(mainUser)
+	user, err := storage.GetMainUser()
 	if err != nil {
 		return "", err
 	}
 	if user == nil {
-		return "", fmt.Errorf("polaris main user: %s not found", mainUser)
+		return "", fmt.Errorf("main user not found")
 	}
 	return user.Token, nil
 }

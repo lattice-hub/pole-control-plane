@@ -1,5 +1,5 @@
 import React from 'react';
-import { TabPanel, Tabs } from 'components/Fluent';
+import { Button, TabPanel, Tabs } from 'components/Fluent';
 import { ResourceHeader } from 'components/ResourceLayout';
 import { useSearchParams } from 'components/Router';
 import { describeRoles } from 'services/role';
@@ -83,6 +83,7 @@ export default React.memo(() => {
             </section>
 
             <section className={style.authWorkspace}>
+                <p className={style.panelHint}>日常授权可直接使用内置角色：选择适合的角色，再管理其用户或用户组成员；无需先创建鉴权策略。 <Button variant="text" onClick={() => { const next = new URLSearchParams(searchParams); next.set('tab', '3'); setSearchParams(next); }}>查看角色与成员</Button></p>
                 <Tabs
                     className={style.authTabs}
                     value={activeTab}

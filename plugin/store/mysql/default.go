@@ -69,17 +69,6 @@ type stableStore struct {
 	*trafficMirrorStore
 	*trafficMockStore
 
-	// 配置中心 stores
-	*configFileGroupStore
-	*configFileStore
-	*configFileReleaseStore
-	*configFileReleaseHistoryStore
-	*configFileTemplateStore
-	*namespaceConfigTemplateDraftStore
-	*configTemplateReleaseStore
-	*namespaceTemplateValuesStore
-	*configTemplateBindingStore
-
 	*clientStore
 	*adminStore
 	*toolStore
@@ -161,10 +150,13 @@ func (s *stableStore) Initialize(conf *store.Config) error {
 	if err := ensureGovernanceRuleSchema(s.master); err != nil {
 		return err
 	}
-	if err := ensureConfigTemplateSchema(s.master); err != nil {
+	if err := ensureUnifiedConfigSchema(s.master); err != nil {
 		return err
 	}
 	if err := ensureEnvironmentPromotionSchema(s.master); err != nil {
+		return err
+	}
+	if err := ensureSystemConfigurationRuntimeSchema(s.master); err != nil {
 		return err
 	}
 	if err := ensureSkillMarketplaceSchema(s.master); err != nil {
@@ -314,17 +306,6 @@ func (s *stableStore) newStore() {
 	s.trafficSecurityStore = &trafficSecurityStore{trafficGovernanceStore{master: s.master, slave: s.slave, governanceRuleRepository: governanceRepo}}
 	s.trafficMirrorStore = &trafficMirrorStore{trafficGovernanceStore{master: s.master, slave: s.slave, governanceRuleRepository: governanceRepo}}
 	s.trafficMockStore = &trafficMockStore{trafficGovernanceStore{master: s.master, slave: s.slave, governanceRuleRepository: governanceRepo}}
-
-	s.configFileGroupStore = &configFileGroupStore{master: s.master, slave: s.slave}
-	s.configFileStore = &configFileStore{master: s.master, slave: s.slave}
-	s.configFileReleaseStore = &configFileReleaseStore{master: s.master, slave: s.slave}
-	s.configFileReleaseHistoryStore = &configFileReleaseHistoryStore{master: s.master, slave: s.slave}
-	s.configFileTemplateStore = &configFileTemplateStore{master: s.master, slave: s.slave}
-	s.namespaceConfigTemplateDraftStore = &namespaceConfigTemplateDraftStore{master: s.master, slave: s.slave}
-	s.configTemplateReleaseStore = &configTemplateReleaseStore{master: s.master, slave: s.slave}
-	s.namespaceTemplateValuesStore = &namespaceTemplateValuesStore{master: s.master, slave: s.slave}
-	s.configTemplateBindingStore = &configTemplateBindingStore{master: s.master, slave: s.slave}
-	s.clientStore = &clientStore{master: s.master, slave: s.slave}
 
 	s.grayStore = &grayStore{master: s.master, slave: s.slave}
 

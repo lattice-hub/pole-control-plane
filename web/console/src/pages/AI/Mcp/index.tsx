@@ -13,6 +13,7 @@ import {
   Tag,
   Tooltip,
 } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 import type { FormProps, PageInfo } from 'components/Fluent';
 import {
   AddIcon,
@@ -23,13 +24,17 @@ import {
   ServerIcon,
   ToolsCircleIcon,
 } from 'components/Fluent/icons';
-import { useNavigate } from 'components/Router';
+import { useNavigate, useSearchParams } from 'components/Router';
 
 import Text from 'components/Text';
 import AuthorizeInput from 'components/Authorize';
 import { ConfirmOperationButton, OperationButton } from 'components/OperationButton';
 import { ResourceHeader, ResourceToolbar } from 'components/ResourceLayout';
 import QueryComposer, { QuerySnapshot } from 'components/QueryComposer';
+import AILogicalResourceDirectory, {
+  AIResourceView,
+  AIResourceViewSwitch,
+} from 'components/AILogicalResourceDirectory';
 import { useAppDispatch, useAppSelector } from 'modules/store';
 import {
   cleanMCPPage,
@@ -43,7 +48,16 @@ import {
   selectMCP,
   updateMCPServer,
 } from 'modules/ai/mcp';
-import { MCPServer, MCPServerTool } from 'services/mcp';
+import {
+  MCPServer,
+  MCPServerTool,
+  bindMCPServerDefinition,
+  createMCPServerDefinition,
+  deleteMCPServerDefinition,
+  describeAllMCPServers,
+  describeMCPServerDefinitionEnvironments,
+  describeMCPServerDefinitions,
+} from 'services/mcp';
 import { PolicySourceType } from 'services/auth_policy';
 import { describeServices, ServiceView } from 'services/service';
 import { openErrNotification, openInfoNotification } from 'utils/notifition';
@@ -123,6 +137,7 @@ export function backendTypeLabel(value?: string) {
 const serverColumns = (
   operateServer: (op: Op | 'detail' | 'authorize', row?: TableRowData) => void,
   goBackendService: (server?: MCPServer) => void,
+  goEnvironment: (namespace: string) => void,
 ): PrimaryTableProps['columns'] => [
   {
     colKey: 'name',
@@ -130,6 +145,15 @@ const serverColumns = (
     fixed: 'left',
     cell: ({ row }) => (
       <ResourceNameLink name={row.name} onClick={() => operateServer('detail', row)} />
+    ),
+  },
+  {
+    colKey: 'namespace',
+    title: '环境空间',
+    cell: ({ row }) => (
+      <Link theme="primary" onClick={() => goEnvironment(String(row.namespace || ''))}>
+        {row.namespace || '-'}
+      </Link>
     ),
   },
   {
@@ -537,7 +561,8 @@ export const MCPEditor: React.FC<{
   op: Op;
   visible: boolean;
   closeDrawer: () => void;
-}> = ({ op, visible, closeDrawer }) => {
+  environment?: string;
+}> = ({ op, visible, closeDrawer, environment = '' }) => {
   const [form] = Form.useForm();
   const dispatch = useAppDispatch();
   const { editServer } = useAppSelector(selectMCP);
@@ -551,7 +576,7 @@ export const MCPEditor: React.FC<{
   });
   const initialValues = useMemo(() => ({
     name: editServer?.name || '',
-    namespace: editServer?.namespace || '',
+    namespace: editServer?.namespace || environment,
     ports: editServer?.ports || '',
     protocol: editServer?.protocol || 'http',
     business: editServer?.business || '',
@@ -562,7 +587,7 @@ export const MCPEditor: React.FC<{
     backend_type: initialBackendMode,
     backend_service_key: initialBackendMode === 'service' ? initialServiceKey : '',
     backend_address: editServer?.backend_address || (initialBackendMode === 'address' ? editServer?.reference : ''),
-  }), [editServer, initialBackendMode, initialServiceKey]);
+  }), [editServer, environment, initialBackendMode, initialServiceKey]);
 
   const backendServiceOptions = useMemo(() => {
     const options = serviceOptions.map((item) => ({
@@ -582,7 +607,7 @@ export const MCPEditor: React.FC<{
   const loadServices = async () => {
     setServiceLoading(true);
     try {
-      const res = await describeServices({ offset: 0, limit: 100 });
+      const res = await describeServices({ offset: 0, limit: 100, namespace: environment || undefined });
       setServiceOptions(res.list);
     } catch (err: any) {
       openErrNotification('获取服务列表失败', err?.message || String(err));
@@ -596,7 +621,7 @@ export const MCPEditor: React.FC<{
     form.setFieldsValue({
       backend_service_key: value || '',
       name: selected.name || form.getFieldValue('name'),
-      namespace: selected.namespace || form.getFieldValue('namespace'),
+      namespace: environment || selected.namespace || form.getFieldValue('namespace'),
       reference: selected.name || form.getFieldValue('reference'),
     });
   };
@@ -622,17 +647,17 @@ export const MCPEditor: React.FC<{
     const data: MCPServer = {
       id: editServer?.id,
       name: (form.getFieldValue('name') as string) || selectedService.name,
-      namespace: (form.getFieldValue('namespace') as string) || selectedService.namespace,
+      namespace: environment || (form.getFieldValue('namespace') as string) || selectedService.namespace,
       ports: form.getFieldValue('ports') as string,
       protocol: form.getFieldValue('protocol') as string,
       business: form.getFieldValue('business') as string,
       department: form.getFieldValue('department') as string,
       description: form.getFieldValue('description') as string,
-      reference: mode === 'service' ? selectedService.name : backendAddress,
+      reference: mode === 'service' ? selectedService.name : '',
       export_to: joinExportTo(form.getFieldValue('export_to') as string[]),
       revision: editServer?.revision,
       backend_type: mode,
-      backend_service_namespace: mode === 'service' ? selectedService.namespace : '',
+      backend_service_namespace: mode === 'service' ? environment || selectedService.namespace : '',
       backend_service_name: mode === 'service' ? selectedService.name : '',
       backend_address: mode === 'address' ? backendAddress : '',
     };
@@ -650,12 +675,19 @@ export const MCPEditor: React.FC<{
   };
 
   return (
-    <Drawer
-      size="large"
-      header={op === 'edit' ? '编辑 MCP Server' : '创建 MCP Server'}
-      footer={false}
+    <EditorDrawer
+      bodyClassName={style.editorBody}
+      width="workspace"
+      title={op === 'edit' ? '编辑 MCP Server' : '创建 MCP Server'}
+      description="配置服务身份、后端关联和 MCP 接入参数。"
+      footer={(
+        <EditorDrawerActions
+          onCancel={closeDrawer}
+          onSubmit={() => form.submit({ showErrorMessage: true })}
+          submitText={op === 'edit' ? '保存修改' : '创建 MCP Server'}
+        />
+      )}
       visible={visible}
-      showOverlay={false}
       onClose={closeDrawer}
     >
       <Form className={style.drawerForm} form={form} layout="vertical" onSubmit={onSubmit} onReset={resetEditor}>
@@ -670,14 +702,14 @@ export const MCPEditor: React.FC<{
                 { pattern: /^[a-zA-Z0-9._-]+$/, message: '只允许数字、英文字母、.、-、_' },
               ]}
             >
-              <Input disabled={op === 'edit'} placeholder={backendMode === 'service' ? '默认使用关联服务名' : '例如 order-query'} />
+              <Input readonly={op === 'edit'} placeholder={backendMode === 'service' ? '默认使用关联服务名' : '例如 order-query'} />
             </FormItem>
             <FormItem
-              label="命名空间"
+              label="环境空间"
               name="namespace"
-              rules={backendMode === 'address' ? [{ required: true, message: '请输入命名空间' }] : []}
+              rules={backendMode === 'address' ? [{ required: true, message: '请输入环境空间' }] : []}
             >
-              <Input disabled={op === 'edit'} placeholder={backendMode === 'service' ? '默认使用服务命名空间' : '例如 default'} />
+              <Input readonly={op === 'edit' || Boolean(environment)} placeholder={backendMode === 'service' ? '默认使用服务环境空间' : '例如 default'} />
             </FormItem>
             <FormItem label="业务" name="business">
               <Input />
@@ -695,6 +727,7 @@ export const MCPEditor: React.FC<{
               <Button
                 variant="text"
                 key={item.value}
+                aria-pressed={backendMode === item.value}
                 className={`${style.backendChoiceItem} ${backendMode === item.value ? style.backendChoiceItemActive : ''}`}
                 type="button"
                 onClick={() => {
@@ -748,7 +781,7 @@ export const MCPEditor: React.FC<{
               <Select creatable multiple filterable placeholder="为空表示默认可见范围" />
             </FormItem>
             <FormItem label="后端类型">
-              <Input disabled value={backendTypeLabel(backendMode)} />
+              <Input readonly value={backendTypeLabel(backendMode)} />
             </FormItem>
           </div>
         </div>
@@ -756,24 +789,21 @@ export const MCPEditor: React.FC<{
         <FormItem label="描述" name="description">
           <Input placeholder="补充 server 能力或维护说明" />
         </FormItem>
-        <FormItem className={style.formAction}>
-          <Space>
-            <Button type="submit" theme="primary">提交</Button>
-            <Button type="reset" theme="default">重置</Button>
-          </Space>
-        </FormItem>
       </Form>
-    </Drawer>
+    </EditorDrawer>
   );
 };
 
 export default memo(() => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedNamespace = searchParams.get('namespace') || '';
+  const [resourceView, setResourceView] = useState<AIResourceView>(requestedNamespace ? 'environment' : 'logical');
   const { datas, loading, page, limit, total, editServer, tools, toolsLoading } = useAppSelector(selectMCP);
   const [query, setQuery] = useState({
     name: '',
-    namespace: '',
+    namespace: requestedNamespace,
     protocol: '',
   });
   const [editorState, setEditorState] = useState<{ visible: boolean; mode: Op }>({ visible: false, mode: 'create' });
@@ -803,10 +833,14 @@ export default memo(() => {
   };
 
   useEffect(() => {
-    refreshTable();
-    return () => {
-      dispatch(cleanMCPPage());
-    };
+    const nextQuery = { ...query, namespace: requestedNamespace };
+    setQuery(nextQuery);
+    setResourceView(requestedNamespace ? 'environment' : 'logical');
+    refreshTable(1, limit, nextQuery);
+  }, [requestedNamespace]);
+
+  useEffect(() => () => {
+    dispatch(cleanMCPPage());
   }, []);
 
   const refreshTools = (server?: MCPServer) => {
@@ -883,12 +917,16 @@ export default memo(() => {
   };
 
   const resetFilter = () => {
-    const nextQuery = { name: '', namespace: '', protocol: '' };
+    const nextQuery = { name: '', namespace: requestedNamespace, protocol: '' };
     setQuery(nextQuery);
     refreshTable(1, limit, nextQuery);
   };
 
   const selectedToolServer = toolsState.server;
+
+  const openBoundEnvironment = (binding: { resource_id: string; namespace: string; resource_name: string }) => {
+    navigate(`/ai/mcps/detail?id=${encodeURIComponent(binding.resource_id)}&namespace=${encodeURIComponent(binding.namespace)}&name=${encodeURIComponent(binding.resource_name)}`);
+  };
 
   return (
     <div className={style.page}>
@@ -897,16 +935,34 @@ export default memo(() => {
         placement="app-header"
         eyebrow="AI Native / MCP Registry"
         title="MCP 服务"
-        description="维护对外暴露的 MCP Server，并查看每个 server 同步出的工具能力。"
+        description="以全局逻辑资源统一识别 MCP 能力，并管理各环境空间中的 Server 实例和工具同步。"
       />
+
+      <AIResourceViewSwitch value={resourceView} environment={requestedNamespace} onChange={setResourceView} />
+
+      {resourceView === 'logical' ? (
+        <AILogicalResourceDirectory
+          resourceLabel="MCP Server"
+          instanceLabel="MCP Server 环境实例"
+          loadDefinitions={describeMCPServerDefinitions}
+          loadBindings={describeMCPServerDefinitionEnvironments}
+          loadInstances={describeAllMCPServers}
+          createDefinition={createMCPServerDefinition}
+          deleteDefinition={deleteMCPServerDefinition}
+          bindDefinition={bindMCPServerDefinition}
+          onOpenEnvironment={openBoundEnvironment}
+          onCreateEnvironment={() => setResourceView('environment')}
+        />
+      ) : (
+        <>
 
       <section className={style.metricRail}>
         <div className={style.metricItem}>
-          <span>Servers</span>
+          <span>环境实例</span>
           <strong>{total}</strong>
         </div>
         <div className={style.metricItem}>
-          <span>Namespaces</span>
+          <span>环境空间</span>
           <strong>{namespaces.size}</strong>
         </div>
         <div className={style.metricItem}>
@@ -925,7 +981,7 @@ export default memo(() => {
 
       <ResourceToolbar
         density="compact"
-        title="服务列表"
+        title={requestedNamespace ? `${requestedNamespace} / MCP 环境实例` : 'MCP 环境实例'}
         count={loading ? '正在同步列表' : `当前显示 ${datas.length} 条`}
         filters={(
           <>
@@ -934,11 +990,11 @@ export default memo(() => {
               keywordPlaceholder="搜索 MCP 服务名称"
               suggestions={datas.map((item) => String(item.name || '')).filter(Boolean)}
               fields={[
-                {
+                ...(!requestedNamespace ? [{
                   key: 'namespace',
-                  label: '命名空间',
-                  type: 'text',
-                },
+                  label: '环境空间',
+                  type: 'text' as const,
+                }] : []),
                 {
                   key: 'protocol',
                   label: '协议',
@@ -970,7 +1026,7 @@ export default memo(() => {
                     />
                   </Tooltip>
                   <Button theme="primary" icon={<AddIcon />} onClick={() => operateServer('create')}>
-                    新建 MCP Server
+                    新建 MCP 环境实例
                   </Button>
                 </>
               )}
@@ -982,7 +1038,9 @@ export default memo(() => {
       <section className={style.tableSurface}>
         <Table
           data={datas}
-          columns={serverColumns(operateServer, goBackendService)}
+          columns={serverColumns(operateServer, goBackendService, (namespace) => {
+            navigate(`/namespace/environment?name=${encodeURIComponent(namespace)}`);
+          })}
           loading={loading}
           rowKey="id"
           size="large"
@@ -1002,12 +1060,15 @@ export default memo(() => {
           }}
         />
       </section>
+        </>
+      )}
 
       {editorState.visible && (
         <MCPEditor
           key={`${editorState.mode}-${editServer?.id || 'new'}`}
           op={editorState.mode}
           visible={editorState.visible}
+          environment={editorState.mode === 'create' ? requestedNamespace : ''}
           closeDrawer={() => {
             dispatch(resetMCPServer());
             setEditorState((prev) => ({ ...prev, visible: false }));

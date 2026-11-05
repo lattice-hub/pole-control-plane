@@ -62,7 +62,14 @@ func TestStatisWorkerReportsControlPlaneMetrics(t *testing.T) {
 	require.Contains(t, metrics, "pole.control_plane.cache.call.count")
 }
 
-func TestStatisWorkerReportsDiscoveryAndConfigMetrics(t *testing.T) {
+func TestResultFromCodeTreatsHTTPSuccessAsSuccess(t *testing.T) {
+	require.Equal(t, "success", resultFromCode(200, false))
+	require.Equal(t, "success", resultFromCode(204, false))
+	require.Equal(t, "failure", resultFromCode(400, false))
+	require.Equal(t, "failure", resultFromCode(500, false))
+}
+
+func TestStatisWorkerReportsDiscoveryMetrics(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	otel.SetMeterProvider(provider)
@@ -102,39 +109,11 @@ func TestStatisWorkerReportsDiscoveryAndConfigMetrics(t *testing.T) {
 			Total: 5,
 		},
 	)
-	worker.ReportConfigMetrics(
-		metricstypes.ConfigMetrics{
-			Type:  metricstypes.ConfigGroupMetric,
-			Total: 2,
-			Labels: []attribute.KeyValue{
-				attribute.String(metricstypes.LabelNamespace, "default"),
-			},
-		},
-		metricstypes.ConfigMetrics{
-			Type:  metricstypes.FileMetric,
-			Total: 7,
-			Labels: []attribute.KeyValue{
-				attribute.String(metricstypes.LabelNamespace, "default"),
-				attribute.String(metricstypes.LabelGroup, "application"),
-			},
-		},
-		metricstypes.ConfigMetrics{
-			Type:  metricstypes.ReleaseFileMetric,
-			Total: 9,
-			Labels: []attribute.KeyValue{
-				attribute.String(metricstypes.LabelNamespace, "default"),
-				attribute.String(metricstypes.LabelGroup, "application"),
-			},
-		},
-	)
 
 	metrics := collectMetrics(t, reader)
 	require.Contains(t, metrics, "pole.discovery.service.count")
 	require.Contains(t, metrics, "pole.discovery.instance.count")
 	require.Contains(t, metrics, "pole.control_plane.client.connection.count")
-	require.Contains(t, metrics, "pole.config.group.count")
-	require.Contains(t, metrics, "pole.config.file.count")
-	require.Contains(t, metrics, "pole.config.file.release.count")
 }
 
 func TestStatisWorkerExportsToCollector(t *testing.T) {

@@ -27,7 +27,6 @@ import (
 	cacheai "github.com/pole-io/pole-server/pkg/cache/ai"
 	cacheauth "github.com/pole-io/pole-server/pkg/cache/auth"
 	cacheclient "github.com/pole-io/pole-server/pkg/cache/client"
-	cacheconfig "github.com/pole-io/pole-server/pkg/cache/config"
 	cachegray "github.com/pole-io/pole-server/pkg/cache/gray"
 	cachens "github.com/pole-io/pole-server/pkg/cache/namespace"
 	cacherules "github.com/pole-io/pole-server/pkg/cache/rules"
@@ -47,9 +46,6 @@ func init() {
 	RegisterCache(cacheapi.TrafficSecurityRuleName, cacheapi.CacheTrafficSecurity)
 	RegisterCache(cacheapi.TrafficMirrorRuleName, cacheapi.CacheTrafficMirror)
 	RegisterCache(cacheapi.TrafficMockRuleName, cacheapi.CacheTrafficMock)
-	RegisterCache(cacheapi.ConfigFileCacheName, cacheapi.CacheConfigFile)
-	RegisterCache(cacheapi.ConfigGroupCacheName, cacheapi.CacheConfigGroup)
-	RegisterCache(cacheapi.ConfigTemplateValueReleaseCacheName, cacheapi.CacheConfigTemplateValueRelease)
 	RegisterCache(cacheapi.UsersName, cacheapi.CacheUser)
 	RegisterCache(cacheapi.StrategyRuleName, cacheapi.CacheAuthStrategy)
 	RegisterCache(cacheapi.ClientName, cacheapi.CacheClient)
@@ -115,11 +111,6 @@ func newCacheManager(ctx context.Context, cacheOpt *Config, storage store.Store)
 	mgr.RegisterCacher(cacheapi.CacheTrafficSecurity, cacherules.NewTrafficSecurityCache(storage, mgr))
 	mgr.RegisterCacher(cacheapi.CacheTrafficMirror, cacherules.NewTrafficMirrorCache(storage, mgr))
 	mgr.RegisterCacher(cacheapi.CacheTrafficMock, cacherules.NewTrafficMockCache(storage, mgr))
-	// 配置分组 & 配置发布缓存
-	mgr.RegisterCacher(cacheapi.CacheConfigFile, cacheconfig.NewConfigFileCache(storage, mgr))
-	mgr.RegisterCacher(cacheapi.CacheConfigGroup, cacheconfig.NewConfigGroupCache(storage, mgr))
-	mgr.RegisterCacher(cacheapi.CacheConfigTemplateValueRelease,
-		cacheconfig.NewConfigTemplateValueReleaseCache(storage, mgr))
 	// 用户/用户组 & 鉴权规则缓存
 	mgr.RegisterCacher(cacheapi.CacheUser, cacheauth.NewUserCache(storage, mgr))
 	mgr.RegisterCacher(cacheapi.CacheAuthStrategy, cacheauth.NewStrategyCache(storage, mgr))

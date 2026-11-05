@@ -43,6 +43,7 @@ agent:
 	require.NoError(t, err)
 	require.Equal(t, "logs/runtime/pole-console.log", cfg.Logger.RotateOutputPath)
 	require.Contains(t, cfg.Logger.ErrorOutputPaths, "logs/runtime/pole-console-error.log")
+	require.Equal(t, 7200, cfg.WebServer.JWT.Expired)
 	require.Equal(t, "https://llm-gateway.example.test", cfg.Agent.Model.BaseURL)
 	require.Equal(t, "test-agent-secret", cfg.Agent.Model.APIKey)
 	require.Equal(t, "env:TEST_POLE_AGENT_LLM_API_KEY", cfg.SystemConfigSources["agent.model.apiKey"].Reference)

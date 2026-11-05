@@ -46,7 +46,13 @@ const SkillMarketplaceDetailPage: React.FC = () => {
   const [copyStatus, setCopyStatus] = React.useState('');
   const [policyVisible, setPolicyVisible] = React.useState(false);
   const [grants, setGrants] = React.useState<SkillGrant[]>([]);
-  const [grantsLoading, setGrantsLoading] = React.useState(false);
+  const [grantsState, setGrantsState] = React.useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  const [policyIdentity, setPolicyIdentity] = React.useState('');
+  const identity = JSON.stringify([publisher, name]);
+  const policyRequest = React.useRef({ identity, generation: 0, active: false, saving: false });
+  if (policyRequest.current.identity !== identity) {
+    policyRequest.current = { identity, generation: policyRequest.current.generation + 1, active: false, saving: false };
+  }
   const [grantsSaving, setGrantsSaving] = React.useState(false);
   const [grantPrincipalType, setGrantPrincipalType] = React.useState<SkillGrantPrincipalType>('user');
   const [grantPrincipalId, setGrantPrincipalId] = React.useState('');
@@ -89,18 +95,55 @@ const SkillMarketplaceDetailPage: React.FC = () => {
       setCopyStatus('复制失败，请手动选择并复制安装命令。');
     }
   };
-  const openAccessPolicy = async () => {
-    setPolicyVisible(true);
-    setGrantsLoading(true);
+  const closeAccessPolicy = () => {
+    if (policyRequest.current.saving) return;
+    policyRequest.current.generation += 1;
+    policyRequest.current.active = false;
+    policyRequest.current.saving = false;
+    setPolicyVisible(false);
+    setGrantsState('idle');
+    setGrantsSaving(false);
+  };
+  React.useEffect(() => {
+    setPolicyVisible(false);
+    setGrantsState('idle');
+    setGrantsSaving(false);
+    return () => {
+      policyRequest.current.generation += 1;
+      policyRequest.current.active = false;
+    };
+  }, [identity]);
+
+  const loadAccessPolicy = async () => {
+    const request = policyRequest.current;
+    const generation = ++request.generation;
+    const isCurrent = () => policyRequest.current === request && request.active && request.generation === generation;
+    setGrantsState('loading');
     setGrantStatus('');
     try {
-      setGrants(await describeMarketplaceSkillGrants(publisher, name));
+      const next = await describeMarketplaceSkillGrants(publisher, name);
+      if (isCurrent()) { setGrants(next); setGrantsState('loaded'); }
     } catch (reason) {
-      setGrants([]);
-      setGrantStatus(reason instanceof Error ? reason.message : '访问策略加载失败。');
-    } finally { setGrantsLoading(false); }
+      if (isCurrent()) {
+        setGrantsState('error');
+        setGrantStatus(reason instanceof Error ? reason.message : '访问策略加载失败。');
+      }
+    }
   };
+  const openAccessPolicy = () => {
+    policyRequest.current.active = true;
+    policyRequest.current.saving = false;
+    setPolicyIdentity(identity);
+    setPolicyVisible(true);
+    setGrants([]);
+    setGrantsSaving(false);
+    setGrantPrincipalType('user');
+    setGrantPrincipalId('');
+    void loadAccessPolicy();
+  };
+  const canEditGrants = policyVisible && policyIdentity === identity && grantsState === 'loaded' && !grantsSaving;
   const addGrant = () => {
+    if (!canEditGrants || policyRequest.current.saving || !policyRequest.current.active) return;
     const principalId = grantPrincipalId.trim();
     if (!principalId) { setGrantStatus('请填写授权主体 ID。'); return; }
     if (grants.some((item) => item.principalType === grantPrincipalType && item.principalId === principalId)) {
@@ -112,14 +155,21 @@ const SkillMarketplaceDetailPage: React.FC = () => {
     setGrantStatus('');
   };
   const saveAccessPolicy = async () => {
+    const request = policyRequest.current;
+    if (!canEditGrants || request.saving || !request.active || request.identity !== identity) return;
+    request.saving = true;
+    const generation = request.generation;
+    const isCurrent = () => policyRequest.current === request && request.active && request.generation === generation;
     setGrantsSaving(true);
     setGrantStatus('');
     try {
       await updateMarketplaceSkillGrants(publisher, name, grants);
-      setGrantStatus('访问策略已保存。');
+      if (isCurrent()) setGrantStatus('访问策略已保存。');
     } catch (reason) {
-      setGrantStatus(reason instanceof Error ? reason.message : '访问策略保存失败。');
-    } finally { setGrantsSaving(false); }
+      if (isCurrent()) setGrantStatus(reason instanceof Error ? reason.message : '访问策略保存失败。');
+    } finally {
+      if (isCurrent()) { request.saving = false; setGrantsSaving(false); }
+    }
   };
 
   return (
@@ -143,16 +193,16 @@ const SkillMarketplaceDetailPage: React.FC = () => {
           <section className={style.bundleWorkspace} aria-label="Bundle 安全浏览器">
             <header><div><strong>Bundle 文件树</strong><span>{digest ? `SHA-256 ${digest}` : 'Release 摘要未返回'}</span></div><Tag variant="outline">{releaseText(selectedRelease)}</Tag></header>
             <Loading loading={bundleLoading} text="读取冻结 Bundle…"><div className={style.bundleBody}>
-              <nav className={style.fileTree} aria-label="Bundle 文件列表">{bundle?.entries?.length ? bundle.entries.map((item) => <button key={item.path} type="button" className={entry?.path === item.path ? style.fileSelected : ''} onClick={() => setEntry(item)}><span>{item.type === 'directory' ? '▸' : item.executable ? '›' : '·'} {item.path}</span><small>{item.type === 'directory' ? '目录' : `${item.size || 0} B`}</small></button>) : <Empty title="该 Release 未返回可浏览文件" description="Bundle 元数据需要由控制面安全解析后返回。" />}</nav>
+              <nav className={style.fileTree} aria-label="Bundle 文件列表">{bundle?.entries?.length ? bundle.entries.map((item) => <Button variant="text" key={item.path} type="button" className={entry?.path === item.path ? style.fileSelected : ''} onClick={() => setEntry(item)}><span>{item.type === 'directory' ? '▸' : item.executable ? '›' : '·'} {item.path}</span><small>{item.type === 'directory' ? '目录' : `${item.size || 0} B`}</small></Button>) : <Empty title="该 Release 未返回可浏览文件" description="Bundle 元数据需要由控制面安全解析后返回。" />}</nav>
               <article className={style.filePreview}>{entry ? <><header><strong>{entry.path}</strong><span>{entry.type} · {entry.mode || '-'}{entry.executable ? ' · executable' : ''}</span></header>{entry.type === 'directory' ? <Empty title="目录" description="选择一个文件以查看已验证的文本内容。" /> : entry.type === 'binary' || entry.encoding === 'binary' ? <Empty title="二进制文件不预览" description="为避免执行或渲染不受信内容，Console 仅显示元数据。" /> : typeof entry.text === 'string' ? <pre>{entry.text}</pre> : <Empty title="文本内容未返回" description="服务端可按安全文本限制返回此冻结文件的内容。" />}</> : <Empty title="选择 Bundle 文件" description="默认优先显示 SKILL.md。" />}</article>
             </div></Loading>
           </section>
-          <EditorDrawer visible={policyVisible} width="standard" title="私有 Skill 访问策略" description="只管理 User、UserGroup 与 Role 的读取授权；公共 Skill 不使用此策略。" onClose={() => setPolicyVisible(false)} footer={<EditorDrawerActions onCancel={() => setPolicyVisible(false)} onSubmit={() => void saveAccessPolicy()} submitText="保存策略" submitting={grantsSaving} />}>
+          <EditorDrawer visible={policyVisible && policyIdentity === identity} width="standard" title="私有 Skill 访问策略" description="只管理 User、UserGroup 与 Role 的读取授权；公共 Skill 不使用此策略。" onClose={closeAccessPolicy} footer={<EditorDrawerActions onCancel={closeAccessPolicy} onSubmit={() => void saveAccessPolicy()} submitText="保存策略" submitting={grantsSaving} submitDisabled={!canEditGrants} />}>
             <div className={style.drawerContent}>
               <div className={style.grantDrawer}>
-                <div className={style.grantAdd}><Select aria-label="授权主体类型" options={principalTypeOptions} value={grantPrincipalType} onChange={(value: SkillGrantPrincipalType) => setGrantPrincipalType(value)} /><Input aria-label="授权主体 ID" value={grantPrincipalId} placeholder="User、UserGroup 或 Role ID" onChange={setGrantPrincipalId} onEnter={addGrant} /><Button variant="outline" onClick={addGrant}>添加</Button></div>
-                <Loading loading={grantsLoading} text="加载访问策略…"><div className={style.grantList}>{grants.length ? grants.map((grant) => <div className={style.grantRow} key={`${grant.principalType}:${grant.principalId}`}><Tag variant="outline">{grant.principalType}</Tag><code>{grant.principalId}</code><Button size="small" variant="outline" aria-label={`移除 ${grant.principalType} ${grant.principalId}`} onClick={() => setGrants((current) => current.filter((item) => item.principalType !== grant.principalType || item.principalId !== grant.principalId))}>移除</Button></div>) : <Empty title="尚无额外授权主体" description="Publisher Owner 始终保有私有 Skill 的管理能力。" />}</div></Loading>
-                <span className={style.copyStatus} role="status" aria-live="polite">{grantStatus}</span>
+                <div className={style.grantAdd}><Select aria-label="授权主体类型" disabled={!canEditGrants} options={principalTypeOptions} value={grantPrincipalType} onChange={(value: SkillGrantPrincipalType) => setGrantPrincipalType(value)} /><Input aria-label="授权主体 ID" disabled={!canEditGrants} value={grantPrincipalId} placeholder="User、UserGroup 或 Role ID" onChange={setGrantPrincipalId} onEnter={addGrant} /><Button variant="outline" disabled={!canEditGrants} onClick={addGrant}>添加</Button></div>
+                {grantsState === 'error' ? <Empty title="访问策略加载失败" description={grantStatus} action={<Button variant="outline" onClick={() => void loadAccessPolicy()}>重试</Button>} /> : <Loading loading={grantsState === 'loading'} text="加载访问策略…"><div className={style.grantList}>{grantsState === 'loaded' && (grants.length ? grants.map((grant) => <div className={style.grantRow} key={`${grant.principalType}:${grant.principalId}`}><Tag variant="outline">{grant.principalType}</Tag><code>{grant.principalId}</code><Button size="small" variant="outline" disabled={!canEditGrants} aria-label={`移除 ${grant.principalType} ${grant.principalId}`} onClick={() => setGrants((current) => current.filter((item) => item.principalType !== grant.principalType || item.principalId !== grant.principalId))}>移除</Button></div>) : <Empty title="尚无额外授权主体" description="Publisher Owner 始终保有私有 Skill 的管理能力。" />)}</div></Loading>}
+                {grantsState !== 'error' && <span className={style.copyStatus} role="status" aria-live="polite">{grantStatus}</span>}
               </div>
             </div>
           </EditorDrawer>

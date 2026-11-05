@@ -34,6 +34,7 @@ const DOMAIN_META: Record<string, { label: string; description: string }> = {
   bootstrap: { label: '启动与装配', description: '进程模式、日志配置和 API Server 装配入口。' },
   namespace: { label: '命名空间', description: '命名空间创建和隔离相关的服务端行为。' },
   naming: { label: '服务发现', description: '服务注册、健康检查和实例生命周期参数。' },
+  compatibility: { label: '协议兼容', description: 'Nacos、Eureka 等兼容协议缺省请求的环境映射。' },
   config: { label: '配置中心', description: '配置文件能力开关和内容约束。' },
   cache: { label: '缓存同步', description: '控制面缓存的增量同步与回溯参数。' },
   storage: { label: '存储', description: '持久化插件、地址和凭证等自举配置。' },
@@ -47,7 +48,7 @@ const DOMAIN_META: Record<string, { label: string; description: string }> = {
 };
 
 const DOMAIN_ORDER: Record<SettingComponent, string[]> = {
-  'pole-server': ['bootstrap', 'namespace', 'naming', 'config', 'cache', 'storage', 'auth', 'workload-credential'],
+  'pole-server': ['bootstrap', 'namespace', 'naming', 'compatibility', 'config', 'cache', 'storage', 'auth', 'workload-credential'],
   'pole-console': ['runtime', 'logging', 'auth', 'upstream', 'storage', 'observability', 'agent'],
 };
 
@@ -163,6 +164,17 @@ export default function SystemConfiguration() {
   const [managedPublishDescription, setManagedPublishDescription] = useState('');
   const [managedPublishError, setManagedPublishError] = useState('');
   const activeDomainRef = useRef<HTMLButtonElement | null>(null);
+  const domainKey = `${component}/${activeDomain}`;
+  const domainVisitRef = useRef({ key: domainKey, generation: 0 });
+  if (domainVisitRef.current.key !== domainKey) {
+    domainVisitRef.current = { key: domainKey, generation: domainVisitRef.current.generation + 1 };
+  }
+  const domainVisit = domainVisitRef.current.generation;
+  const [domainRefresh, setDomainRefresh] = useState(0);
+  const [domainRead, setDomainRead] = useState<{ key: string; status: 'loading' | 'ready' | 'error'; error?: string }>({ key: '', status: 'loading' });
+  const domainReady = domainRead.key === domainKey && domainRead.status === 'ready';
+  const domainError = domainRead.key === domainKey && domainRead.status === 'error' ? domainRead.error : '';
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -170,16 +182,12 @@ export default function SystemConfiguration() {
     try {
       const response = await describeEffectiveSystemSettings();
       setSettings(Array.isArray(response.settings) ? response.settings : []);
-      try {
-        setAgentDomain(await getAgentSystemDomain());
-      } catch {
-        setAgentDomain(undefined);
-      }
     } catch (requestError) {
       const payload = toRequestErrorPayload(requestError);
       setError(typeof payload === 'string' ? payload : payload.message);
     } finally {
       setLoading(false);
+      setDomainRefresh(value => value + 1);
     }
   }, []);
 
@@ -298,7 +306,8 @@ export default function SystemConfiguration() {
   }, [draftAgentProfile, effectiveAgentProfile]);
 
   const publishDraft = async () => {
-    if (!agentDomain?.draft) return;
+    if (!domainReady || !isAgentDomain || !agentDomain?.draft || publishing) return;
+    const requestVisit = domainVisit;
     setPublishing(true);
     setPublishError('');
     try {
@@ -306,38 +315,59 @@ export default function SystemConfiguration() {
         draftRevision: agentDomain.draft.revision,
         description: publishDescription.trim(),
       });
+      if (domainVisitRef.current.generation !== requestVisit) return;
       setAgentDomain(result);
       setPublishOpen(false);
       setPublishDescription('');
       await load();
     } catch (requestError) {
+      if (domainVisitRef.current.generation !== requestVisit) return;
       const payload = toRequestErrorPayload(requestError);
       setPublishError(typeof payload === 'string' ? payload : payload.message);
     } finally {
-      setPublishing(false);
+      if (domainVisitRef.current.generation === requestVisit) setPublishing(false);
     }
   };
 
   useEffect(() => {
-    if (!activeDomain || isAgentDomain) {
-      setManagedDomain(undefined);
-      return;
-    }
+    setPublishing(false);
+    setManagedPublishing(false);
+    setPublishError('');
+    setManagedPublishError('');
+    setAgentPanelOpen(false);
+    setManagedPanelOpen(false);
+    setPublishOpen(false);
+    setManagedPublishOpen(false);
+  }, [domainKey]);
+
+  useEffect(() => {
     let cancelled = false;
-    getManagedSystemDomain(component, activeDomain)
-      .then((result) => {
-        if (!cancelled) setManagedDomain(result);
-      })
-      .catch(() => {
-        if (!cancelled) setManagedDomain(undefined);
-      });
-    return () => {
-      cancelled = true;
+    setManagedDomain(undefined);
+    setAgentDomain(undefined);
+    setDomainRead({ key: domainKey, status: 'loading' });
+    if (!activeDomain) return;
+    const read = async () => {
+      try {
+        if (isAgentDomain) {
+          const result = await getAgentSystemDomain();
+          if (!cancelled) setAgentDomain(result);
+        } else {
+          const result = await getManagedSystemDomain(component, activeDomain);
+          if (!cancelled) setManagedDomain(result);
+        }
+        if (!cancelled) setDomainRead({ key: domainKey, status: 'ready' });
+      } catch (requestError) {
+        const payload = toRequestErrorPayload(requestError);
+        if (!cancelled) setDomainRead({ key: domainKey, status: 'error', error: typeof payload === 'string' ? payload : payload.message });
+      }
     };
-  }, [activeDomain, component, isAgentDomain]);
+    void read();
+    return () => { cancelled = true; };
+  }, [activeDomain, component, domainKey, domainRefresh, isAgentDomain]);
 
   const publishManagedDraft = async () => {
-    if (!managedDomain?.draft) return;
+    if (!domainReady || isAgentDomain || !managedDomain?.draft || managedPublishing) return;
+    const requestVisit = domainVisit;
     setManagedPublishing(true);
     setManagedPublishError('');
     try {
@@ -345,15 +375,17 @@ export default function SystemConfiguration() {
         draftRevision: managedDomain.draft.revision,
         description: managedPublishDescription.trim(),
       });
+      if (domainVisitRef.current.generation !== requestVisit) return;
       setManagedDomain(result);
       setManagedPublishOpen(false);
       setManagedPublishDescription('');
       await load();
     } catch (requestError) {
+      if (domainVisitRef.current.generation !== requestVisit) return;
       const payload = toRequestErrorPayload(requestError);
       setManagedPublishError(typeof payload === 'string' ? payload : payload.message);
     } finally {
-      setManagedPublishing(false);
+      if (domainVisitRef.current.generation === requestVisit) setManagedPublishing(false);
     }
   };
 
@@ -462,14 +494,21 @@ export default function SystemConfiguration() {
           </nav>
 
           <div className={`${style.domainContent} ${isAgentDomain ? style.agentDomainContent : ''}`}>
+            {domainError && (
+              <div className={style.refreshWarning} role="alert">
+                <div><strong>草稿状态读取失败</strong><span>{domainError}。当前无法确认草稿，编辑与发布暂不可用。</span></div>
+                <Button variant="outline" onClick={() => setDomainRefresh(value => value + 1)}>重试读取草稿</Button>
+              </div>
+            )}
             {isAgentDomain ? (
               <AgentConfigurationWorkspace
-                domain={agentDomain}
+                domain={domainReady ? agentDomain : undefined}
                 fallback={fallbackAgentProfile}
                 apiKeyConfigured={apiKeyConfigured}
-                loading={loading}
-                onEdit={() => setAgentPanelOpen(true)}
+                loading={loading || (domainRead.status === 'loading' && domainRead.key === domainKey)}
+                onEdit={() => { if (domainReady) setAgentPanelOpen(true); }}
                 onPublish={() => {
+                  if (!domainReady) return;
                   setPublishError('');
                   setPublishOpen(true);
                 }}
@@ -508,20 +547,20 @@ export default function SystemConfiguration() {
                         <>
                           <Button
                             variant="outline"
-                            disabled={!editableRows.length}
-                            onClick={() => setManagedPanelOpen(true)}
+                            disabled={!domainReady || !editableRows.length}
+                            onClick={() => { if (domainReady) setManagedPanelOpen(true); }}
                           >
                             编辑 {editableRows.length} 项
                           </Button>
                           <Button
                             theme="primary"
-                            disabled={!managedDomain?.draft}
+                            disabled={!domainReady || !managedDomain?.draft}
                             onClick={() => {
                               setManagedPublishError('');
                               setManagedPublishOpen(true);
                             }}
                           >
-                            {managedDomain?.draft ? `审阅 r${managedDomain.draft.revision}` : '无待发布草稿'}
+                            {!domainReady ? (domainError ? '草稿状态未知' : '正在读取草稿') : managedDomain?.draft ? `审阅 r${managedDomain.draft.revision}` : '无待发布草稿'}
                           </Button>
                         </>
                       )}
@@ -529,7 +568,7 @@ export default function SystemConfiguration() {
                   )}
                 />
 
-                {managedDomain && (
+                {domainReady && managedDomain && (
                   <div className={managedDomain.applyStatus === 'pending_restart' ? style.pendingRestart : style.managedDomainStatus}>
                     <div>
                       <strong>
@@ -547,7 +586,7 @@ export default function SystemConfiguration() {
                   <Table
                     data={rows}
                     columns={columns}
-                    loading={loading}
+                    loading={loading || (domainRead.status === 'loading' && domainRead.key === domainKey)}
                     rowKey="rowKey"
                     tableLayout="fixed"
                     empty={(
@@ -564,18 +603,20 @@ export default function SystemConfiguration() {
         </div>
       </section>
       <AgentGatewayDraftPanel
-        visible={agentPanelOpen}
+        key={`agent-${domainVisit}`}
+        visible={agentPanelOpen && domainReady && isAgentDomain}
         domain={agentDomain}
         fallback={fallbackAgentProfile}
-        onClose={() => setAgentPanelOpen(false)}
-        onSaved={(next) => setAgentDomain(next)}
+        onClose={() => { if (domainVisitRef.current.generation === domainVisit) setAgentPanelOpen(false); }}
+        onSaved={(next) => { if (domainVisitRef.current.generation === domainVisit) setAgentDomain(next); }}
       />
       <ManagedDomainDraftPanel
-        visible={managedPanelOpen}
+        key={`managed-${domainVisit}`}
+        visible={managedPanelOpen && domainReady && !isAgentDomain}
         settings={activeDomainSettings}
         domain={managedDomain}
-        onClose={() => setManagedPanelOpen(false)}
-        onSaved={(next) => setManagedDomain(next)}
+        onClose={() => { if (domainVisitRef.current.generation === domainVisit) setManagedPanelOpen(false); }}
+        onSaved={(next) => { if (domainVisitRef.current.generation === domainVisit) setManagedDomain(next); }}
       />
       <Dialog
         visible={publishOpen}
@@ -587,7 +628,7 @@ export default function SystemConfiguration() {
         footer={(
           <>
             <Button variant="outline" onClick={() => { setPublishOpen(false); setAgentPanelOpen(true); }}>返回编辑</Button>
-            <Button theme="primary" icon={<RocketIcon />} loading={publishing} disabled={!agentDomain?.draft} onClick={publishDraft}>
+            <Button theme="primary" icon={<RocketIcon />} loading={publishing} disabled={!domainReady || !agentDomain?.draft} onClick={publishDraft}>
               发布 r{agentDomain?.draft?.revision || ''}
             </Button>
           </>
@@ -647,7 +688,7 @@ export default function SystemConfiguration() {
             <Button
               theme="primary"
               loading={managedPublishing}
-              disabled={!managedDomain?.draft}
+              disabled={!domainReady || !managedDomain?.draft}
               onClick={publishManagedDraft}
             >
               发布 r{managedDomain?.draft?.revision || ''}

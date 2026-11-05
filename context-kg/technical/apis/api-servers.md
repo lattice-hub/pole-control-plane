@@ -1,9 +1,13 @@
 ---
+type: API Reference
 title: API 服务端 — 协议实现
 tags: [api, http, grpc, xds, nacos]
 links: [architecture, ai-features, auth-system, adr-service-contract-reporting-and-visualization, pole-product-capability-matrix-research]
 updated: 2026-07-27
-sources: 4
+legacy_source_count: 4
+sources:
+  - resource: ../../../apis/apiserver/apiserver.go
+    title: 当前模块接口
 ---
 
 # API 服务端 — 协议实现
@@ -59,6 +63,8 @@ httpserver/
 - 通过 MCP 协议暴露工具，供 AI 智能体消费
 
 ---
+
+配置中心管理仅走九个 POST /config/v1 动作，原生客户端仅 /v1.ConfigGRPC/Discover；Apollo/Nacos/Consul 是可选只读转换入口。旧文件/分组/模板和 HTTP Watch/Resolve 已移除，详见[当前配置 ADR](../adr/adr-config-template-values-unification.md)。
 
 ## gRPC 服务端（`plugin/apiserver/grpcserver/`）
 

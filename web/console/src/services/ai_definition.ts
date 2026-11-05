@@ -15,10 +15,6 @@ export interface AIResourceDefinition {
   revision?: string;
 }
 
-interface DataResponse<T> {
-  data?: T;
-}
-
 interface ListResponse<T> {
   amount: number;
   size: number;
@@ -26,11 +22,10 @@ interface ListResponse<T> {
 }
 
 export async function describeAIEnvironmentBinding<Kind extends string>(baseURL: string, resourceId: string) {
-  const response = await getApiRequest<DataResponse<AIEnvironmentBinding<Kind>>>({
+  return getApiRequest<AIEnvironmentBinding<Kind>>({
     action: `${baseURL}/environment-binding`,
     data: { resource_id: resourceId },
   });
-  return response.data;
 }
 
 export async function describeAIEnvironmentBindings<Kind extends string>(baseURL: string, definitionId: string) {
@@ -58,6 +53,13 @@ export async function createAIResourceDefinition(baseURL: string, resourceLabel:
   const definition = definitions.find((item) => item.name === name);
   if (!definition) throw new Error(`新建 ${resourceLabel} 逻辑定义后未能解析其 ID`);
   return definition;
+}
+
+export async function deleteAIResourceDefinition(baseURL: string, definitionId: string) {
+  return apiRequest({
+    action: `${baseURL}/delete`,
+    data: { definition_ids: [definitionId] },
+  });
 }
 
 export async function bindAIResourceDefinition(baseURL: string, definitionId: string, resourceId: string) {

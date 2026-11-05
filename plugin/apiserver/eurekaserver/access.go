@@ -132,7 +132,7 @@ func parseAcceptValue(acceptValue string) map[string]bool {
 
 // GetAllApplications 全量拉取服务实例信息
 func (h *EurekaServer) GetAllApplications(req *restful.Request, rsp *restful.Response) {
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	appsRespCache := h.workers.Get(namespace).GetCachedAppsWithLoad()
 	remoteAddr := req.Request.RemoteAddr
 	acceptValue := getParamFromEurekaRequestHeader(req, restful.HEADER_Accept)
@@ -150,7 +150,7 @@ func (h *EurekaServer) GetApplication(req *restful.Request, rsp *restful.Respons
 	appId := readAppIdFromRequest(req)
 
 	remoteAddr := req.Request.RemoteAddr
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	appsRespCache := h.workers.Get(namespace).GetCachedAppsWithLoad()
 	apps := appsRespCache.AppsResp.Applications
 	app := apps.GetApplication(appId)
@@ -193,7 +193,7 @@ func (h *EurekaServer) GetAppInstance(req *restful.Request, rsp *restful.Respons
 		writeHeader(http.StatusBadRequest, rsp)
 		return
 	}
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	appsRespCache := h.workers.Get(namespace).GetCachedAppsWithLoad()
 	apps := appsRespCache.AppsResp.Applications
 	app := apps.GetApplication(appId)
@@ -275,7 +275,7 @@ func writeResponse(acceptValues map[string]bool, appsRespCache *ApplicationsResp
 
 // GetDeltaApplications 增量拉取服务实例信息
 func (h *EurekaServer) GetDeltaApplications(req *restful.Request, rsp *restful.Response) {
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	work := h.workers.Get(namespace)
 	appsRespCache := work.GetDeltaApps()
 	if nil == appsRespCache {
@@ -384,7 +384,7 @@ func (h *EurekaServer) RegisterApplication(req *restful.Request, rsp *restful.Re
 
 	ctx := context.WithValue(context.Background(), types.ContextAuthTokenKey, token)
 
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	eurekalog.Infof(
 		"[EUREKA-SERVER]received instance register request, "+
 			"client: %s, namespace: %s, instId: %s, appId: %s, ipAddr: %s",
@@ -426,7 +426,7 @@ func (h *EurekaServer) UpdateStatus(req *restful.Request, rsp *restful.Response)
 		return
 	}
 	status := req.QueryParameter(ParamValue)
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	eurekalog.Infof("[EUREKA-SERVER]received instance updateStatus request, "+
 		"client: %s, namespace: %s, instId: %s, appId: %s, status: %s",
 		remoteAddr, namespace, instId, appId, status)
@@ -475,7 +475,7 @@ func (h *EurekaServer) DeleteStatus(req *restful.Request, rsp *restful.Response)
 		return
 	}
 
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 
 	eurekalog.Infof("[EUREKA-SERVER]received instance status delete request, "+
 		"client: %s,namespace=%s, instId=%s, appId=%s",
@@ -520,7 +520,7 @@ func (h *EurekaServer) RenewInstance(req *restful.Request, rsp *restful.Response
 		writeHeader(http.StatusBadRequest, rsp)
 		return
 	}
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	code := h.renew(context.Background(), namespace, appId, instId, false)
 	writePolarisStatusCode(req, code)
 	if code == api.ExecuteSuccess || code == api.HeartbeatExceedLimit {
@@ -555,7 +555,7 @@ func (h *EurekaServer) CancelInstance(req *restful.Request, rsp *restful.Respons
 		writeHeader(http.StatusBadRequest, rsp)
 		return
 	}
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	eurekalog.Infof("[EUREKA-SERVER]received instance deregistered request, "+
 		"client: %s, namespace: %s, instId: %s, appId: %s",
 		remoteAddr, namespace, instId, appId)
@@ -585,7 +585,7 @@ func (h *EurekaServer) GetInstance(req *restful.Request, rsp *restful.Response) 
 		writeHeader(http.StatusBadRequest, rsp)
 		return
 	}
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	appsRespCache := h.workers.Get(namespace).GetCachedAppsWithLoad()
 	apps := appsRespCache.AppsResp.Applications
 	instance := apps.GetInstance(instId)
@@ -625,7 +625,7 @@ func (h *EurekaServer) UpdateMetadata(req *restful.Request, rsp *restful.Respons
 		writeHeader(http.StatusBadRequest, rsp)
 		return
 	}
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	queryValues := req.Request.URL.Query()
 	metadataMap := make(map[string]string, len(queryValues))
 	for key, values := range queryValues {
@@ -665,7 +665,7 @@ func (h *EurekaServer) QueryByVipAddress(req *restful.Request, rsp *restful.Resp
 		return
 	}
 
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	appsRespCache := h.workers.Get(namespace).GetVipApps(VipCacheKey{
 		entityType:       entityTypeVip,
 		targetVipAddress: formatReadName(vipAddress),
@@ -687,7 +687,7 @@ func (h *EurekaServer) QueryBySVipAddress(req *restful.Request, rsp *restful.Res
 		writeHeader(http.StatusBadRequest, rsp)
 		return
 	}
-	namespace := readNamespaceFromRequest(req, h.namespace)
+	namespace := readNamespaceFromRequest(req, h.defaultNamespace())
 	appsRespCache := h.workers.Get(namespace).GetVipApps(VipCacheKey{
 		entityType:       entityTypeSVip,
 		targetVipAddress: formatReadName(vipAddress),

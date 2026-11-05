@@ -84,7 +84,7 @@ func EnrichGetStrategiesApiDocs(r *restful.RouteBuilder) *restful.RouteBuilder {
 			"不填则为查询（默认+自定义）鉴权策略").DataType(typeNameString).Required(false)).
 		Param(restful.QueryParameter("res_id", "资源ID").DataType(typeNameString).
 			Required(false)).
-		Param(restful.QueryParameter("res_type", "资源类型, namespace、service、config_group").
+		Param(restful.QueryParameter("res_type", "资源类型, namespace、service").
 			DataType(typeNameString).Required(false)).
 		Param(restful.QueryParameter("principal_id", "成员ID").DataType(typeNameString).
 			Required(false)).

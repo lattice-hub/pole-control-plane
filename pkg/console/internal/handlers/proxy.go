@@ -31,6 +31,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -38,6 +39,12 @@ import (
 	"github.com/pole-io/pole-server/pkg/console/internal/common/log"
 	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 	"github.com/pole-io/specification/source/go/api/v1/security"
+)
+
+var proxyTransport = otelhttp.NewTransport(http.DefaultTransport,
+	otelhttp.WithSpanNameFormatter(func(_ string, request *http.Request) string {
+		return "proxy " + request.Method + ":" + request.URL.Path
+	}),
 )
 
 func NewAdminGetter(conf *bootstrap.Config) {
@@ -185,7 +192,7 @@ func ReverseProxyForLogin(PoleServer *bootstrap.PoleServer, conf *bootstrap.Conf
 			resp.Body = io.NopCloser(bytes.NewBuffer(body))
 			return nil
 		}
-		proxy := &httputil.ReverseProxy{Director: director, ModifyResponse: modifyResp}
+		proxy := &httputil.ReverseProxy{Director: director, ModifyResponse: modifyResp, Transport: proxyTransport}
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
@@ -227,7 +234,13 @@ func ReverseProxyForServer(PoleServer *bootstrap.PoleServer, conf *bootstrap.Con
 		}
 		modifyResp := func(resp *http.Response) error {
 			if resp.StatusCode == http.StatusUnauthorized {
-				resp.Header.Add("Set-Cookie", expiredJWTCookie().String())
+				expire, err := responseInvalidatesAuthentication(resp)
+				if err != nil {
+					return err
+				}
+				if expire {
+					resp.Header.Add("Set-Cookie", expiredJWTCookie().String())
+				}
 				return nil
 			}
 			if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
@@ -241,9 +254,34 @@ func ReverseProxyForServer(PoleServer *bootstrap.PoleServer, conf *bootstrap.Con
 			}
 			return nil
 		}
-		proxy := &httputil.ReverseProxy{Director: director, ModifyResponse: modifyResp}
+		proxy := &httputil.ReverseProxy{Director: director, ModifyResponse: modifyResp, Transport: proxyTransport}
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
+}
+
+// responseInvalidatesAuthentication distinguishes an invalid credential from
+// an authorization denial. HTTP 401 alone is ambiguous in the control-plane:
+// Code_NotAllowedAccess means the signed Console session is still valid.
+func responseInvalidatesAuthentication(resp *http.Response) (bool, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	if err = resp.Body.Close(); err != nil {
+		return false, err
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	resp.ContentLength = int64(len(body))
+
+	payload := struct {
+		Code apimodel.Code `json:"code"`
+	}{}
+	if err = json.Unmarshal(body, &payload); err != nil {
+		// Preserve the session when the backend did not provide an explicit
+		// authentication code. A generic 401 must never imply logout.
+		return false, nil
+	}
+	return payload.Code == apimodel.Code_TokenDisabled || payload.Code == apimodel.Code_TokenNotExisted, nil
 }
 
 func verifyAccessPermission(c *gin.Context, conf *bootstrap.Config) (string, string, bool) {
@@ -282,7 +320,7 @@ func ReverseProxyNoAuthForServer(PoleServer *bootstrap.PoleServer, conf *bootstr
 			req.URL.Host = PoleServer.Address
 			req.Host = PoleServer.Address
 		}
-		proxy := &httputil.ReverseProxy{Director: director}
+		proxy := &httputil.ReverseProxy{Director: director, Transport: proxyTransport}
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
@@ -295,7 +333,7 @@ func ReverseProxyForMonitorServer(monitorServer *bootstrap.MonitorServer) gin.Ha
 			req.URL.Host = monitorServer.Address
 			req.Host = monitorServer.Address
 		}
-		proxy := &httputil.ReverseProxy{Director: director}
+		proxy := &httputil.ReverseProxy{Director: director, Transport: proxyTransport}
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }

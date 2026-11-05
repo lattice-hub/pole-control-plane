@@ -82,6 +82,10 @@ const GroupDetailPage: React.FC = () => {
             return;
         }
         openInfoNotification('请求成功', `用户组访问凭据已${enabled ? '禁用' : '启用'}`);
+        setState(prev => prev.group ? ({
+            ...prev,
+            group: { ...prev.group, token_enable: !enabled },
+        }) : prev);
         refreshAfterTokenChange();
     };
 

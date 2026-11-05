@@ -6,11 +6,8 @@ import QueryComposer from 'components/QueryComposer';
 import { ResourceHeader } from 'components/ResourceLayout';
 import { describeOperationLog, getOperationTypeInfo, getResourceTypeInfo, OperationLog, OperationType, ResourceType } from 'services/observer';
 import { describeObservabilityOperations } from 'services/observability';
-import ErrorPage from 'components/ErrorPage';
 
 import style from './index.module.less';
-
-type DataSource = 'remote' | 'mock';
 
 type OperationMetricRow = OperationLog & {
   rowKey?: string;
@@ -28,86 +25,6 @@ interface SearchState {
 }
 
 const PAGE_SIZE = 10;
-
-const MOCK_OPERATIONS: OperationMetricRow[] = [
-  {
-    cursor: 'op-20260718-001',
-    resource_type: 'Routing',
-    resource_name: 'checkout-gray-route',
-    namespace: 'mall-prod',
-    operator: 'admin',
-    operation_type: 'Update',
-    detail: '调整 checkout 灰度路由权重：gray 20% -> 35%，保留 stable 65%。',
-    server: 'pole-control-plane-0',
-    happen_time: '2026-07-18 12:44:02',
-  },
-  {
-    cursor: 'op-20260718-002',
-    resource_type: 'RateLimit',
-    resource_name: 'payment-submit-limit',
-    namespace: 'default',
-    operator: 'sre-bot',
-    operation_type: 'Enable',
-    detail: '启用 payment 提交接口限流规则，阈值 800 QPS，熔断保护联动开启。',
-    server: 'pole-control-plane-1',
-    happen_time: '2026-07-18 12:33:19',
-  },
-  {
-    cursor: 'op-20260718-003',
-    resource_type: 'CircuitBreakerRule',
-    resource_name: 'inventory-read-breaker',
-    namespace: 'mall-prod',
-    operator: 'lct',
-    operation_type: 'Release',
-    detail: '发布 inventory 读接口熔断规则 v17，错误率窗口 60s，半开探测 5 次。',
-    server: 'pole-control-plane-0',
-    happen_time: '2026-07-18 12:16:48',
-  },
-  {
-    cursor: 'op-20260718-004',
-    resource_type: 'Service',
-    resource_name: 'recommend',
-    namespace: 'gray',
-    operator: 'admin',
-    operation_type: 'Disable',
-    detail: '临时禁用 recommend 服务自动注册入口，等待实例健康检查恢复。',
-    server: 'pole-control-plane-1',
-    happen_time: '2026-07-18 11:58:07',
-  },
-  {
-    cursor: 'op-20260718-005',
-    resource_type: 'ConfigFileRelease',
-    resource_name: 'checkout/application.yaml',
-    namespace: 'default',
-    operator: 'config-bot',
-    operation_type: 'Rollback',
-    detail: '回滚 checkout 配置发布到 version 42，原因：新配置触发支付超时。',
-    server: 'pole-control-plane-0',
-    happen_time: '2026-07-18 11:45:31',
-  },
-  {
-    cursor: 'op-20260718-006',
-    resource_type: 'User',
-    resource_name: 'observability-viewer',
-    namespace: 'system',
-    operator: 'admin',
-    operation_type: 'Create',
-    detail: '创建只读观测用户，并绑定事件指标、操作审计查看权限。',
-    server: 'pole-control-plane-1',
-    happen_time: '2026-07-18 11:27:12',
-  },
-];
-
-const OPERATION_TREND = [
-  { label: '08:00', value: 4 },
-  { label: '09:00', value: 9 },
-  { label: '10:00', value: 7 },
-  { label: '11:00', value: 14 },
-  { label: '12:00', value: 21 },
-  { label: '13:00', value: 11 },
-  { label: '14:00', value: 16 },
-  { label: '15:00', value: 8 },
-];
 
 const presets: DateRangePickerProps['presets'] = {
   '最近 1 小时': [dayjs().subtract(1, 'hour').toDate(), dayjs().toDate()],
@@ -157,17 +74,6 @@ function formatTime(value: string) {
   return date.isValid() ? date.format('YYYY-MM-DD HH:mm:ss') : value;
 }
 
-function filterMockOperations(rows: OperationMetricRow[], searchState: SearchState) {
-  return rows.filter((row) => {
-    const matchResourceType = !searchState.searchResourceType || row.resource_type === searchState.searchResourceType;
-    const matchOperation = !searchState.searchOperation || row.operation_type === searchState.searchOperation;
-    const matchNamespace = !searchState.searchNamespace || row.namespace.includes(searchState.searchNamespace);
-    const matchResource = !searchState.searchResource || row.resource_name.includes(searchState.searchResource);
-    const matchOperator = !searchState.searchOperator || row.operator.includes(searchState.searchOperator);
-    return matchResourceType && matchOperation && matchNamespace && matchResource && matchOperator;
-  });
-}
-
 function buildResourceStats(rows: OperationMetricRow[]) {
   const total = Math.max(rows.length, 1);
   const resources = rows.reduce<Record<string, number>>((acc, row) => {
@@ -205,24 +111,6 @@ function SummaryCard(props: { title: string; value: React.ReactNode; hint: strin
   );
 }
 
-function TrendBars(props: { data: Array<{ label: string; value: number }> }) {
-  const { data } = props;
-  const max = Math.max(...data.map((item) => item.value), 1);
-  return (
-    <div className={style.trendBars}>
-      {data.map((item) => (
-        <div className={style.trendItem} key={item.label}>
-          <span className={style.trendValue}>{item.value}</span>
-          <span className={style.trendTrack}>
-            <span className={style.trendFill} style={{ height: `${Math.max((item.value / max) * 100, 8)}%` }} />
-          </span>
-          <span className={style.trendLabel}>{item.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function DistributionList(props: { data: Array<{ label: string; value: number; percent: number }> }) {
   const { data } = props;
   if (!data.length) return <Empty description="暂无资源分布" />;
@@ -243,31 +131,27 @@ function DistributionList(props: { data: Array<{ label: string; value: number; p
   );
 }
 
-function DataSourceBadge(props: { source: DataSource; loading: boolean }) {
-  const { source, loading } = props;
-  if (loading) return <Tag className={style.sourceTag}>加载中</Tag>;
-  return <Tag className={source === 'mock' ? style.sourceTagMock : style.sourceTag}>{source === 'mock' ? 'Mock 预览' : '实时数据'}</Tag>;
-}
-
 export default function ServerOperation() {
   const [operations, setOperations] = React.useState<OperationMetricRow[]>([]);
   const [searchState, setSearchState] = React.useState<SearchState>(defaultSearchState);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [hasNext, setHasNext] = React.useState(false);
-  const [dataSource, setDataSource] = React.useState<DataSource>('mock');
   const [fetchError, setFetchError] = React.useState(false);
   const [selectedOperation, setSelectedOperation] = React.useState<OperationMetricRow | null>(null);
   const [paginationVersion, setPaginationVersion] = React.useState(0);
 
-  const displayOperations = React.useMemo(() => {
-    if (dataSource === 'remote') return operations;
-    return filterMockOperations(MOCK_OPERATIONS, searchState);
-  }, [dataSource, operations, searchState]);
+  const displayOperations = operations;
 
   const summary = React.useMemo(() => buildOperationSummary(displayOperations), [displayOperations]);
   const resourceStats = React.useMemo(() => buildResourceStats(displayOperations), [displayOperations]);
 
+  const lastQuery = React.useRef<SearchState>(defaultSearchState);
+
+  const requestSequence = React.useRef(0);
+
   const fetchData = React.useCallback(async (nextSearchState: SearchState = searchState) => {
+    const sequence = ++requestSequence.current;
+    lastQuery.current = nextSearchState;
     setIsLoading(true);
     try {
       const requestParams = {
@@ -285,17 +169,17 @@ export default function ServerOperation() {
       const observabilityRes = await describeObservabilityOperations(requestParams);
       const fallbackRes = (observabilityRes.data || []).length ? observabilityRes : await describeOperationLog(requestParams);
       const remoteRows = normalizeOperationRows((fallbackRes.data || []) as OperationLog[]);
+      if (sequence !== requestSequence.current) return;
       setOperations(remoteRows);
       setHasNext(Boolean(fallbackRes.has_next));
-      setDataSource(remoteRows.length ? 'remote' : 'mock');
       setFetchError(false);
     } catch {
+      if (sequence !== requestSequence.current) return;
       setOperations([]);
       setHasNext(false);
-      setDataSource('mock');
-      setFetchError(false);
+      setFetchError(true);
     } finally {
-      setIsLoading(false);
+      if (sequence === requestSequence.current) setIsLoading(false);
     }
   }, [searchState]);
 
@@ -364,8 +248,6 @@ export default function ServerOperation() {
     fetchData(defaultSearchState);
   };
 
-  if (fetchError) return <ErrorPage />;
-
   return (
     <div className={style.page}>
       <ResourceHeader
@@ -374,11 +256,11 @@ export default function ServerOperation() {
         eyebrow="监控指标 / 操作审计"
         title="操作审计"
         description="按操作者、资源类型和操作类型追踪审计数据，联动治理动作和变更影响。"
-        actions={<DataSourceBadge source={dataSource} loading={isLoading} />}
+        actions={<Tag className={style.sourceTag}>{isLoading ? '加载中' : fetchError ? '查询失败' : '真实数据'}</Tag>}
       />
 
-      <div className={style.summaryGrid}>
-        <SummaryCard title="操作总数" value={summary.total} hint={dataSource === 'mock' ? '当前筛选下的预览操作' : '当前筛选下的真实操作'} />
+      {!fetchError && !isLoading && <><div className={style.summaryGrid}>
+        <SummaryCard title="操作总数" value={summary.total} hint="当前已加载记录" />
         <SummaryCard title="高风险操作" value={summary.riskCount} hint="删除、回滚、禁用类操作" tone={style.summaryDanger} />
         <SummaryCard title="活跃操作者" value={summary.operators} hint="按 operator 去重" />
         <SummaryCard title="涉及资源" value={summary.resources} hint={hasNext ? '还有更多历史资源' : '已展示当前结果集'} />
@@ -389,24 +271,26 @@ export default function ServerOperation() {
           <div className={style.panelHeader}>
             <div>
               <h2>操作趋势</h2>
-              <span>按小时聚合控制台与治理变更操作</span>
+              <span>当前暂不提供趋势统计</span>
             </div>
             <InfoCircleIcon />
           </div>
-          <TrendBars data={OPERATION_TREND} />
+          <Empty description="暂无趋势数据" />
         </section>
 
         <section className={style.panel}>
           <div className={style.panelHeader}>
             <div>
               <h2>资源分布</h2>
-              <span>操作影响的资源类型占比</span>
+              <span>当前已加载记录的资源类型占比</span>
             </div>
             <FilterIcon />
           </div>
           <DistributionList data={resourceStats} />
         </section>
       </div>
+
+      </>}
 
       <section className={style.panel}>
         <div className={style.panelHeader}>
@@ -492,7 +376,9 @@ export default function ServerOperation() {
           />
         </div>
 
-        <Table
+        {fetchError && !isLoading ? (
+          <Empty title="操作查询失败" description="无法加载数据，请重试。" action={<Button onClick={() => fetchData(lastQuery.current)}>重新加载</Button>} />
+        ) : <Table
           key={paginationVersion}
           data={displayOperations}
           columns={columns}
@@ -507,7 +393,7 @@ export default function ServerOperation() {
             showJumper: true,
           }}
           onRowClick={({ row }: { row: OperationMetricRow }) => setSelectedOperation(row)}
-        />
+        />}
       </section>
 
       <Drawer

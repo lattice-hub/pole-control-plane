@@ -18,11 +18,9 @@
 package config
 
 import (
-	"archive/zip"
 	"net/http"
 
 	"github.com/emicklei/go-restful/v3"
-	"go.uber.org/zap"
 
 	"github.com/pole-io/pole-server/plugin/apiserver/nacosserver/model"
 	nacoshttp "github.com/pole-io/pole-server/plugin/apiserver/nacosserver/v1/http"
@@ -43,32 +41,11 @@ func (n *ConfigServer) addConfigFileAccess(ws *restful.WebService) {
 }
 
 func (n *ConfigServer) Dispatch(req *restful.Request, rsp *restful.Response) {
-	switch req.Request.URL.RawQuery {
-	case "":
-		n.PublishConfig(req, rsp)
-	case "import=true":
-		n.ConfigImport(req, rsp)
-	}
+	nacoshttp.WrirteNacosErrorResponse(writeDisabled(), rsp)
 }
 
 func (n *ConfigServer) PublishConfig(req *restful.Request, rsp *restful.Response) {
-	handler := nacoshttp.Handler{
-		Request:  req,
-		Response: rsp,
-	}
-
-	file, err := BuildConfigFile(req)
-	if err != nil {
-		nacoshttp.WrirteNacosErrorResponse(err, rsp)
-		return
-	}
-
-	ret, err := n.handlePublishConfig(handler.ParseHeaderContext(), file)
-	if err != nil {
-		nacoshttp.WrirteNacosErrorResponse(err, rsp)
-		return
-	}
-	nacoshttp.WrirteNacosResponse(ret, rsp)
+	nacoshttp.WrirteNacosErrorResponse(writeDisabled(), rsp)
 }
 
 func (n *ConfigServer) GetConfig(req *restful.Request, rsp *restful.Response) {
@@ -82,7 +59,7 @@ func (n *ConfigServer) GetConfig(req *restful.Request, rsp *restful.Response) {
 		nacoshttp.WrirteNacosErrorResponse(err, rsp)
 		return
 	}
-	ret, err := n.handleGetConfig(handler.ParseHeaderContext(), &model.ConfigFile{
+	ret, err := n.handleGetConfig(configRequestContext(&handler), &model.ConfigFile{
 		ConfigFileBase: *baseInfo,
 	}, rsp)
 	if err != nil {
@@ -93,23 +70,7 @@ func (n *ConfigServer) GetConfig(req *restful.Request, rsp *restful.Response) {
 }
 
 func (n *ConfigServer) DeleteConfig(req *restful.Request, rsp *restful.Response) {
-	handler := nacoshttp.Handler{
-		Request:  req,
-		Response: rsp,
-	}
-	baseInfo, err := parseConfigFileBase(req)
-	if err != nil {
-		nacoshttp.WrirteNacosErrorResponse(err, rsp)
-		return
-	}
-	ret, err := n.handleDeleteConfig(handler.ParseHeaderContext(), &model.ConfigFile{
-		ConfigFileBase: *baseInfo,
-	})
-	if err != nil {
-		nacoshttp.WrirteNacosErrorResponse(err, rsp)
-		return
-	}
-	nacoshttp.WrirteNacosResponse(ret, rsp)
+	nacoshttp.WrirteNacosErrorResponse(writeDisabled(), rsp)
 }
 
 func (n *ConfigServer) WatchConfigs(req *restful.Request, rsp *restful.Response) {
@@ -118,54 +79,29 @@ func (n *ConfigServer) WatchConfigs(req *restful.Request, rsp *restful.Response)
 		Response: rsp,
 	}
 
-	probeModify := req.QueryParameter("Listening-Configs")
+	req.Request.Body = http.MaxBytesReader(rsp, req.Request.Body, 4*1024*1024)
+	if err := req.Request.ParseForm(); err != nil {
+		nacoshttp.WrirteNacosErrorResponse(model.InvalidProbeModify, rsp)
+		return
+	}
+	probeModify := req.Request.Form.Get("Listening-Configs")
 	if probeModify == "" {
 		nacoshttp.WrirteNacosResponseWithCode(http.StatusBadRequest, "invalid probeModify", rsp)
 		return
 	}
-	nacoslog.Info("[NACOS-V1][Config] receive client watch request.", zap.Any("listenCtx", probeModify))
+
 	listenCtx, err := model.ParseConfigListenContext(req, probeModify)
 	if err != nil {
 		nacoshttp.WrirteNacosErrorResponse(err, rsp)
 		return
 	}
 
-	n.handleWatch(handler.ParseHeaderContext(), listenCtx, rsp)
+	n.handleWatch(configRequestContext(&handler), listenCtx, rsp)
 }
 
+// ConfigImport 无法映射成精确CAS草稿/发布，明确拒绝旧批量写模型。
 func (n *ConfigServer) ConfigImport(req *restful.Request, rsp *restful.Response) {
-	handler := nacoshttp.Handler{
-		Request:  req,
-		Response: rsp,
-	}
-
-	var metaDataItem *ZipItem
-	var items = make([]*ZipItem, 0, 32)
-
-	err := handler.ProcessZip(func(f *zip.File, data []byte) {
-		if (f.Name == ConfigExportMetadata || f.Name == ConfigExpotrMetadataV2) && metaDataItem == nil {
-			metaDataItem = &ZipItem{
-				Name: f.Name,
-				Data: data,
-			}
-			return
-		}
-		items = append(items, &ZipItem{
-			Name: f.Name,
-			Data: data,
-		})
-	})
-	if err != nil {
-		nacoshttp.WrirteNacosErrorResponse(err, rsp)
-		return
-	}
-
-	policy := req.QueryParameter("policy")
-
-	n.handleConfigImport(handler.ParseHeaderContext(), policy, &UnZipResult{
-		Meta:  metaDataItem,
-		Items: items,
-	}, rsp)
+	nacoshttp.WrirteNacosErrorResponse(writeDisabled(), rsp)
 }
 
 func parseConfigFileBase(req *restful.Request) (*model.ConfigFileBase, error) {

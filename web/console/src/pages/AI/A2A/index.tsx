@@ -19,6 +19,7 @@ import {
   Textarea,
   Tooltip,
 } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 import type { FormProps, PageInfo } from 'components/Fluent';
 import {
   AddIcon,
@@ -26,13 +27,17 @@ import {
   RefreshIcon,
   ServerIcon,
 } from 'components/Fluent/icons';
-import { useNavigate } from 'components/Router';
+import { useNavigate, useSearchParams } from 'components/Router';
 
 import Text from 'components/Text';
 import AuthorizeInput from 'components/Authorize';
 import { ConfirmOperationButton, OperationButton } from 'components/OperationButton';
 import { ResourceHeader, ResourceToolbar } from 'components/ResourceLayout';
 import QueryComposer, { QuerySnapshot } from 'components/QueryComposer';
+import AILogicalResourceDirectory, {
+  AIResourceView,
+  AIResourceViewSwitch,
+} from 'components/AILogicalResourceDirectory';
 import {
   cleanA2ADetails,
   cleanA2APage,
@@ -47,7 +52,17 @@ import {
   updateA2AAgent,
 } from 'modules/ai/a2a';
 import { useAppDispatch, useAppSelector } from 'modules/store';
-import { A2AAgent, A2AAgentInterface, A2AAgentSkill } from 'services/a2a';
+import {
+  A2AAgent,
+  A2AAgentInterface,
+  A2AAgentSkill,
+  bindA2AAgentDefinition,
+  createA2AAgentDefinition,
+  deleteA2AAgentDefinition,
+  describeA2AAgentDefinitionEnvironments,
+  describeA2AAgentDefinitions,
+  describeAllA2AAgents,
+} from 'services/a2a';
 import { PolicySourceType } from 'services/auth_policy';
 import { Op } from 'services/types';
 import ResourceNameLink from 'components/ResourceNameLink';
@@ -255,6 +270,7 @@ const capabilityTags = (agent: A2AAgent) => (
 const agentColumns = (
   operateAgent: (op: Op | 'detail' | 'skills' | 'card' | 'authorize', row?: TableRowData) => void,
   goBackendService: (agent?: A2AAgent) => void,
+  goEnvironment: (namespace: string) => void,
 ): PrimaryTableProps['columns'] => [
   {
     colKey: 'name',
@@ -267,6 +283,16 @@ const agentColumns = (
         name={row.name}
         onClick={() => operateAgent('detail', row)}
       />
+    ),
+  },
+  {
+    colKey: 'namespace',
+    title: '环境空间',
+    width: 160,
+    cell: ({ row }) => (
+      <Link theme="primary" onClick={() => goEnvironment(String(row.namespace || ''))}>
+        {row.namespace || '-'}
+      </Link>
     ),
   },
   {
@@ -587,7 +613,8 @@ export const A2AEditor: React.FC<{
   visible: boolean;
   closeDrawer: () => void;
   embedded?: boolean;
-}> = ({ op, visible, closeDrawer, embedded = false }) => {
+  environment?: string;
+}> = ({ op, visible, closeDrawer, embedded = false, environment = '' }) => {
   const [form] = Form.useForm();
   const dispatch = useAppDispatch();
   const { editAgent } = useAppSelector(selectA2A);
@@ -595,7 +622,7 @@ export const A2AEditor: React.FC<{
   const [skills, setSkills] = useState<A2AAgentSkill[]>([defaultSkill()]);
   const initialValues = useMemo(() => ({
     name: editAgent?.name || '',
-    namespace: editAgent?.namespace || '',
+    namespace: editAgent?.namespace || environment,
     visibility: editAgent?.visibility || 'public',
     description: editAgent?.description || '',
     version: editAgent?.version || '',
@@ -607,7 +634,7 @@ export const A2AEditor: React.FC<{
     business: editAgent?.business || '',
     department: editAgent?.department || '',
     backend_type: editAgent?.backend_type || 'service',
-    backend_service_namespace: editAgent?.backend_service_namespace || '',
+    backend_service_namespace: editAgent?.backend_service_namespace || environment,
     backend_service_name: editAgent?.backend_service_name || '',
     backend_address: editAgent?.backend_address || '',
     preferred_interface_url: editAgent?.preferred_interface_url || '',
@@ -621,7 +648,7 @@ export const A2AEditor: React.FC<{
     last_fetch_status: editAgent?.last_fetch_status || 'pending',
     raw_card_json: jsonPreview(editAgent?.raw_card_json),
     metadata_text: stringifyMetadata(editAgent?.metadata),
-  }), [editAgent]);
+  }), [editAgent, environment]);
   const initialInterfaces = useMemo(
     () => editAgent?.interfaces?.length ? editAgent.interfaces : [defaultInterface()],
     [editAgent],
@@ -658,7 +685,7 @@ export const A2AEditor: React.FC<{
     const data: A2AAgent = {
       id: editAgent?.id,
       name: form.getFieldValue('name') as string,
-      namespace: form.getFieldValue('namespace') as string,
+      namespace: environment || form.getFieldValue('namespace') as string,
       visibility: form.getFieldValue('visibility') as string,
       description: form.getFieldValue('description') as string,
       version: form.getFieldValue('version') as string,
@@ -670,7 +697,7 @@ export const A2AEditor: React.FC<{
       business: form.getFieldValue('business') as string,
       department: form.getFieldValue('department') as string,
       backend_type: form.getFieldValue('backend_type') as string,
-      backend_service_namespace: form.getFieldValue('backend_service_namespace') as string,
+      backend_service_namespace: environment || form.getFieldValue('backend_service_namespace') as string,
       backend_service_name: form.getFieldValue('backend_service_name') as string,
       backend_address: form.getFieldValue('backend_address') as string,
       preferred_interface_url: form.getFieldValue('preferred_interface_url') as string,
@@ -712,12 +739,12 @@ export const A2AEditor: React.FC<{
                   { pattern: /^[a-zA-Z0-9._-]+$/, message: '只允许数字、英文字母、.、-、_' },
                 ]}
                 >
-                  <Input disabled={op === 'edit'} placeholder="例如 order-agent" />
+                  <Input readonly={op === 'edit'} placeholder="例如 order-agent" />
                 </FormItem>
               </Col>
               <Col span={6}>
-                <FormItem label="命名空间" name="namespace" rules={[{ required: true, message: '请输入命名空间' }]}>
-                  <Input disabled={op === 'edit'} placeholder="例如 default" />
+                <FormItem label="环境空间" name="namespace" rules={[{ required: true, message: '请输入环境空间' }]}>
+                  <Input readonly={op === 'edit' || Boolean(environment)} placeholder="例如 default" />
                 </FormItem>
               </Col>
             </Row>
@@ -799,8 +826,8 @@ export const A2AEditor: React.FC<{
                 </FormItem>
               </Col>
               <Col span={4}>
-                <FormItem label="后端服务命名空间" name="backend_service_namespace">
-                  <Input placeholder="service 模式使用" />
+                <FormItem label="后端服务环境空间" name="backend_service_namespace">
+                  <Input readonly={Boolean(environment)} placeholder="service 模式使用" />
                 </FormItem>
               </Col>
               <Col span={4}>
@@ -839,16 +866,16 @@ export const A2AEditor: React.FC<{
               <div className={style.inlineBlock} key={`${item.id || 'new'}-${index}`}>
                 <Row gutter={12}>
                   <Col span={5}>
-                    <Input value={item.url} placeholder="接口 URL" onChange={(value) => updateInterface(index, { url: value as string })} />
+                    <Input aria-label={`第 ${index + 1} 个接口 URL`} value={item.url} placeholder="接口 URL" onChange={(value) => updateInterface(index, { url: value as string })} />
                   </Col>
                   <Col span={3}>
-                    <Select value={item.protocol_binding} options={protocolOptions} onChange={(value) => updateInterface(index, { protocol_binding: value as string })} />
+                    <Select aria-label={`第 ${index + 1} 个接口协议`} value={item.protocol_binding} options={protocolOptions} onChange={(value) => updateInterface(index, { protocol_binding: value as string })} />
                   </Col>
                   <Col span={2}>
-                    <Input value={item.protocol_version} placeholder="版本" onChange={(value) => updateInterface(index, { protocol_version: value as string })} />
+                    <Input aria-label={`第 ${index + 1} 个接口版本`} value={item.protocol_version} placeholder="版本" onChange={(value) => updateInterface(index, { protocol_version: value as string })} />
                   </Col>
                   <Col span={1}>
-                    <Input value={item.tenant} placeholder="租户" onChange={(value) => updateInterface(index, { tenant: value as string })} />
+                    <Input aria-label={`第 ${index + 1} 个接口租户`} value={item.tenant} placeholder="租户" onChange={(value) => updateInterface(index, { tenant: value as string })} />
                   </Col>
                   <Col span={1}>
                     <Button
@@ -877,13 +904,13 @@ export const A2AEditor: React.FC<{
               <div className={style.skillBlock} key={`${skill.id || 'new'}-${index}`}>
                 <Row gutter={12}>
                   <Col span={4}>
-                    <Input value={skill.skill_id} placeholder="Skill ID" onChange={(value) => updateSkill(index, { skill_id: value as string })} />
+                    <Input aria-label={`第 ${index + 1} 个技能 ID`} value={skill.skill_id} placeholder="Skill ID" onChange={(value) => updateSkill(index, { skill_id: value as string })} />
                   </Col>
                   <Col span={4}>
-                    <Input value={skill.name} placeholder="技能名" onChange={(value) => updateSkill(index, { name: value as string })} />
+                    <Input aria-label={`第 ${index + 1} 个技能名称`} value={skill.name} placeholder="技能名" onChange={(value) => updateSkill(index, { name: value as string })} />
                   </Col>
                   <Col span={3}>
-                    <TagInput value={tagList(skill.tags)} placeholder="标签" onChange={(value) => updateSkill(index, { tags: value as string[] })} />
+                    <TagInput aria-label={`第 ${index + 1} 个技能标签`} value={tagList(skill.tags)} placeholder="标签" onChange={(value) => updateSkill(index, { tags: value as string[] })} />
                   </Col>
                   <Col span={1}>
                     <Button
@@ -899,16 +926,16 @@ export const A2AEditor: React.FC<{
                 </Row>
                 <Row gutter={12}>
                   <Col span={4}>
-                    <TagInput value={tagList(skill.input_modes)} placeholder="输入模式" onChange={(value) => updateSkill(index, { input_modes: value as string[] })} />
+                    <TagInput aria-label={`第 ${index + 1} 个技能输入模式`} value={tagList(skill.input_modes)} placeholder="输入模式" onChange={(value) => updateSkill(index, { input_modes: value as string[] })} />
                   </Col>
                   <Col span={4}>
-                    <TagInput value={tagList(skill.output_modes)} placeholder="输出模式" onChange={(value) => updateSkill(index, { output_modes: value as string[] })} />
+                    <TagInput aria-label={`第 ${index + 1} 个技能输出模式`} value={tagList(skill.output_modes)} placeholder="输出模式" onChange={(value) => updateSkill(index, { output_modes: value as string[] })} />
                   </Col>
                   <Col span={4}>
-                    <TagInput value={tagList(skill.examples)} placeholder="示例" onChange={(value) => updateSkill(index, { examples: value as string[] })} />
+                    <TagInput aria-label={`第 ${index + 1} 个技能示例`} value={tagList(skill.examples)} placeholder="示例" onChange={(value) => updateSkill(index, { examples: value as string[] })} />
                   </Col>
                 </Row>
-                <Textarea value={skill.description} autosize={{ minRows: 1, maxRows: 3 }} placeholder="技能描述" onChange={(value) => updateSkill(index, { description: value as string })} />
+                <Textarea aria-label={`第 ${index + 1} 个技能描述`} value={skill.description} autosize={{ minRows: 1, maxRows: 3 }} placeholder="技能描述" onChange={(value) => updateSkill(index, { description: value as string })} />
               </div>
             ))}
           </TabPanel>
@@ -939,38 +966,50 @@ export const A2AEditor: React.FC<{
             </FormItem>
           </TabPanel>
         </Tabs>
-        <FormItem className={style.formAction}>
-          <Space>
-            <Button type="submit" theme="primary">提交</Button>
-            <Button type="reset" theme="default">重置</Button>
-          </Space>
-        </FormItem>
+        {embedded && (
+          <FormItem className={style.formAction}>
+            <Space>
+              <Button type="submit" theme="primary">提交</Button>
+              <Button type="reset" theme="default">重置</Button>
+            </Space>
+          </FormItem>
+        )}
       </Form>
   );
 
   if (embedded) return editorContent;
 
   return (
-    <Drawer
-      size="large"
-      header={op === 'edit' ? '编辑 A2A Agent' : '创建 A2A Agent'}
-      footer={false}
+    <EditorDrawer
+      bodyClassName={style.editorBody}
+      width="workspace"
+      title={op === 'edit' ? '编辑 A2A Agent' : '创建 A2A Agent'}
+      description="按能力、协议、接口与来源分区维护 Agent Card。"
+      footer={(
+        <EditorDrawerActions
+          onCancel={closeDrawer}
+          onSubmit={() => form.submit({ showErrorMessage: true })}
+          submitText={op === 'edit' ? '保存修改' : '创建 Agent'}
+        />
+      )}
       visible={visible}
-      showOverlay={false}
       onClose={closeDrawer}
     >
       {editorContent}
-    </Drawer>
+    </EditorDrawer>
   );
 };
 
 export default memo(() => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedNamespace = searchParams.get('namespace') || '';
+  const [resourceView, setResourceView] = useState<AIResourceView>(requestedNamespace ? 'environment' : 'logical');
   const { datas, loading, page, limit, total, editAgent, skills, skillsLoading, card, cardLoading } = useAppSelector(selectA2A);
   const [query, setQuery] = useState({
     name: '',
-    namespace: '',
+    namespace: requestedNamespace,
     protocol_binding: '',
     skill_tag: '',
     backend_type: '',
@@ -1015,10 +1054,14 @@ export default memo(() => {
   };
 
   useEffect(() => {
-    refreshTable();
-    return () => {
-      dispatch(cleanA2APage());
-    };
+    const nextQuery = { ...query, namespace: requestedNamespace };
+    setQuery(nextQuery);
+    setResourceView(requestedNamespace ? 'environment' : 'logical');
+    refreshTable(1, limit, nextQuery);
+  }, [requestedNamespace]);
+
+  useEffect(() => () => {
+    dispatch(cleanA2APage());
   }, []);
 
   const openAgentDetail = (agent: A2AAgent, activeTab: A2ADetailTab = 'card') => {
@@ -1104,7 +1147,7 @@ export default memo(() => {
   const resetFilter = () => {
     const nextQuery = {
       name: '',
-      namespace: '',
+      namespace: requestedNamespace,
       protocol_binding: '',
       skill_tag: '',
       backend_type: '',
@@ -1135,6 +1178,10 @@ export default memo(() => {
     navigate(`/discovery/service/instance?namespace=${encodeURIComponent(service.namespace)}&service=${encodeURIComponent(service.name)}`);
   };
 
+  const openBoundEnvironment = (binding: { resource_id: string; namespace: string; resource_name: string }) => {
+    navigate(`/ai/a2a/detail?id=${encodeURIComponent(binding.resource_id)}&namespace=${encodeURIComponent(binding.namespace)}&name=${encodeURIComponent(binding.resource_name)}&tab=card`);
+  };
+
   return (
     <div className={style.page}>
       <ResourceHeader
@@ -1142,16 +1189,34 @@ export default memo(() => {
         placement="app-header"
         eyebrow="AI Native / A2A Agent Registry"
         title="A2A Agent"
-        description="维护可被其它 Agent 发现的 Agent Card、访问接口、技能能力和后端绑定。"
+        description="以全局逻辑资源统一识别 Agent，并管理各环境空间中的 Agent Card、技能能力与实际部署。"
       />
+
+      <AIResourceViewSwitch value={resourceView} environment={requestedNamespace} onChange={setResourceView} />
+
+      {resourceView === 'logical' ? (
+        <AILogicalResourceDirectory
+          resourceLabel="A2A Agent"
+          instanceLabel="A2A Agent 环境实例"
+          loadDefinitions={describeA2AAgentDefinitions}
+          loadBindings={describeA2AAgentDefinitionEnvironments}
+          loadInstances={describeAllA2AAgents}
+          createDefinition={createA2AAgentDefinition}
+          deleteDefinition={deleteA2AAgentDefinition}
+          bindDefinition={bindA2AAgentDefinition}
+          onOpenEnvironment={openBoundEnvironment}
+          onCreateEnvironment={() => setResourceView('environment')}
+        />
+      ) : (
+        <>
 
       <section className={style.metricRail}>
         <div className={style.metricItem}>
-          <span>Agents</span>
+          <span>环境实例</span>
           <strong>{total}</strong>
         </div>
         <div className={style.metricItem}>
-          <span>Namespaces</span>
+          <span>环境空间</span>
           <strong>{namespaces.size}</strong>
         </div>
         <div className={style.metricItem}>
@@ -1170,7 +1235,7 @@ export default memo(() => {
 
       <ResourceToolbar
         density="compact"
-        title="Agent 列表"
+        title={requestedNamespace ? `${requestedNamespace} / Agent 环境实例` : 'Agent 环境实例'}
         count={loading ? '正在同步列表' : `当前显示 ${datas.length} 条`}
         filters={(
           <>
@@ -1179,11 +1244,11 @@ export default memo(() => {
               keywordPlaceholder="搜索 Agent 名称"
               suggestions={datas.map((item) => String(item.name || '')).filter(Boolean)}
               fields={[
-                {
+                ...(!requestedNamespace ? [{
                   key: 'namespace',
-                  label: '命名空间',
-                  type: 'text',
-                },
+                  label: '环境空间',
+                  type: 'text' as const,
+                }] : []),
                 {
                   key: 'protocol_binding',
                   label: '协议',
@@ -1248,7 +1313,7 @@ export default memo(() => {
                     />
                   </Tooltip>
                   <Button theme="primary" icon={<AddIcon />} onClick={() => operateAgent('create')}>
-                    新建 A2A Agent
+                    新建 A2A 环境实例
                   </Button>
                 </>
               )}
@@ -1261,7 +1326,9 @@ export default memo(() => {
         <Table
           className={style.agentTable}
           data={datas}
-          columns={agentColumns(operateAgent, goBackendService)}
+          columns={agentColumns(operateAgent, goBackendService, (namespace) => {
+            navigate(`/namespace/environment?name=${encodeURIComponent(namespace)}`);
+          })}
           loading={loading}
           rowKey="id"
           size="large"
@@ -1281,12 +1348,15 @@ export default memo(() => {
           }}
         />
       </section>
+        </>
+      )}
 
       {editorState.visible && (
         <A2AEditor
           key={`${editorState.mode}-${editAgent?.id || 'new'}`}
           op={editorState.mode}
           visible={editorState.visible}
+          environment={editorState.mode === 'create' ? requestedNamespace : ''}
           closeDrawer={() => {
             dispatch(resetA2AAgent());
             setEditorState((prev) => ({ ...prev, visible: false }));

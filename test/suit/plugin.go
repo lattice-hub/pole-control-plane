@@ -18,7 +18,6 @@
 package testsuit
 
 import (
-	_ "github.com/pole-io/pole-server/pkg/config/interceptor"
 	_ "github.com/pole-io/pole-server/pkg/service/interceptor"
 	defaultpolicy "github.com/pole-io/pole-server/plugin/access_control/auth/policy"
 	defaultuser "github.com/pole-io/pole-server/plugin/access_control/auth/user"

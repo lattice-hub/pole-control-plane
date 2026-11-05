@@ -102,6 +102,7 @@ const ServiceScopeSection: React.FC<ServiceScopeSectionProps> = ({
                         <div>
                             <div className={styles.fieldLabel}>命名空间</div>
                             <Select
+                                aria-label={isCaller ? "主调命名空间" : "被调命名空间"}
                                 filterable
                                 creatable
                                 options={currentNamespaceOptions}
@@ -112,6 +113,7 @@ const ServiceScopeSection: React.FC<ServiceScopeSectionProps> = ({
                         <div>
                             <div className={styles.fieldLabel}>服务</div>
                             <Select
+                                aria-label={isCaller ? "主调服务" : "被调服务"}
                                 filterable
                                 creatable
                                 options={serviceOptions}

@@ -332,17 +332,9 @@ func (svr *Server) checkResourceExist(resources *apisecurity.StrategyResources) 
 		}
 	}
 
-	// ConfigGroups
-	configGroups := resources.GetConfigGroups()
-	cfgCache := svr.cacheMgr.ConfigGroup()
-	for index := range configGroups {
-		val := configGroups[index]
-		if val.GetId() == "*" {
-			continue
-		}
-		if g := cfgCache.GetGroupByID(val.GetId()); g == nil {
-			return api.NewAuthResponse(apimodel.Code_NotFoundResource)
-		}
+	// 统一配置按环境授权，独立旧配置分组资源已移除；拒绝创建无法生效的授权。
+	if len(resources.GetConfigGroups()) != 0 {
+		return api.NewAuthResponse(apimodel.Code_InvalidParameter)
 	}
 
 	// RouteRules

@@ -26,7 +26,6 @@ assert.match(composerStyle, /@media \(max-width: 720px\)[\s\S]*\.advancedSurface
 const migratedPages = [
   'src/pages/Namespace/index.tsx',
   'src/pages/Discovery/Services/services.tsx',
-  'src/pages/Configuration/Group/group.tsx',
   'src/pages/Governance/Workbench/index.tsx',
   'src/pages/AI/Mcp/index.tsx',
   'src/pages/AI/A2A/index.tsx',

@@ -49,8 +49,6 @@ type AdminStore interface {
 	BatchCleanDeletedServices(timeout time.Duration, batchSize uint32) (uint32, error)
 	// BatchCleanDeletedRules batch clean soft deleted clients
 	BatchCleanDeletedRules(rule string, timeout time.Duration, batchSize uint32) (uint32, error)
-	// BatchCleanDeletedConfigFiles batch clean soft deleted clients
-	BatchCleanDeletedConfigFiles(timeout time.Duration, batchSize uint32) (uint32, error)
 }
 
 // LeaderChangeEvent

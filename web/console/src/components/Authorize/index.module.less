@@ -1,0 +1,32 @@
+.editorBody:global(.fui-DrawerBody) {
+  min-width: 0;
+  padding: 20px 28px 24px;
+
+  :global(.fluent-form) {
+    height: auto;
+    min-width: 0;
+  }
+
+  :global(.fluent-transfer__panes) {
+    flex-wrap: wrap;
+  }
+
+  :global(.fluent-form-item__control) {
+    min-width: 0;
+  }
+
+  :global(.fui-Input),
+  :global(.fui-Textarea),
+  :global(.fui-Dropdown),
+  :global(.fui-Combobox) {
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .editorBody:global(.fui-DrawerBody) {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+}

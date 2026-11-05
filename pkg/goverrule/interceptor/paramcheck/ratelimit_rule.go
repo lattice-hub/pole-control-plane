@@ -167,6 +167,9 @@ func checkRateLimitParams(req *apitraffic.RateLimit) *apimodel.Response {
 	if err := valid.CheckResourceName(req.GetName()); err != nil {
 		return api.NewRateLimitResponse(apimodel.Code_InvalidParameter, req)
 	}
+	if req.GetNamespace() == "" || req.GetCallee().GetNamespace() == "" || req.GetCallee().GetService() == "" {
+		return api.NewRateLimitResponse(apimodel.Code_InvalidParameter, req)
+	}
 	if resp := checkRateLimitParamsDbLen(req); nil != resp {
 		return resp
 	}

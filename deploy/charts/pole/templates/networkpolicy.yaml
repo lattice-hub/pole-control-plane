@@ -1,0 +1,122 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pole.fullname" . }}-mysql
+  labels: {{ include "pole.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "mysql") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}}}
+      ports: [{protocol: TCP, port: 3306}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pole.fullname" . }}-greptimedb
+  labels: {{ include "pole.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "greptimedb") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}}}
+      ports: [{protocol: TCP, port: 4000}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pole.fullname" . }}-otel-collector
+  labels: {{ include "pole.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "otel-collector") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: TCP, port: 4317}
+        - {protocol: TCP, port: 4318}
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}}}
+      ports:
+        - {protocol: TCP, port: 8888}
+        - {protocol: TCP, port: 13133}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pole.fullname" . }}-control-plane
+  labels: {{ include "pole.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: TCP, port: 8090}
+        - {protocol: TCP, port: 8091}
+        - {protocol: TCP, port: 8093}
+        - {protocol: TCP, port: 8848}
+        - {protocol: TCP, port: 8890}
+        - {protocol: TCP, port: 8761}
+        - {protocol: TCP, port: 15010}
+        {{- if eq .Values.deploymentMode "full" }}
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 8101}
+        - {protocol: TCP, port: 8102}
+        {{- end }}
+---
+{{- if eq .Values.deploymentMode "split" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pole.fullname" . }}-console
+  labels: {{ include "pole.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "console") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+        # ACK ALB traffic does not necessarily originate from a Kubernetes Pod.
+        # The Service remains ClusterIP, so this permits the ALB/VPC source to
+        # reach only the Console container port without publishing a new port.
+        - ipBlock: {cidr: 0.0.0.0/0}
+      ports: [{protocol: TCP, port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pole.fullname" . }}-limiter
+  labels: {{ include "pole.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "limiter") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports: [{protocol: TCP, port: 8101}]
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: console
+      ports: [{protocol: TCP, port: 8102}]
+{{- end }}
+{{- end }}

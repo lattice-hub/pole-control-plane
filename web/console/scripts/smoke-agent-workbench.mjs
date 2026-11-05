@@ -4,132 +4,94 @@ const password = process.env.POLE_PASSWORD || 'admin123';
 const keepFixture = process.env.POLE_KEEP_FIXTURE === '1';
 
 const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(4, 14);
-const namespace = 'default';
-const group = `codex-agent-${stamp}`;
-const fileName = 'app.yaml';
+const key = { environment: 'default', group: `codex-agent-${stamp}`, name: 'app.yaml' };
 const baselineContent = 'feature:\n  enabled: false\n';
 const desiredContent = 'feature:\n  enabled: true\n';
 let authHeaders = {};
-let cleanupFile = false;
-let cleanupGroup = false;
+let created = false;
 
-async function request(method, path, body) {
+async function request(path, body, type) {
   const response = await fetch(`${baseURL}${path}`, {
-    method,
-    headers: {
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      ...authHeaders,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify(body),
   });
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
-  if (!response.ok || payload.code !== 200000) {
-    throw new Error(`${method} ${path} failed: http=${response.status} body=${text}`);
+  if (!response.ok || ![200000, 299999].includes(payload.code)) {
+    throw new Error(`POST ${path} failed: http=${response.status} body=${text}`);
   }
-  return payload;
+  if (type && payload.data?.['@type'] !== `type.googleapis.com/pole.config.v1.${type}`) {
+    throw new Error(`POST ${path} returned an unexpected Any type`);
+  }
+  return payload.data;
 }
 
-function assertBatchSuccess(label, payload) {
-  const failures = (payload.responses || []).filter((item) => item.code !== 200000);
-  if (failures.length > 0) {
-    throw new Error(`${label} failed: ${JSON.stringify(failures)}`);
-  }
+async function state(releaseId = '') {
+  return request('/config/v1/state', { key, releaseId }, 'ConfigState');
 }
 
 async function cleanup() {
-  if (keepFixture) return;
-  if (cleanupFile) {
-    await request('POST', '/config/v1/files/delete', [{ namespace, group, name: fileName }]).catch(() => {});
-  }
-  if (cleanupGroup) {
-    await request('POST', '/config/v1/groups/delette', [{ namespace, name: group }]).catch(() => {});
+  if (keepFixture || !created) return;
+  try {
+    const current = await state();
+    await request('/config/v1/offline', { key, expectedReleaseSetRevision: current.releaseSetRevision || '0' }, 'ConfigState');
+  } catch (error) {
+    console.error('Fixture offline failed:', error);
   }
 }
 
 async function main() {
-  const login = await request('POST', '/auth/v1/user/login', { name: user, password });
-  authHeaders = {
-    Authorization: login.data.token,
-    'X-Pole-User': login.data.user_id,
-  };
+  const login = await request('/auth/v1/user/login', { name: user, password });
+  authHeaders = { Authorization: login.token };
 
-  const createGroup = await request('POST', '/config/v1/groups', [{ namespace, name: group, comment: 'Agent smoke fixture' }]);
-  assertBatchSuccess('create group', createGroup);
-  cleanupGroup = true;
+  const draft = await request('/config/v1/draft', { key, expectedDraftRevision: '0', definition: {
+    content: Buffer.from(baselineContent).toString('base64'), engine: 'literal', format: 'yaml',
+  } }, 'ConfigState');
+  created = true;
+  const published = await request('/config/v1/publish', {
+    key, expectedDraftRevision: draft.draft.revision, expectedReleaseSetRevision: draft.releaseSetRevision || '0',
+    kind: 'RELEASE_KIND_NORMAL', audience: { labels: {} }, priority: 0,
+  }, 'ConfigState');
+  const releaseId = published.releases?.find((release) => release.active && release.kind === 'RELEASE_KIND_NORMAL')?.id;
+  if (!releaseId) throw new Error('baseline normal release was not activated');
+  const activeBefore = await state(releaseId);
+  if (Buffer.from(activeBefore.selectedRelease.definition.content, 'base64').toString('utf8') !== baselineContent) {
+    throw new Error('baseline release content mismatch');
+  }
 
-  const createFile = await request('POST', '/config/v1/files', [{
-    namespace,
-    group,
-    name: fileName,
-    content: baselineContent,
-    format: 'yaml',
-    comment: 'baseline',
-    labels: { source: 'agent-smoke' },
-    encrypted: false,
-    encryptAlgo: '',
-  }]);
-  assertBatchSuccess('create file', createFile);
-  cleanupFile = true;
-
-  await request('POST', '/config/v1/files/release', {
-    namespace,
-    group,
-    file_name: fileName,
-    name: `baseline-${stamp}`,
-    release_description: 'Agent smoke baseline',
-    release_type: 'normal',
+  const proposal = await request('/ai/agent/v1/proposals/config-file', {
+    namespace: key.environment, group: key.group, name: key.name, desiredContent,
   });
+  if (proposal.status !== 'preview_ready') throw new Error(`unexpected proposal status: ${proposal.status}`);
 
-  const activeBefore = await request('GET', `/config/v1/files/release?namespace=${namespace}&group=${group}&file_name=${fileName}`);
-  if (activeBefore.data.content !== baselineContent) throw new Error('baseline release content mismatch');
-
-  const proposal = await request('POST', '/ai/agent/v1/proposals/config-file', {
-    namespace,
-    group,
-    name: fileName,
-    desiredContent,
-    comment: 'prepared by Agent smoke',
-  });
-  if (proposal.data.status !== 'preview_ready') throw new Error(`unexpected proposal status: ${proposal.data.status}`);
-
-  const draftBeforeConfirm = await request('GET', `/config/v1/files/detail?namespace=${namespace}&group=${group}&name=${fileName}`);
-  const activeBeforeConfirm = await request('GET', `/config/v1/files/release?namespace=${namespace}&group=${group}&file_name=${fileName}`);
-  if (draftBeforeConfirm.data.content !== baselineContent || activeBeforeConfirm.data.content !== baselineContent) {
+  const before = await state(releaseId);
+  if (Buffer.from(before.draft.definition.content, 'base64').toString('utf8') !== baselineContent ||
+      Buffer.from(before.selectedRelease.definition.content, 'base64').toString('utf8') !== baselineContent) {
     throw new Error('preview must not mutate draft or active release');
   }
 
-  const idempotencyKey = `agent-smoke-${stamp}`;
   const confirmation = {
-    proposalVersion: proposal.data.version,
-    previewHash: proposal.data.previewHash,
-    idempotencyKey,
+    proposalVersion: proposal.version,
+    previewHash: proposal.previewHash,
+    idempotencyKey: `agent-smoke-${stamp}`,
   };
-  const receipt = await request('POST', `/ai/agent/v1/proposals/${proposal.data.id}/confirm`, confirmation);
-  const repeatedReceipt = await request('POST', `/ai/agent/v1/proposals/${proposal.data.id}/confirm`, confirmation);
-  if (receipt.data.status !== 'waiting_for_publish' || repeatedReceipt.data.proposalId !== receipt.data.proposalId) {
+  const receipt = await request(`/ai/agent/v1/proposals/${proposal.id}/confirm`, confirmation);
+  const repeatedReceipt = await request(`/ai/agent/v1/proposals/${proposal.id}/confirm`, confirmation);
+  if (receipt.status !== 'waiting_for_publish' || repeatedReceipt.proposalId !== receipt.proposalId) {
     throw new Error('confirmation must be idempotent and wait for publish');
   }
 
-  const draftAfterConfirm = await request('GET', `/config/v1/files/detail?namespace=${namespace}&group=${group}&name=${fileName}`);
-  const activeAfterConfirm = await request('GET', `/config/v1/files/release?namespace=${namespace}&group=${group}&file_name=${fileName}`);
-  if (draftAfterConfirm.data.content !== desiredContent) throw new Error('confirmation did not save desired draft');
-  if (activeAfterConfirm.data.content !== baselineContent) throw new Error('Agent confirmation must not publish');
+  const after = await state(releaseId);
+  if (Buffer.from(after.draft.definition.content, 'base64').toString('utf8') !== desiredContent) {
+    throw new Error('confirmation did not save desired draft');
+  }
+  if (Buffer.from(after.selectedRelease.definition.content, 'base64').toString('utf8') !== baselineContent) {
+    throw new Error('Agent confirmation must not publish');
+  }
 
-  console.log(JSON.stringify({
-    ok: true,
-    namespace,
-    group,
-    fileName,
-    proposalStatus: proposal.data.status,
-    receiptStatus: receipt.data.status,
-    draftChanged: true,
-    activeReleaseUnchanged: true,
-    keepFixture,
-  }));
+  console.log(JSON.stringify({ ok: true, key, proposalStatus: proposal.status, receiptStatus: receipt.status,
+    draftChanged: true, activeReleaseUnchanged: true, keepFixture }));
 }
 
-main().finally(cleanup).catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main().finally(cleanup).catch((error) => { console.error(error); process.exitCode = 1; });

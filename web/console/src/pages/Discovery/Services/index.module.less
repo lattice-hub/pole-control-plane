@@ -391,6 +391,28 @@
   margin-top: 32px;
 }
 
+// The shared drawer has no body padding; only service creation owns this inset.
+.serviceEditorBody:global(.fui-DrawerBody) {
+  padding: 20px 28px 24px;
+
+  .serviceForm {
+    height: auto;
+
+    :global(.fui-Input),
+    :global(.fui-Combobox) {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .serviceEditorBody:global(.fui-DrawerBody) {
+    padding: 18px;
+  }
+}
+
 .serviceForm {
   height: 100%;
 
@@ -432,7 +454,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
+  margin: 0 0 14px;
   color: var(--app-text);
   font-size: 14px;
   font-weight: 600;
@@ -443,7 +465,7 @@
     width: 3px;
     height: 14px;
     border-radius: 999px;
-    background: #0052d9;
+    background: var(--app-brand-foreground);
     content: "";
   }
 
@@ -458,25 +480,30 @@
 
 .nameMeta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-left: 104px;
+  margin-left: 0;
   margin-top: 6px;
   color: var(--app-text-secondary);
   font-size: 12px;
   line-height: 18px;
+
+  > span:last-child {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .nameCountError,
 .inlineError {
-  color: #d54941;
+  color: var(--app-danger);
 }
 
 .inlineError {
-  min-height: 18px;
-  margin-left: 104px;
-  margin-top: 2px;
+  display: block;
+  margin: 0;
   font-size: 12px;
   line-height: 18px;
 }
@@ -743,4 +770,32 @@
     grid-column: auto;
   }
 
+}
+
+.onboarding {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface-subtle);
+  strong { color: var(--app-text); font-size: 13px; }
+  p { margin: 4px 0 0; color: var(--app-text-secondary); font-size: 12px; line-height: 1.5; }
+}
+
+// Plain service editors use the shared frame, without a pre-padded workspace.
+.serviceOperationBody:global(.fui-DrawerBody) {
+  padding: 20px 28px 24px;
+  :global(.fui-Input), :global(.fui-Combobox), :global(.fui-Textarea) {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+@media (max-width: 640px) {
+  .serviceOperationBody:global(.fui-DrawerBody) { padding: 18px; }
 }

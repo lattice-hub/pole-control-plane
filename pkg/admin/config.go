@@ -38,10 +38,6 @@ func DefaultConfig() *Config {
 				Name:   "CleanDeletedInstances",
 				Enable: true,
 			},
-			{
-				Name:   "CleanConfigReleaseHistory",
-				Enable: true,
-			},
 		},
 	}
 }

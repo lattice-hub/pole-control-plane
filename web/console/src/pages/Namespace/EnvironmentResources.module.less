@@ -1,0 +1,399 @@
+.page {
+  box-sizing: border-box;
+  display: flex;
+  height: calc(100dvh - 113px);
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--app-text);
+}
+
+.headerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workspace {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.environmentSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 320px);
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.environmentIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+
+  > div:last-child {
+    min-width: 0;
+  }
+
+  span,
+  strong,
+  p {
+    display: block;
+  }
+
+  span {
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  strong {
+    margin-top: 1px;
+    overflow: hidden;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 28px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  p {
+    margin: 2px 0 0;
+    overflow: hidden;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.environmentIcon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-brand) 10%, var(--app-surface));
+  color: var(--app-brand-foreground);
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.healthSummary {
+  padding: 14px 18px;
+  border-left: 1px solid var(--app-border-subtle);
+  background: var(--app-surface-subtle);
+
+  span,
+  strong,
+  small {
+    display: block;
+  }
+
+  span,
+  small {
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  strong {
+    margin-top: 2px;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 26px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  small {
+    margin-top: 5px;
+  }
+}
+
+.healthTrack {
+  height: 5px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--app-border-subtle);
+
+  i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #007f78;
+    transition: width 180ms ease;
+  }
+}
+
+.domainRail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+
+  button {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 96px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    white-space: normal;
+    padding: 12px 16px 13px;
+    border: 0;
+    border-right: 1px solid var(--app-border-subtle);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background 160ms ease;
+
+    &:last-child {
+      border-right: 0;
+    }
+
+    &:hover {
+      background: var(--app-surface-subtle);
+    }
+
+    &:focus-visible {
+      z-index: 1;
+      outline: 2px solid var(--app-brand-foreground);
+      outline-offset: -2px;
+    }
+
+    span,
+    strong,
+    small {
+      display: block;
+    }
+
+    span,
+    small {
+      color: var(--app-text-secondary);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    strong {
+      margin-top: 1px;
+      font-size: 22px;
+      font-weight: 650;
+      line-height: 28px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    small {
+      margin-top: 1px;
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
+.domainRail .lookupValue {
+  font-size: 18px;
+  line-height: 28px;
+}
+
+.domainRail .activeDomain {
+  background: color-mix(in srgb, var(--app-brand) 7%, var(--app-surface));
+
+  &::after {
+    position: absolute;
+    right: 14px;
+    bottom: 0;
+    left: 14px;
+    height: 2px;
+    background: var(--app-brand-foreground);
+    content: "";
+  }
+
+  span,
+  strong {
+    color: var(--app-brand-foreground);
+  }
+}
+
+.partialWarning {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-left: 3px solid #d67d00;
+  background: color-mix(in srgb, #d67d00 7%, var(--app-surface));
+  font-size: 12px;
+  line-height: 18px;
+
+  span {
+    color: var(--app-text-secondary);
+  }
+}
+
+.tableSurface {
+  display: flex;
+  min-height: 260px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+
+  :global(.fluent-table-shell) {
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+
+  :global(.fluent-table-scroll) {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+  }
+
+  :global(.fluent-table-shell th) {
+    padding: 12px 14px;
+    color: var(--app-text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  :global(.fluent-table-shell td) {
+    padding: 12px 14px;
+    vertical-align: middle;
+  }
+
+  :global(.fluent-pagination) {
+    flex: 0 0 auto;
+    padding: 12px 16px;
+  }
+}
+
+.resourceIdentity {
+  min-width: 0;
+
+  > span {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.domainCell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    color: var(--app-text-secondary);
+  }
+}
+
+.errorState {
+  display: grid;
+  min-height: 420px;
+  place-items: center;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+@media (max-width: 1120px) {
+  .page {
+    height: auto;
+    min-height: calc(100dvh - 113px);
+    overflow: visible;
+  }
+
+  .workspace {
+    height: auto;
+    overflow: visible;
+  }
+
+  .tableSurface {
+    min-height: 460px;
+  }
+}
+
+@media (max-width: 820px) {
+  .partialWarning {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headerActions {
+    flex-wrap: wrap;
+  }
+
+  .environmentSummary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .healthSummary {
+    border-top: 1px solid var(--app-border-subtle);
+    border-left: 0;
+  }
+
+  .domainRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    button:first-child {
+      grid-column: 1 / -1;
+      border-right: 0;
+      border-bottom: 1px solid var(--app-border-subtle);
+    }
+
+    button:nth-child(3),
+    button:nth-child(5) {
+      border-right: 0;
+    }
+
+    button:nth-child(2),
+    button:nth-child(3) {
+      border-bottom: 1px solid var(--app-border-subtle);
+    }
+  }
+}
+
+.firstService {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  background: var(--app-surface-subtle);
+  p { margin: 4px 0 0; color: var(--app-text-secondary); line-height: 1.5; }
+}

@@ -614,7 +614,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                         <div className={`${styles.fieldBlock} ${styles.fieldBlockWide}`}>
                             <div className={styles.fieldLabel}>规则名称</div>
                             {op === 'create' || editorState.editable
-                                ? <Input maxlength={64} value={customRouteRule.name} placeholder="例如：route-by-tenant" onChange={(value) => setCustomRouteRule(prev => ({ ...prev, name: value }))} />
+                                ? <Input aria-label="路由规则名称" maxLength={64} value={customRouteRule.name} placeholder="例如：route-by-tenant" onChange={(value) => setCustomRouteRule(prev => ({ ...prev, name: value }))} />
                                 : <div className={styles.fieldValue}>{customRouteRule.name || '-'}</div>}
                             <div className={styles.fieldHint}>仅支持 kebab-case，用于生成 RouteRule 资源名</div>
                         </div>
@@ -623,7 +623,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                         <div className={styles.fieldBlock}>
                             <div className={styles.fieldLabel}>优先级</div>
                             {editorState.editable
-                                ? <InputNumber theme="normal" className={styles.priorityInput} min={0} max={100} step={1} value={customRouteRule.priority ?? 5} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, priority: value as number }))} />
+                                ? <InputNumber aria-label="路由规则优先级" theme="normal" className={styles.priorityInput} min={0} max={100} step={1} value={customRouteRule.priority ?? 5} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, priority: value as number }))} />
                                 : <div className={styles.fieldValue}>{customRouteRule.priority ?? 5}</div>}
                         </div>
                     </Col>
@@ -639,7 +639,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                         <div className={styles.fieldBlock}>
                             <div className={styles.fieldLabel}>描述</div>
                             {editorState.editable
-                                ? <Input value={customRouteRule.description} maxlength={255} placeholder="描述路由策略的业务意图" onChange={(value) => setCustomRouteRule(prev => ({ ...prev, description: value }))} />
+                                ? <Input aria-label="路由规则描述" value={customRouteRule.description} maxLength={255} placeholder="描述路由策略的业务意图" onChange={(value) => setCustomRouteRule(prev => ({ ...prev, description: value }))} />
                                 : <div className={styles.fieldValue}>{customRouteRule.description || '-'}</div>}
                         </div>
                     </Col>
@@ -685,7 +685,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>规则名称</div>
                         {op === 'create'
-                            ? <Input maxlength={64} value={customRouteRule.name} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, name: value }))} />
+                            ? <Input aria-label="路由规则名称" maxLength={64} value={customRouteRule.name} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, name: value }))} />
                             : <div className={shared.fieldValue}>{customRouteRule.name || '-'}</div>}
                     </div>
                     <div className={shared.field}>
@@ -697,7 +697,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>优先级</div>
                         {editorState.editable
-                            ? <InputNumber theme="normal" min={0} value={customRouteRule.priority} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, priority: value as number }))} />
+                            ? <InputNumber aria-label="路由规则优先级" theme="normal" min={0} value={customRouteRule.priority} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, priority: value as number }))} />
                             : <div className={shared.fieldValue}>{customRouteRule.priority ?? 0}</div>}
                     </div>
                     <div className={`${shared.field} ${shared.full}`}>
@@ -706,19 +706,19 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                             <div className={shared.kv2}>
                                 <div>
                                     <div className={shared.editLabel}>主调命名空间</div>
-                                    <Select filterable creatable options={routeNamespaceOptions} value={customRouteRule.caller_namespace} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, caller_namespace: value as string }))} />
+                                    <Select aria-label="主调命名空间" filterable creatable options={routeNamespaceOptions} value={customRouteRule.caller_namespace} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, caller_namespace: value as string }))} />
                                 </div>
                                 <div>
                                     <div className={shared.editLabel}>主调服务</div>
-                                    <Select filterable creatable options={callerServiceOptions} value={customRouteRule.caller_service} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, caller_service: value as string }))} />
+                                    <Select aria-label="主调服务" filterable creatable options={callerServiceOptions} value={customRouteRule.caller_service} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, caller_service: value as string }))} />
                                 </div>
                                 <div>
                                     <div className={shared.editLabel}>被调命名空间</div>
-                                    <Select filterable creatable options={routeNamespaceOptions} value={customRouteRule.callee_namespace} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, callee_namespace: value as string }))} />
+                                    <Select aria-label="被调命名空间" filterable creatable options={routeNamespaceOptions} value={customRouteRule.callee_namespace} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, callee_namespace: value as string }))} />
                                 </div>
                                 <div>
                                     <div className={shared.editLabel}>被调服务</div>
-                                    <Select filterable creatable options={calleeServiceOptions} value={customRouteRule.callee_service} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, callee_service: value as string }))} />
+                                    <Select aria-label="被调服务" filterable creatable options={calleeServiceOptions} value={customRouteRule.callee_service} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, callee_service: value as string }))} />
                                 </div>
                             </div>
                         ) : (
@@ -738,7 +738,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                     <div className={`${shared.field} ${shared.full}`}>
                         <div className={shared.fieldLabel}>描述</div>
                         {editorState.editable
-                            ? <Input value={customRouteRule.description} maxlength={255} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, description: value }))} />
+                            ? <Input aria-label="路由规则描述" value={customRouteRule.description} maxLength={255} onChange={(value) => setCustomRouteRule(prev => ({ ...prev, description: value }))} />
                             : <div className={shared.fieldValue}>{customRouteRule.description || '-'}</div>}
                     </div>
                     <div className={`${shared.field} ${shared.full}`}>
@@ -797,12 +797,14 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                     <Row gutter={8} key={idx} style={{ marginBottom: 12 }} align="middle">
                         <Col span={3}>
                             <Input
+                                aria-label={`第 ${idx + 1} 条实例标签键`}
                                 value={tag.key}
                                 placeholder="请输入标签键"
                                 onChange={v => updateTagEdit(idx, { ...tag, key: v })} />
                         </Col>
                         <Col span={2}>
                             <Select
+                                aria-label={`第 ${idx + 1} 条实例标签匹配类型`}
                                 value={tag.value.type || MatchType.EXACT}
                                 options={MatchTypeOption}
                                 style={{ width: '100%' }}
@@ -810,6 +812,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                         </Col>
                         <Col span={3}>
                             <Select
+                                aria-label={`第 ${idx + 1} 条实例标签值来源`}
                                 value={tag.value.value_type || MatchValueType.TEXT}
                                 options={MatchValueTypeOption}
                                 style={{ width: '100%' }}
@@ -829,6 +832,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                                 <div className={styles.dynamicLabelValue}>使用同名请求参数</div>
                             ) : isTagInputMatchType(tag.value.type) ? (
                                 <TagInput
+                                    aria-label={`第 ${idx + 1} 条实例标签值`}
                                     value={commaStringToTags(tag.value.value)}
                                     placeholder="请输入多个标签值，回车分隔"
                                     style={{ width: '100%' }}
@@ -839,6 +843,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                                 />
                             ) : (
                                 <Input
+                                    aria-label={`第 ${idx + 1} 条实例标签值`}
                                     value={tag.value.value}
                                     placeholder="请输入标签值"
                                     onChange={v => updateTagEdit(idx, { ...tag, value: { ...tag.value, value: v } })} />
@@ -1045,6 +1050,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
         }));
         return (
             <TrafficMatchConditionEditor
+                contextLabel={`第 ${ruleIdx + 1} 条路由规则`}
                 rows={matchRows}
                 editable={Boolean(editorState.editable)}
                 relation={rule.arguments?.matchMode || MatchLogic.AND}
@@ -1102,7 +1108,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                         </span>
                     )) : <span className={shared.emptyLine}>暂无实例标签</span>}
                     {editorState.editable && (
-                        <Button variant="text" type="button" className={shared.editChipButton} onClick={() => destGroupOp('labels', ruleIdx, idx)}>
+                        <Button aria-label={`第 ${ruleIdx + 1} 条路由规则第 ${idx + 1} 个目标分组编辑标签`} variant="text" type="button" className={shared.editChipButton} onClick={() => destGroupOp('labels', ruleIdx, idx)}>
                             <Edit1Icon />编辑标签
                         </Button>
                     )}
@@ -1119,7 +1125,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                     {renderWeightMeter(rule)}
                 </div>
                 <div className={styles.groupGridViewport} role="region" aria-label={`第 ${ruleIdx + 1} 条路由规则的目标分组`}>
-                <div className={styles.groupGrid} role="table" aria-label="目标分组">
+                <div className={styles.groupGrid} role="table" aria-label={`第 ${ruleIdx + 1} 条路由规则目标分组`}>
                     <div className={styles.groupHeader} role="columnheader">分组名称</div>
                     <div className={styles.groupHeader} role="columnheader">隔离</div>
                     <div className={styles.groupHeader} role="columnheader">权重</div>
@@ -1140,7 +1146,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                                 >
                                     {editorState.editable && (
                                         <Popup trigger="hover" content="拖动调整分组顺序">
-                                            <Button aria-label={`拖动第 ${idx + 1} 个目标分组调整顺序`} variant="text" type="button" className={`${styles.dragHandle} ${draggingGroupKey === dragKey ? styles.dragHandleActive : ''}`}>
+                                            <Button aria-label={`拖动第 ${ruleIdx + 1} 条路由规则第 ${idx + 1} 个目标分组调整顺序`} variant="text" type="button" className={`${styles.dragHandle} ${draggingGroupKey === dragKey ? styles.dragHandleActive : ''}`}>
                                                 <DragMoveIcon />
                                             </Button>
                                         </Popup>
@@ -1150,12 +1156,12 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                                 </div>
                                 <div className={styles.groupCell} role="cell">
                                     {editorState.editable
-                                        ? <Switch value={group.isolate} onChange={(value) => updateGroup(ruleIdx, idx, { ...group, isolate: value as boolean })} />
+                                        ? <Switch aria-label={`第 ${ruleIdx + 1} 条路由规则第 ${idx + 1} 个目标分组隔离`} value={group.isolate} onChange={(value) => updateGroup(ruleIdx, idx, { ...group, isolate: value as boolean })} />
                                         : <span>{group.isolate ? '是' : '否'}</span>}
                                 </div>
                                 <div className={styles.groupCell} role="cell">
                                     {editorState.editable
-                                        ? <InputNumber theme="normal" className={styles.weightInput} min={0} max={100} step={5} value={group.weight} onChange={(value) => updateGroup(ruleIdx, idx, { ...group, weight: value as number })} />
+                                        ? <InputNumber aria-label={`第 ${ruleIdx + 1} 条路由规则第 ${idx + 1} 个目标分组权重`} theme="normal" className={styles.weightInput} min={0} max={100} step={5} value={group.weight} onChange={(value) => updateGroup(ruleIdx, idx, { ...group, weight: value as number })} />
                                         : <span>{group.weight}%</span>}
                                 </div>
                                 <div className={styles.groupCell} role="cell">
@@ -1164,7 +1170,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                                 <div className={`${styles.groupCell} ${styles.actionCell}`} role="cell">
                                     {editorState.editable && (
                                         <Popup trigger="hover" content={destinations.length <= 1 ? '至少保留一个分组' : '删除分组'}>
-                                            <Button aria-label={`删除第 ${idx + 1} 个目标分组`} shape="circle" variant="text" disabled={destinations.length <= 1} onClick={() => removeGroup(ruleIdx, idx)}>
+                                            <Button aria-label={`删除第 ${ruleIdx + 1} 条路由规则第 ${idx + 1} 个目标分组`} shape="circle" variant="text" disabled={destinations.length <= 1} onClick={() => removeGroup(ruleIdx, idx)}>
                                                 <CloseIcon />
                                             </Button>
                                         </Popup>
@@ -1177,6 +1183,7 @@ const CustomRouteEditor: React.FC<ICustomRouteEditorProps> = ({ op, refresh, edi
                 </div>
                 {editorState.editable && (
                     <Button
+                        aria-label={`第 ${ruleIdx + 1} 条路由规则添加目标分组`}
                         className={styles.inlineAdd}
                         variant="text"
                         onClick={() => addGroup(ruleIdx)}

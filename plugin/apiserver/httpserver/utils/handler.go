@@ -18,15 +18,12 @@
 package utils
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"path"
 	"strings"
 
 	restful "github.com/emicklei/go-restful/v3"
@@ -34,16 +31,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 
-	apiconfig "github.com/pole-io/specification/source/go/api/v1/config_manage"
 	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 
 	"github.com/pole-io/pole-server/apis/pkg/types"
-	conftypes "github.com/pole-io/pole-server/apis/pkg/types/config"
 	api "github.com/pole-io/pole-server/pkg/common/api/v1"
 	commonlog "github.com/pole-io/pole-server/pkg/common/log"
 	"github.com/pole-io/pole-server/pkg/common/utils"
-	"github.com/pole-io/pole-server/pkg/common/utils/valid"
-	"github.com/pole-io/pole-server/pkg/config"
 	"github.com/pole-io/pole-server/plugin/apiserver/httpserver/i18n"
 )
 
@@ -136,7 +129,7 @@ func (h *Handler) ParseHeaderContext() context.Context {
 	token := h.Request.HeaderParameter("Polaris-Token")
 	authToken := h.Request.HeaderParameter(types.HeaderAuthorizationKey)
 
-	ctx := context.Background()
+	ctx := h.Request.Request.Context()
 	ctx = context.WithValue(ctx, types.StringContext(types.HeaderRequestId), requestID)
 	ctx = types.AppendRequestHeader(ctx, h.Request.Request.Header)
 	ctx = context.WithValue(ctx, types.ContextClientAddress, h.Request.Request.RemoteAddr)
@@ -158,137 +151,6 @@ func (h *Handler) ParseHeaderContext() context.Context {
 	ctx = context.WithValue(ctx, types.StringContext("operator"), operator)
 
 	return ctx
-}
-
-// ParseFile 解析上传的配置文件
-func (h *Handler) ParseFile() ([]*apiconfig.ConfigFile, error) {
-	requestID := h.Request.HeaderParameter(types.HeaderRequestId)
-	h.Request.Request.Body = http.MaxBytesReader(h.Response, h.Request.Request.Body, valid.MaxRequestBodySize)
-
-	file, fileHeader, err := h.Request.Request.FormFile(config.ConfigFileFormKey)
-	if err != nil {
-		accesslog.Error(err.Error(), utils.ZapRequestID(requestID))
-		return nil, err
-	}
-	defer file.Close()
-
-	accesslog.Info("[Config][Handler] parse upload file.",
-		zap.String("filename", fileHeader.Filename),
-		zap.Int64("filesize", fileHeader.Size),
-		zap.String("fileheader", fmt.Sprintf("%v", fileHeader.Header)),
-	)
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, file); err != nil {
-		accesslog.Error(err.Error(), utils.ZapRequestID(requestID))
-		return nil, err
-	}
-	filename := fileHeader.Filename
-	contentType := http.DetectContentType(buf.Bytes())
-
-	if contentType == "application/zip" && strings.HasSuffix(filename, ".zip") {
-		return getConfigFilesFromZIP(buf.Bytes())
-	}
-	accesslog.Error("invalid content type",
-		utils.ZapRequestID(requestID),
-		zap.String("content-type", contentType),
-		zap.String("filename", filename),
-	)
-	return nil, errors.New("invalid content type")
-
-}
-
-func getConfigFilesFromZIP(data []byte) ([]*apiconfig.ConfigFile, error) {
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, err
-	}
-	extractFileContent := func(f *zip.File) ([]byte, error) {
-		rc, err := f.Open()
-		if err != nil {
-			accesslog.Error(err.Error(), zap.String("filename", f.Name))
-			return nil, err
-		}
-		defer rc.Close()
-		var buf bytes.Buffer
-		if _, err := io.Copy(&buf, rc); err != nil {
-			accesslog.Error(err.Error(), zap.String("filename", f.Name))
-			return nil, err
-		}
-		return buf.Bytes(), nil
-	}
-	var (
-		configFiles []*apiconfig.ConfigFile
-		metas       map[string]*conftypes.ConfigFileMeta
-	)
-	// 提取元数据文件
-	for _, file := range zr.File {
-		if file.Name == conftypes.ConfigFileMetaFileName {
-			content, err := extractFileContent(file)
-			if err != nil {
-				return nil, err
-			}
-			if err := json.Unmarshal(content, &metas); err != nil {
-				accesslog.Error(err.Error(), zap.String("filename", file.Name))
-				return nil, err
-			}
-			break
-		}
-	}
-	// 提取配置文件
-	for _, file := range zr.File {
-		// 跳过目录文件和元数据文件
-		if file.FileInfo().IsDir() || file.Name == conftypes.ConfigFileMetaFileName {
-			continue
-		}
-		// 提取文件内容
-		content, err := extractFileContent(file)
-		if err != nil {
-			return nil, err
-		}
-		// 解析文件组和文件名
-		var (
-			group string
-			name  string
-		)
-		tokens := strings.SplitN(file.Name, "/", 2)
-		switch len(tokens) {
-		case 2:
-			group = tokens[0]
-			name = tokens[1]
-		case 1:
-			name = tokens[0]
-		default:
-			accesslog.Error("invalid config file", zap.String("filename", file.Name))
-			return nil, errors.New("invalid config file")
-		}
-
-		// 解析文件扩展名
-		format := path.Ext(file.Name)
-		if format == "" {
-			format = string(conftypes.FileFormatText)
-		} else {
-			format = format[1:]
-		}
-		cf := &apiconfig.ConfigFile{
-			Group:   group,
-			Name:    name,
-			Content: string(content),
-			Format:  format,
-		}
-		if meta, ok := metas[file.Name]; ok {
-			if meta.Comment != "" {
-				cf.Comment = meta.Comment
-			}
-			if len(meta.Tags) > 0 {
-				cf.Labels = make(map[string]string)
-				for k, v := range meta.Tags {
-					cf.Labels[k] = v
-				}
-			}
-		}
-		configFiles = append(configFiles, cf)
-	}
-	return configFiles, nil
 }
 
 // WriteHeader 仅返回Code

@@ -113,11 +113,13 @@ const globalSlice = createSlice({
 
         const hex = action?.payload;
 
-        const { colors: newPalette, primary: brandColorIndex } = Color.getColorGradations({
+        const newPalette = Color.getPaletteByGradation({
           colors: [hex],
           step: 10,
-          remainInput: false, // 是否保留输入 不保留会矫正不合适的主题色
+          method: 'darken',
         })[0];
+        const brandColorIndex = newPalette.findIndex((color) => color.toLowerCase() === hex.toLowerCase());
+        if (brandColorIndex < 0) return;
         const newColorMap = generateColorMap(hex, newPalette, mode, brandColorIndex);
         insertThemeStylesheet(hex, newColorMap, mode);
 

@@ -3,6 +3,7 @@ package discover
 import (
 	"testing"
 
+	"github.com/pole-io/pole-server/apis/apiserver"
 	"google.golang.org/grpc"
 
 	v1 "github.com/pole-io/pole-server/plugin/apiserver/grpcserver/discover/v1"
@@ -12,7 +13,7 @@ func TestGRPCServerRegistersClientServices(t *testing.T) {
 	server := grpc.NewServer()
 	t.Cleanup(server.Stop)
 
-	g := &GRPCServer{
+	g := &GRPCServer{openAPI: map[string]apiserver.APIConfig{"client": {Enable: true, Include: []string{apiserver.ConfigAccess}}},
 		dsvr: v1.NewDiscoverGRPCServer(),
 		csvr: v1.NewConfigGRPCServer(),
 	}

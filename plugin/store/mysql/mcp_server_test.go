@@ -61,6 +61,7 @@ func TestNormalizeMCPServerBackend_Address(t *testing.T) {
 		BackendServiceNamespace: "default",
 		BackendServiceName:      "order-service",
 		BackendAddress:          "http://127.0.0.1:8080/mcp",
+		Reference:               "http://127.0.0.1:8080/mcp",
 	}
 
 	normalizeMCPServerBackend(server)
@@ -68,6 +69,7 @@ func TestNormalizeMCPServerBackend_Address(t *testing.T) {
 	assert.Equal(t, "address", server.BackendType)
 	assert.Empty(t, server.BackendServiceNamespace)
 	assert.Empty(t, server.BackendServiceName)
+	assert.Empty(t, server.Reference)
 	assert.Equal(t, "http://127.0.0.1:8080/mcp", server.BackendAddress)
 	assert.NoError(t, validateMCPServerBackend(server))
 }

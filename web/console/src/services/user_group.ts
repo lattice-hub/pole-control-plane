@@ -127,11 +127,12 @@ export interface DescribeUserGroupDetailResponse {
 }
 
 export async function describeUserGroupDetail(params: DescribeUserGroupDetailRequest) {
-    const result = await getApiRequest<DescribeUserGroupDetailResponse>({
+    const result = await getApiRequest<DescribeUserGroupDetailResponse | UserGroup>({
         action: '/auth/v1/usergroup/detail',
         data: params,
     })
-    return result
+    const userGroup = (result as DescribeUserGroupDetailResponse).userGroup ?? (result as UserGroup)
+    return { userGroup }
 }
 
 // 批量删除用户分组

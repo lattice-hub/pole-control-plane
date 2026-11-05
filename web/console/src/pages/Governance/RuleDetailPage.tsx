@@ -60,7 +60,7 @@ import { FaultDetectRule } from 'services/faultdetect';
 import { LossLessRuleView } from 'services/lossless';
 import { LaneGroupView } from 'services/lane';
 import { Op, RuleRelease } from 'services/types';
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 import {
     deleteTrafficGovernanceRelease,
     describeOneTrafficGovernanceRule,

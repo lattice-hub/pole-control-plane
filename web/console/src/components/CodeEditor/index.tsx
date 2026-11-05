@@ -1,8 +1,20 @@
 import React from 'react';
-import { Editor as MonacoEditor } from '@monaco-editor/react'
+import { Editor as MonacoEditor, loader } from '@monaco-editor/react'
 import type { OnChange, OnMount } from '@monaco-editor/react'
 import { Icon, LoadingIcon } from 'components/Fluent/icons';
-import { editor } from 'monaco-editor';
+import type { editor } from 'monaco-editor';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import 'monaco-editor/esm/vs/editor/editor.all';
+import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution';
+import 'monaco-editor/esm/vs/basic-languages/ini/ini.contribution';
+import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
+import 'monaco-editor/esm/vs/language/json/monaco.contribution';
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
+(globalThis as typeof globalThis & { MonacoEnvironment: { getWorker: (_id: string, label: string) => Worker } }).MonacoEnvironment = {
+  getWorker: (_id, label) => label === 'json' ? new JsonWorker() : new EditorWorker(),
+};
+loader.config({ monaco });
 import Style from './index.module.less';
 import classNames from 'classnames';
 import { useAppSelector } from 'modules/store';
@@ -11,6 +23,9 @@ import { ETheme } from 'types/index.d';
 
 export interface ICodeEditorProps {
     readonly?: boolean;
+    modelPath?: string;
+    ariaLabel?: string;
+    validate?: boolean;
     allowFullScreen?: boolean;
     value?: string;
     language?: string;
@@ -48,6 +63,7 @@ const CodeEditor: React.FC<ICodeEditorProps> = props => {
 
     const handleEditorDidMount: OnMount = (editor: editor.IStandaloneCodeEditor, monaco) => {
         editorRef.current = editor;
+        props.onMount?.(editor, monaco);
     }
 
     const handleFullScreen = () => {
@@ -102,7 +118,6 @@ const CodeEditor: React.FC<ICodeEditorProps> = props => {
             {props.allowFullScreen && (
                 <Icon
                     name={!isFullScreen ? 'fullscreen-1' : 'fullscreen-exit-1'}
-                    size={'30'}
                     style={{
                         position: 'absolute',
                         right: 100,
@@ -113,6 +128,8 @@ const CodeEditor: React.FC<ICodeEditorProps> = props => {
                 />
             )}
             <MonacoEditor
+                path={props.modelPath}
+                saveViewState
                 loading={<LoadingIcon />}
                 theme={props.theme || (theme === ETheme.dark ? 'vs-dark' : 'vs')}
                 language={toHighlightLanguage(props.language)}
@@ -121,7 +138,15 @@ const CodeEditor: React.FC<ICodeEditorProps> = props => {
                 onChange={handleEditorChange}
                 options={{
                     // 控制是否只读
+                    ariaLabel: props.ariaLabel || '配置正文',
+                    renderValidationDecorations: props.validate === false ? 'off' : 'on',
                     readOnly: props.readonly,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    fontSize: 13,
+                    lineHeight: 22,
+                    tabSize: 2,
                     // 控制是否显示行号
                     lineNumbers: 'on',
                     //

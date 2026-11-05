@@ -1,6 +1,7 @@
 import React from 'react';
-import { Drawer, Form, Input, Space, Button } from 'components/Fluent';
+import { Form, Input, Space, Button } from 'components/Fluent';
 import type { FormProps } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 import { openErrNotification, openInfoNotification } from 'utils/notifition';
 import { useAppDispatch, useAppSelector } from 'modules/store';
 import { saveNamespace, updateNamespace, selectNamespace } from 'modules/namespace';
@@ -35,6 +36,8 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
     const [form] = Form.useForm();
     const [editable, setEditable] = React.useState(op !== 'view');
     const [nameError, setNameError] = React.useState('');
+    const [submitting, setSubmitting] = React.useState(false);
+    const nameHelpId = React.useId();
 
     const dispatch = useAppDispatch();
     const namespaceState = useAppSelector(selectNamespace);
@@ -133,17 +136,19 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
             comment: form.getFieldValue('comment') as string,
             metadata: labels.metadata,
         }
-        let result;
-        if (op === 'create') {
-            result = await dispatch(saveNamespace({ param: data }))
-        } else {
-            result = await dispatch(updateNamespace({ param: data }))
-        }
-        if (result.meta.requestStatus !== 'fulfilled') {
-            openErrNotification('请求错误', result?.payload as string);
-        } else {
-            openInfoNotification('请求成功', op === 'create' ? '创建命名空间成功' : '修改命名空间成功');
-            closeDrawer();
+        setSubmitting(true);
+        try {
+            const result = op === 'create'
+                ? await dispatch(saveNamespace({ param: data }))
+                : await dispatch(updateNamespace({ param: data }));
+            if (result.meta.requestStatus !== 'fulfilled') {
+                openErrNotification('请求错误', result?.payload as string);
+            } else {
+                openInfoNotification('请求成功', op === 'create' ? '创建命名空间成功' : '修改命名空间成功');
+                closeDrawer();
+            }
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -151,19 +156,19 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
         <Form
             form={form}
             className={style.namespaceForm}
-            layout="inline"
-            labelWidth={104}
-            labelAlign="right"
+            layout="vertical"
+            labelAlign="left"
             onSubmit={onSubmit}
         >
             <div className={style.namespaceDrawerContent}>
                 <section className={style.namespaceFormSection}>
-                    <div className={style.namespaceFormSectionTitle}>基础信息</div>
+                    <h3 className={style.namespaceFormSectionTitle}>基础信息</h3>
                     <div id="inNsName">
                         <FormItem
                             label="名称"
                             name="name"
-                            showErrorMessage={editable && op === 'create'}
+                            style={{ marginBottom: 0 }}
+                            help={editable && op === 'create' && nameError ? nameError : undefined}
                             rules={editable && op === 'create' ? [
                                 { required: true, message: '命名空间不能为空' },
                                 { pattern: NAMESPACE_NAME_REG, message: '只允许数字、英文字母、.、-、_' },
@@ -172,8 +177,9 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
                         >
                             {editable && op === 'create' ? (
                                 <Input
-                                    allowInputOverMax
                                     placeholder="允许数字、英文字母、.、-、_，限制128个字符"
+                                    aria-describedby={`${nameHelpId}-hint ${nameHelpId}-count`}
+                                    aria-invalid={Boolean(nameError) || undefined}
                                     onChange={(value) => setNameError(validateNamespaceName(String(value)))}
                                 />
                             ) : <ReadonlyField value={watchedName} />}
@@ -181,17 +187,16 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
                         {editable && op === 'create' && (
                             <>
                                 <div className={style.nameMeta}>
-                                    <span>命名后不可修改，请谨慎填写</span>
-                                    <span className={watchedName.length > 128 ? style.nameCountError : undefined}>
+                                    <span id={`${nameHelpId}-hint`}>命名后不可修改，请谨慎填写</span>
+                                    <span id={`${nameHelpId}-count`} className={watchedName.length > 128 ? style.nameCountError : undefined}>
                                         {watchedName.length}/128
                                     </span>
                                 </div>
-                                <div className={style.inlineError}>{nameError}</div>
                             </>
                         )}
                     </div>
                     <div id="inNsKind">
-                        <FormItem label="空间类型">
+                        <FormItem label="空间类型" style={{ marginBottom: 0 }}>
                             <ReadonlyField value={
                                 editNs?.kind === 'SYSTEM' ? 'Pole 系统空间（当前控制面）' : '业务运行环境'
                             } />
@@ -201,15 +206,16 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
                         <FormItem
                             label="描述"
                             name="comment"
+                            style={{ marginBottom: 0 }}
                             rules={editable ? [{ max: 1024, message: '长度不超过1024个字符' }] : []}
                         >
-                            {editable ? <Input placeholder="请输入该环境的用途或阶段说明" /> : <ReadonlyField value={watchedComment} />}
+                            {editable ? <Input autoFocus={op === 'view'} placeholder="请输入该环境的用途或阶段说明" /> : <ReadonlyField value={watchedComment} />}
                         </FormItem>
                     </div>
                 </section>
 
                 <section className={style.namespaceFormSection}>
-                    <div className={style.namespaceFormSectionTitle}>命名空间标签</div>
+                    <h3 className={style.namespaceFormSectionTitle}>命名空间标签</h3>
                     <LabelInput
                         form={form}
                         label="命名空间标签"
@@ -223,29 +229,19 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
                     />
                 </section>
 
-                {editable && (
-                    <FormItem className={style.namespaceFormFooter}>
-                        <Space>
-                            <Button type="submit" theme="primary">
-                                提交
-                            </Button>
-                            <Button theme="default" onClick={resetForm}>
-                                重置
-                            </Button>
-                        </Space>
-                    </FormItem>
-                )}
             </div>
         </Form>
     )
 
     return (
         <div>
-            <Drawer
-                size="min(720px, 94vw)"
-                header={op === 'create' ? "创建命名空间" : editable ? "编辑命名空间" : "命名空间详情"}
+            <EditorDrawer
+                width="standard"
+                bodyClassName={style.namespaceEditorBody}
+                title={op === 'create' ? "创建命名空间" : editable ? "编辑命名空间" : "命名空间详情"}
+                description={op === 'create' ? '定义一个独立的业务环境空间，名称创建后不可修改。' : undefined}
                 footer={op === 'view' && !editable ? (
-                    <Space>
+                    <Space className={style.namespaceDrawerActions}>
                         <Button theme="primary" onClick={() => setEditable(true)}>
                             编辑
                         </Button>
@@ -253,15 +249,19 @@ const NamespaceEditor: React.FC<NamespaceEditorProps> = ({ visible, op, closeDra
                             关闭
                         </Button>
                     </Space>
+                ) : editable ? (
+                    <EditorDrawerActions
+                        onCancel={closeDrawer}
+                        onSubmit={() => form.submit({ showErrorMessage: true })}
+                        submitText={op === 'create' ? '创建命名空间' : '保存修改'}
+                        submitting={submitting}
+                    />
                 ) : false}
                 visible={visible}
-                showOverlay={false}
-                closeOnEscKeydown
-                destroyOnClose
                 onClose={closeDrawer}
             >
                 {namespaceForm}
-            </Drawer>
+            </EditorDrawer>
         </div>
     );
 }

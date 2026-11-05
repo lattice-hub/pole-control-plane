@@ -1,0 +1,346 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pole.controlPlaneName" . }}-headless
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: control-plane
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 4 }}
+  ports:
+    - {name: http-api, port: 8090, targetPort: http-api}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pole.controlPlaneName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: control-plane
+spec:
+  type: {{ .Values.controlPlane.service.type }}
+  selector:
+    {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 4 }}
+  ports:
+    - {name: http-api, port: 8090, targetPort: http-api}
+    - {name: grpc-discovery, port: 8091, targetPort: grpc-discovery}
+    - {name: grpc-config, port: 8093, targetPort: grpc-config}
+    - {name: nacos, port: 8848, targetPort: nacos}
+    - {name: apollo, port: 8890, targetPort: apollo}
+    - {name: eureka, port: 8761, targetPort: eureka}
+    - {name: xds, port: 15010, targetPort: xds}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "pole.controlPlaneName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: control-plane
+spec:
+  serviceName: {{ include "pole.controlPlaneName" . }}-headless
+  replicas: {{ .Values.controlPlane.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 8 }}
+        pole.io/namespace: {{ .Release.Namespace }}
+        pole.io/service: pole-control-plane
+      annotations:
+        checksum/config: {{ .Files.Get "files/pole-server.yaml" | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: wait-for-mysql
+          image: {{ include "pole.image" .Values.mysql.image | quote }}
+          command: [sh, -ec, 'until mysqladmin ping -h "${MYSQL_HOST%:*}" -P "${MYSQL_HOST##*:}" -u"${MYSQL_USER}" -p"${MYSQL_PWD}" --silent; do sleep 3; done']
+          env:
+            - {name: MYSQL_HOST, value: {{ printf "%s:%v" (include "pole.mysqlName" .) .Values.mysql.service.port | quote }}}
+            - name: MYSQL_USER
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_USER}}
+            - name: MYSQL_PWD
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_PWD}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+      containers:
+        - name: control-plane
+          image: {{ include "pole.appImage" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [start, -c, /work/pole-server.yaml, --mode, {{ ternary "full" "control-plane" (eq .Values.deploymentMode "full") }}]
+          env:
+            - {name: POLE_MODE, value: {{ ternary "full" "control-plane" (eq .Values.deploymentMode "full") }} }
+            - {name: MYSQL_HOST, value: {{ printf "%s:%v" (include "pole.mysqlName" .) .Values.mysql.service.port | quote }}}
+            - name: MYSQL_USER
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_USER}}
+            - name: MYSQL_PWD
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_PWD}}
+            - name: POLE_AUTH_SALT
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: AUTH_SALT}}
+            - name: POLE_SYSTEM_SECRET_MASTER_KEY
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: SYSTEM_SECRET_MASTER_KEY}}
+            - name: POLE_SELF_MANAGER_PROBE_KEY
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: SELF_MANAGER_PROBE_KEY}}
+            {{- if eq .Values.deploymentMode "full" }}
+            - name: POLE_CONSOLE_JWT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: CONSOLE_JWT_SECRET}}
+            - {name: POLE_SERVER_ADDRESS, value: "127.0.0.1:8090"}
+            - {name: POLE_LIMITER_SERVER_ADDRESS, value: "127.0.0.1:8102"}
+            - {name: POLE_LIMITER_CONTROL_PLANE_ADDRESS, value: "127.0.0.1:8091"}
+            - {name: POLE_LIMITER_HTTP_BIND_IP, value: "0.0.0.0"}
+            - {name: POLE_MCP_ENDPOINT, value: "http://127.0.0.1:8090/ai/mcp/v1/sse"}
+            {{- end }}
+            - name: POD_IP
+              valueFrom: {fieldRef: {fieldPath: status.podIP}}
+            - {name: OTEL_COLLECTOR_GRPC_ENDPOINT, value: {{ printf "%s:4317" (include "pole.otelName" .) | quote }}}
+            - {name: OTEL_COLLECTOR_HTTP_ENDPOINT, value: {{ printf "http://%s:4318/v1/logs" (include "pole.otelName" .) | quote }}}
+            - {name: GREPTIMEDB_HTTP_ENDPOINT, value: {{ printf "http://%s:4000" (include "pole.greptimeName" .) | quote }}}
+            - {name: POLE_CLUSTER_NAME, value: {{ .Values.global.clusterName | quote }}}
+            - {name: POLE_ENVIRONMENT, value: {{ .Values.global.environment | quote }}}
+            - {name: POLE_NODE_ROLE, value: {{ ternary "full" "control-plane" (eq .Values.deploymentMode "full") }} }
+            - {name: MYSQL_MAX_OPEN_CONNS, value: "100"}
+            - {name: MYSQL_MAX_IDLE_CONNS, value: "20"}
+          ports:
+            - {name: http-api, containerPort: 8090}
+            - {name: grpc-discovery, containerPort: 8091}
+            - {name: grpc-config, containerPort: 8093}
+            - {name: nacos, containerPort: 8848}
+            - {name: apollo, containerPort: 8890}
+            - {name: eureka, containerPort: 8761}
+            - {name: xds, containerPort: 15010}
+            {{- if eq .Values.deploymentMode "full" }}
+            - {name: console-http, containerPort: 8080}
+            - {name: limiter-grpc, containerPort: 8101}
+            - {name: limiter-http, containerPort: 8102}
+            {{- end }}
+          startupProbe: {tcpSocket: {port: http-api}, failureThreshold: 60, periodSeconds: 3}
+          readinessProbe: {httpGet: {path: /admin/v1/server/functions, port: http-api}, periodSeconds: 10, failureThreshold: 6}
+          livenessProbe: {tcpSocket: {port: http-api}, initialDelaySeconds: 60, periodSeconds: 20}
+          resources: {{ toYaml .Values.controlPlane.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /config-src/pole-server.yaml, subPath: pole-server.yaml, readOnly: true}
+            - {name: work, mountPath: /work}
+            - {name: data, mountPath: /app/.pole_data}
+            - {name: logs, mountPath: /app/logs}
+      volumes:
+        - name: config
+          configMap: {name: {{ include "pole.fullname" . }}-config}
+        - {name: work, emptyDir: {}}
+        - {name: logs, emptyDir: {}}
+        {{- if .Values.controlPlane.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim: {claimName: {{ .Values.controlPlane.persistence.existingClaim | quote }}}
+        {{- else if not .Values.controlPlane.persistence.enabled }}
+        - {name: data, emptyDir: {}}
+        {{- end }}
+  {{- if and .Values.controlPlane.persistence.enabled (not .Values.controlPlane.persistence.existingClaim) }}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: {{ toYaml .Values.controlPlane.persistence.accessModes | nindent 10 }}
+        {{- with .Values.controlPlane.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.controlPlane.persistence.size }}}}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pole.consoleName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: console
+spec:
+  type: {{ .Values.console.service.type }}
+  selector:
+    {{- if eq .Values.deploymentMode "full" }}
+    {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 4 }}
+    {{- else }}
+    {{- include "pole.componentLabels" (dict "root" . "component" "console") | nindent 4 }}
+    {{- end }}
+  ports:
+    - {name: http, port: {{ .Values.console.service.port }}, targetPort: {{ ternary "console-http" "http" (eq .Values.deploymentMode "full") }}}
+---
+{{- if eq .Values.deploymentMode "split" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pole.consoleName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: console
+spec:
+  replicas: {{ .Values.console.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "console") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pole.componentLabels" (dict "root" . "component" "console") | nindent 8 }}
+      annotations:
+        checksum/config: {{ .Files.Get "files/pole-server.yaml" | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: wait-for-control-plane
+          image: curlimages/curl:8.12.1
+          command: [sh, -ec, 'until curl -fsS http://{{ include "pole.controlPlaneName" . }}:8090/admin/v1/server/functions; do sleep 3; done']
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+      containers:
+        - name: console
+          image: {{ include "pole.appImage" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [start, -c, /work/pole-server.yaml, --mode, console]
+          env:
+            - {name: POLE_MODE, value: console}
+            - {name: MYSQL_HOST, value: {{ printf "%s:%v" (include "pole.mysqlName" .) .Values.mysql.service.port | quote }}}
+            - name: MYSQL_USER
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_USER}}
+            - name: MYSQL_PWD
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: MYSQL_PWD}}
+            - name: POLE_CONSOLE_JWT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: CONSOLE_JWT_SECRET}}
+            - name: POLE_SYSTEM_SECRET_MASTER_KEY
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: SYSTEM_SECRET_MASTER_KEY}}
+            - name: POLE_SELF_MANAGER_PROBE_KEY
+              valueFrom: {secretKeyRef: {name: {{ include "pole.secretName" . }}, key: SELF_MANAGER_PROBE_KEY}}
+            - name: POD_IP
+              valueFrom: {fieldRef: {fieldPath: status.podIP}}
+            - {name: GREPTIMEDB_HTTP_ENDPOINT, value: {{ printf "http://%s:4000" (include "pole.greptimeName" .) | quote }}}
+            - {name: POLE_SERVER_ADDRESS, value: {{ printf "%s:8090" (include "pole.controlPlaneName" .) | quote }}}
+            - {name: POLE_LIMITER_SERVER_ADDRESS, value: {{ printf "%s:8102" (include "pole.limiterName" .) | quote }}}
+            - {name: POLE_MCP_ENDPOINT, value: {{ printf "http://%s:8090/ai/mcp/v1/sse" (include "pole.controlPlaneName" .) | quote }}}
+            - {name: POLE_CLUSTER_NAME, value: {{ .Values.global.clusterName | quote }}}
+            - {name: POLE_ENVIRONMENT, value: {{ .Values.global.environment | quote }}}
+            - {name: POLE_NODE_ROLE, value: console}
+            - {name: MYSQL_MAX_OPEN_CONNS, value: "50"}
+            - {name: MYSQL_MAX_IDLE_CONNS, value: "10"}
+          ports:
+            - {name: http, containerPort: 8080}
+          startupProbe: {tcpSocket: {port: http}, failureThreshold: 60, periodSeconds: 3}
+          readinessProbe: {httpGet: {path: /admin/v1/server/functions, port: http}, periodSeconds: 10, failureThreshold: 6}
+          livenessProbe: {httpGet: {path: /, port: http}, initialDelaySeconds: 45, periodSeconds: 20}
+          resources: {{ toYaml .Values.console.resources | nindent 12 }}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: config, mountPath: /config-src/pole-server.yaml, subPath: pole-server.yaml, readOnly: true}
+            - {name: work, mountPath: /work}
+            - {name: data, mountPath: /app/.pole_data}
+            - {name: logs, mountPath: /app/logs}
+      volumes:
+        - name: config
+          configMap: {name: {{ include "pole.fullname" . }}-config}
+        - {name: work, emptyDir: {}}
+        - {name: data, emptyDir: {}}
+        - {name: logs, emptyDir: {}}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pole.limiterName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: limiter
+spec:
+  type: {{ .Values.limiter.service.type }}
+  selector:
+    {{- if eq .Values.deploymentMode "full" }}
+    {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 4 }}
+    {{- else }}
+    {{- include "pole.componentLabels" (dict "root" . "component" "limiter") | nindent 4 }}
+    {{- end }}
+  ports:
+    - {name: grpc, port: {{ .Values.limiter.service.grpcPort }}, targetPort: {{ ternary "limiter-grpc" "grpc" (eq .Values.deploymentMode "full") }}}
+    - {name: maintain, port: {{ .Values.limiter.service.maintainPort }}, targetPort: {{ ternary "limiter-http" "maintain" (eq .Values.deploymentMode "full") }}}
+---
+{{- if eq .Values.deploymentMode "split" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pole.limiterName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: limiter
+spec:
+  replicas: {{ .Values.limiter.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "limiter") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pole.componentLabels" (dict "root" . "component" "limiter") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: wait-for-control-plane
+          image: curlimages/curl:8.12.1
+          command: [sh, -ec, 'until curl -fsS http://{{ include "pole.controlPlaneName" . }}:8090/admin/v1/server/functions; do sleep 3; done']
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+      containers:
+        - name: limiter
+          image: {{ include "pole.appImage" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [start, -c, /work/pole-server.yaml, --mode, limiter-server]
+          env:
+            - {name: POLE_MODE, value: limiter-server}
+            - name: POD_IP
+              valueFrom: {fieldRef: {fieldPath: status.podIP}}
+            - {name: POLE_LIMITER_CONTROL_PLANE_ADDRESS, value: {{ printf "%s:8091" (include "pole.controlPlaneName" .) | quote }}}
+            - {name: POLE_LIMITER_HTTP_BIND_IP, value: 0.0.0.0}
+            - {name: POLE_CLUSTER_NAME, value: {{ .Values.global.clusterName | quote }}}
+            - {name: POLE_ENVIRONMENT, value: {{ .Values.global.environment | quote }}}
+            - {name: POLE_NODE_ROLE, value: limiter}
+          ports:
+            - {name: grpc, containerPort: 8101}
+            - {name: maintain, containerPort: 8102}
+          startupProbe: {tcpSocket: {port: grpc}, failureThreshold: 60, periodSeconds: 3}
+          readinessProbe: {httpGet: {path: /, port: maintain}, periodSeconds: 10, failureThreshold: 6}
+          livenessProbe: {tcpSocket: {port: grpc}, initialDelaySeconds: 45, periodSeconds: 20}
+          resources: {{ toYaml .Values.limiter.resources | nindent 12 }}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: config, mountPath: /config-src/pole-server.yaml, subPath: pole-server.yaml, readOnly: true}
+            - {name: work, mountPath: /work}
+            - {name: data, mountPath: /app/.pole_data}
+            - {name: logs, mountPath: /app/logs}
+      volumes:
+        - name: config
+          configMap: {name: {{ include "pole.fullname" . }}-config}
+        - {name: work, emptyDir: {}}
+        - {name: data, emptyDir: {}}
+        - {name: logs, emptyDir: {}}
+{{- end }}

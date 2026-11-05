@@ -7,7 +7,7 @@
     # tcp server listen port
     listenPort: 8761
     # set the polaris namingspace of the EUREKA service default
-    namespace: default
+    namespace: dev
     # pull data from the cache of the polaris, refresh the data cache in the Eureka protocol
     refreshInterval: 10
     # eureka incremental instance changes time cache expiration cycle
@@ -122,7 +122,7 @@
     listenIP: "0.0.0.0"
     listenPort: 8848
     # Set the nacos default namespace to correspond to the Polaris namespace information
-    defaultNamespace: default
+    defaultNamespace: dev
     connLimit:
       openConnLimit: false
       maxConnPerHost: 128

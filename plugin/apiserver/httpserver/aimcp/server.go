@@ -64,7 +64,7 @@ var (
 type HTTPServer struct {
 	maintainServer  admin.AdminOperateServer
 	namespaceServer namespace.NamespaceOperateServer
-	configServer    config.ConfigCenterServer
+	configServer    configInspector
 	discoverySvr    service.DiscoverServer
 	policySvr       authapi.StrategyServer
 	storage         store.Store
@@ -97,7 +97,7 @@ func NewServer(
 	namespaceServer namespace.NamespaceOperateServer,
 	storage store.Store) (*HTTPServer, error) {
 	// 初始化配置中心模块
-	configServer, err := config.GetServer()
+	configServer, err := config.GetUnifiedService()
 	if err != nil {
 		commonlog.Errorf("set config server to http server error. %v", err)
 		return nil, err
@@ -229,7 +229,7 @@ func (h *HTTPServer) GetMCPAccessServer(include []string) *restful.WebService {
 func (h *HTTPServer) addMcpTools() {
 	h.addToolsNamespace(h.mcpSvr)
 	h.addToolsMCPServer(h.mcpSvr)
-	h.addToolsConfigFile(h.mcpSvr)
+	h.addToolsConfigState(h.mcpSvr)
 }
 
 func (h *HTTPServer) addDefaultAccess(ws *restful.WebService) {

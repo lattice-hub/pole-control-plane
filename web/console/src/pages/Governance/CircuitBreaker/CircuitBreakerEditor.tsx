@@ -366,19 +366,19 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>规则名称</div>
                         {editorState.editable
-                            ? <Input value={breakerRule.name} disabled={op === 'edit'} maxlength={64} onChange={(value) => setBreakerRule(prev => ({ ...prev, name: value }))} />
+                            ? <Input aria-label="熔断规则名称" value={breakerRule.name} disabled={op === 'edit'} maxLength={64} onChange={(value) => setBreakerRule(prev => ({ ...prev, name: value }))} />
                             : <div className={shared.fieldValue}>{breakerRule.name || '-'}</div>}
                     </div>
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>优先级</div>
                         {editorState.editable
-                            ? <InputNumber theme="normal" min={0} value={breakerRule.priority} onChange={(value) => setBreakerRule(prev => ({ ...prev, priority: value as number }))} />
+                            ? <InputNumber aria-label="熔断规则优先级" theme="normal" min={0} value={breakerRule.priority} onChange={(value) => setBreakerRule(prev => ({ ...prev, priority: value as number }))} />
                             : <div className={shared.fieldValue}>{breakerRule.priority ?? 0}</div>}
                     </div>
                     <div className={`${shared.field} ${shared.span6}`}>
                         <div className={shared.fieldLabel}>描述</div>
                         {editorState.editable
-                            ? <Input value={breakerRule.description} maxlength={255} onChange={(value) => setBreakerRule(prev => ({ ...prev, description: value }))} />
+                            ? <Input aria-label="熔断规则描述" value={breakerRule.description} maxLength={255} onChange={(value) => setBreakerRule(prev => ({ ...prev, description: value }))} />
                             : <div className={shared.fieldValue}>{breakerRule.description || '-'}</div>}
                     </div>
                     <div className={`${shared.field} ${shared.full}`}>
@@ -412,7 +412,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                 <div className={shared.field}>
                     <div className={shared.fieldLabel}>熔断粒度</div>
                     {canEditLevel ? (
-                        <RadioGroup theme="button" variant="primary-filled" value={breakerRule.level} onChange={(value) => setBreakerRule(prev => ({ ...prev, level: value as string }))}>
+                        <RadioGroup aria-label="熔断粒度" theme="button" variant="primary-filled" value={breakerRule.level} onChange={(value) => setBreakerRule(prev => ({ ...prev, level: value as string }))}>
                             <Radio.Button value={BreakLevelType.Service}>{BreakLevelMap[BreakLevelType.Service]}</Radio.Button>
                             <Radio.Button value={BreakLevelType.Instance}>{BreakLevelMap[BreakLevelType.Instance]}</Radio.Button>
                             <Radio.Button value={BreakLevelType.Method}>{BreakLevelMap[BreakLevelType.Method]}</Radio.Button>
@@ -424,7 +424,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
     );
 
     const renderInterfaceRows = (subRuleIdx: number, strategyIdx: number, strategy: CircuitBreakerStrategyDraft) => (
-        <div className={styles.matrixScroller} role="region" aria-label="接口方法配置">
+        <div className={styles.matrixScroller} role="region" aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略接口方法配置`}>
         <div className={styles.interfaceGrid} role="table">
             <div className={`${styles.gridHeader} ${styles.firstHeader}`} role="columnheader">协议</div>
             <div className={styles.gridHeader} role="columnheader">接口方法</div>
@@ -434,18 +434,19 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                 <React.Fragment key={`iface-${subRuleIdx}-${strategyIdx}-${ifaceIdx}`}>
                     <div className={`${styles.gridCell} ${styles.firstCell}`} role="cell">
                         {editorState.editable ? (
-                            <Select options={InterfaceProtocolOption} value={api.protocol || 'HTTP'} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].ifaces[ifaceIdx].protocol = value as string; })} />
+                            <Select aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${ifaceIdx + 1} 个接口协议`} options={InterfaceProtocolOption} value={api.protocol || 'HTTP'} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].ifaces[ifaceIdx].protocol = value as string; })} />
                         ) : <Text title={api.protocol || '-'}>{api.protocol || '-'}</Text>}
                     </div>
                     <div className={styles.gridCell} role="cell">
                         {editorState.editable ? (
-                            <Select creatable filterable options={api.protocol === 'HTTP' ? HTTPMethodOption : []} value={api.method || 'GET'} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].ifaces[ifaceIdx].method = value as string; })} />
+                            <Select aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${ifaceIdx + 1} 个接口方法`} creatable filterable options={api.protocol === 'HTTP' ? HTTPMethodOption : []} value={api.method || 'GET'} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].ifaces[ifaceIdx].method = value as string; })} />
                         ) : <Text title={api.method || '-'}>{api.method || '-'}</Text>}
                     </div>
                     <div className={styles.gridCell} role="cell">
                         {editorState.editable ? (
                             <InputAdornment append={(
                                 <Select
+                                    aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${ifaceIdx + 1} 个接口路径匹配类型`}
                                     autoWidth
                                     options={MatchTypeOption}
                                     value={api.path?.type || MatchType.EXACT}
@@ -456,6 +457,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                                 />
                             )}>
                                 <Input
+                                    aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${ifaceIdx + 1} 个接口路径`}
                                     className={styles.monoInput}
                                     value={api.path?.value || ''}
                                     onChange={(value) => updateRule(draft => {
@@ -470,11 +472,11 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         {editorState.editable && (
                             <Space size={4}>
                                 <Popup trigger="hover" content="添加接口">
-                                    <Button aria-label={`在第 ${ifaceIdx + 1} 个接口后添加接口`} shape="circle" variant="text" onClick={() => addIface(subRuleIdx, strategyIdx)}><AddIcon /></Button>
+                                    <Button aria-label={`在第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${ifaceIdx + 1} 个接口后添加接口`} shape="circle" variant="text" onClick={() => addIface(subRuleIdx, strategyIdx)}><AddIcon /></Button>
                                 </Popup>
                                 <Popup trigger="hover" content="删除接口">
                                     <Button
-                                        aria-label={`删除第 ${ifaceIdx + 1} 个接口`}
+                                        aria-label={`删除第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${ifaceIdx + 1} 个接口`}
                                         shape="circle"
                                         variant="text"
                                         disabled={strategy.ifaces.length <= 1}
@@ -493,7 +495,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
     );
 
     const renderErrorRows = (subRuleIdx: number, strategyIdx: number, strategy: CircuitBreakerStrategyDraft) => (
-        <div className={styles.matrixScroller} role="region" aria-label="错误条件配置">
+        <div className={styles.matrixScroller} role="region" aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略错误条件配置`}>
         <div className={styles.conditionGrid} role="table">
             <div className={`${styles.gridHeader} ${styles.firstHeader}`} role="columnheader">参数类型</div>
             <div className={styles.gridHeader} role="columnheader">匹配类型</div>
@@ -503,28 +505,28 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                 <React.Fragment key={`error-${subRuleIdx}-${strategyIdx}-${conditionIdx}`}>
                     <div className={`${styles.gridCell} ${styles.firstCell}`} role="cell">
                         {editorState.editable ? (
-                            <Select options={ErrorConditionOptions} value={condition.inputType} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions[conditionIdx].inputType = value as string; })} />
+                            <Select aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 条错误条件参数类型`} options={ErrorConditionOptions} value={condition.inputType} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions[conditionIdx].inputType = value as string; })} />
                         ) : <Text title={ErrorConditionMap[condition.inputType as ErrorConditionType] || condition.inputType}>{ErrorConditionMap[condition.inputType as ErrorConditionType] || condition.inputType}</Text>}
                     </div>
                     <div className={styles.gridCell} role="cell">
                         {editorState.editable ? (
-                            <Select options={MatchTypeOption} value={condition.condition?.type || MatchType.RANGE} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions[conditionIdx].condition.type = value as string; })} />
+                            <Select aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 条错误条件匹配类型`} options={MatchTypeOption} value={condition.condition?.type || MatchType.RANGE} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions[conditionIdx].condition.type = value as string; })} />
                         ) : <Text title={MatchTypeMap[condition.condition?.type as MatchType] || condition.condition?.type}>{MatchTypeMap[condition.condition?.type as MatchType] || condition.condition?.type}</Text>}
                     </div>
                     <div className={styles.gridCell} role="cell">
                         {editorState.editable ? (
-                            <Input value={condition.condition?.value || ''} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions[conditionIdx].condition.value = value; })} />
+                            <Input aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 条错误条件匹配值`} value={condition.condition?.value || ''} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions[conditionIdx].condition.value = value; })} />
                         ) : <Text title={condition.condition?.value || '-'}>{condition.condition?.value || '-'}</Text>}
                     </div>
                     <div className={`${styles.gridCell} ${styles.actionCell}`} role="cell">
                         {editorState.editable && (
                             <Space size={4}>
                                 <Popup trigger="hover" content="添加错误条件">
-                                    <Button aria-label={`在第 ${conditionIdx + 1} 个错误条件后添加条件`} shape="circle" variant="text" onClick={() => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions.push(defaultErrorCondition()); })}><AddIcon /></Button>
+                                    <Button aria-label={`在第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 个错误条件后添加条件`} shape="circle" variant="text" onClick={() => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].error_conditions.push(defaultErrorCondition()); })}><AddIcon /></Button>
                                 </Popup>
                                 <Popup trigger="hover" content="删除错误条件">
                                     <Button
-                                        aria-label={`删除第 ${conditionIdx + 1} 个错误条件`}
+                                        aria-label={`删除第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 个错误条件`}
                                         shape="circle"
                                         variant="text"
                                         disabled={strategy.error_conditions.length <= 1}
@@ -543,7 +545,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
     );
 
     const renderTriggerRows = (subRuleIdx: number, strategyIdx: number, strategy: CircuitBreakerStrategyDraft) => (
-        <div className={styles.matrixScroller} role="region" aria-label="触发条件配置">
+        <div className={styles.matrixScroller} role="region" aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略触发条件配置`}>
         <div className={styles.triggerGrid} role="table">
             <div className={`${styles.gridHeader} ${styles.firstHeader}`} role="columnheader">类型</div>
             <div className={styles.gridHeader} role="columnheader">比较</div>
@@ -559,6 +561,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div className={`${styles.gridCell} ${styles.firstCell}`} role="cell">
                             {editorState.editable ? (
                                 <Select
+                                    aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 条触发条件类型`}
                                     options={TriggerTypeOptions}
                                     value={condition.triggerType}
                                     onChange={(value) => updateRule(draft => {
@@ -574,6 +577,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                             {editorState.editable ? (
                                 <InputAdornment append={isRatio ? '%' : '次'}>
                                     <InputNumber
+                                        aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 条触发条件阈值`}
                                         theme="normal"
                                         min={0}
                                         max={isRatio ? 100 : undefined}
@@ -597,14 +601,14 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div className={styles.gridCell} role="cell">
                             {editorState.editable ? (
                                 <InputAdornment append="秒">
-                                    <InputNumber theme="normal" min={0} value={condition.interval || 0} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].trigger_conditions[conditionIdx].interval = Number(value || 0); })} />
+                                    <InputNumber aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 条触发条件统计周期`} theme="normal" min={0} value={condition.interval || 0} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].trigger_conditions[conditionIdx].interval = Number(value || 0); })} />
                                 </InputAdornment>
                             ) : <Text>{`${condition.interval || 0} 秒`}</Text>}
                         </div>
                         <div className={styles.gridCell} role="cell">
                             {editorState.editable ? (
                                 <InputAdornment append="个">
-                                    <InputNumber theme="normal" min={0} value={condition.minimumRequest || 0} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].trigger_conditions[conditionIdx].minimumRequest = Number(value || 0); })} />
+                                    <InputNumber aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 条触发条件最小请求数`} theme="normal" min={0} value={condition.minimumRequest || 0} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].trigger_conditions[conditionIdx].minimumRequest = Number(value || 0); })} />
                                 </InputAdornment>
                             ) : <Text>{`${condition.minimumRequest || 0} 个`}</Text>}
                         </div>
@@ -612,11 +616,11 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                             {editorState.editable && (
                                 <Space size={4}>
                                     <Popup trigger="hover" content="添加触发条件">
-                                        <Button aria-label={`在第 ${conditionIdx + 1} 个触发条件后添加条件`} shape="circle" variant="text" onClick={() => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].trigger_conditions.push(defaultTriggerCondition()); })}><AddIcon /></Button>
+                                        <Button aria-label={`在第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 个触发条件后添加条件`} shape="circle" variant="text" onClick={() => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].trigger_conditions.push(defaultTriggerCondition()); })}><AddIcon /></Button>
                                     </Popup>
                                     <Popup trigger="hover" content="删除触发条件">
                                         <Button
-                                            aria-label={`删除第 ${conditionIdx + 1} 个触发条件`}
+                                            aria-label={`删除第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略第 ${conditionIdx + 1} 个触发条件`}
                                             shape="circle"
                                             variant="text"
                                             disabled={strategy.trigger_conditions.length <= 1}
@@ -651,7 +655,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         {editorState.editable && (
                             <Popup trigger="hover" content="删除策略">
                                 <Button
-                                    aria-label={`删除第 ${strategyIdx + 1} 个熔断策略`}
+                                    aria-label={`删除第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略`}
                                     shape="circle"
                                     variant="text"
                                     disabled={breakerRule.subrules[subRuleIdx].strategies.length <= 1}
@@ -668,7 +672,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div className={shared.stepTitle}>策略名称<span className={shared.stepHint}>用于区分同一子规则内不同触发策略</span></div>
                         <div className={shared.stepContent}>
                             {editorState.editable ? (
-                                <Input value={strategy.name} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].name = value; })} />
+                                <Input aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${strategyIdx + 1} 个策略名称`} value={strategy.name} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].strategies[strategyIdx].name = value; })} />
                             ) : renderReadonlyValue(strategy.name || '-')}
                         </div>
                     </div>
@@ -698,7 +702,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div className={shared.fieldLabel}>最大剔除比例</div>
                         {editorState.editable ? (
                             <InputAdornment append="%">
-                                <InputNumber theme="normal" min={0} max={100} value={subrule.max_ejection_percent} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].max_ejection_percent = Number(value || 0); })} />
+                                <InputNumber aria-label={`第 ${subRuleIdx + 1} 个熔断子规则最大剔除比例`} theme="normal" min={0} max={100} value={subrule.max_ejection_percent} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].max_ejection_percent = Number(value || 0); })} />
                             </InputAdornment>
                         ) : renderReadonlyValue(`${subrule.max_ejection_percent ?? '-'}%`)}
                     </div>
@@ -706,7 +710,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div className={shared.fieldLabel}>熔断时长</div>
                         {editorState.editable ? (
                             <InputAdornment append="秒">
-                                <InputNumber theme="normal" min={0} value={subrule.recoverCondition?.sleepWindow} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].recoverCondition.sleepWindow = Number(value || 0); })} />
+                                <InputNumber aria-label={`第 ${subRuleIdx + 1} 个熔断子规则熔断时长`} theme="normal" min={0} value={subrule.recoverCondition?.sleepWindow} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].recoverCondition.sleepWindow = Number(value || 0); })} />
                             </InputAdornment>
                         ) : renderReadonlyValue(`${subrule.recoverCondition?.sleepWindow ?? '-'} 秒`)}
                     </div>
@@ -714,14 +718,14 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div className={shared.fieldLabel}>连续成功次数</div>
                         {editorState.editable ? (
                             <InputAdornment append="次">
-                                <InputNumber theme="normal" min={0} value={subrule.recoverCondition?.consecutiveSuccess || 0} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].recoverCondition.consecutiveSuccess = Number(value || 0); })} />
+                                <InputNumber aria-label={`第 ${subRuleIdx + 1} 个熔断子规则连续成功次数`} theme="normal" min={0} value={subrule.recoverCondition?.consecutiveSuccess || 0} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].recoverCondition.consecutiveSuccess = Number(value || 0); })} />
                             </InputAdornment>
                         ) : renderReadonlyValue(`${subrule.recoverCondition?.consecutiveSuccess ?? 0} 次`)}
                     </div>
                     <div>
                         <div className={shared.fieldLabel}>主动探测</div>
                         {editorState.editable ? (
-                            <Switch value={subrule.faultDetectConfig?.enable} onChange={(checked) => updateRule(draft => { draft.subrules[subRuleIdx].faultDetectConfig = { enable: checked as boolean }; })} />
+                            <Switch aria-label={`第 ${subRuleIdx + 1} 个熔断子规则主动探测`} value={subrule.faultDetectConfig?.enable} onChange={(checked) => updateRule(draft => { draft.subrules[subRuleIdx].faultDetectConfig = { enable: checked as boolean }; })} />
                         ) : renderReadonlySwitch(subrule.faultDetectConfig?.enable)}
                     </div>
                 </div>
@@ -735,7 +739,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                 熔断后降级
                 <span className={shared.stepHint}>该子规则触发时返回的兜底响应</span>
                 {editorState.editable ? (
-                    <Switch value={subrule.fallbackConfig?.enable} onChange={(checked) => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.enable = checked as boolean; })} />
+                    <Switch aria-label={`第 ${subRuleIdx + 1} 个熔断子规则熔断后降级`} value={subrule.fallbackConfig?.enable} onChange={(checked) => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.enable = checked as boolean; })} />
                 ) : renderReadonlySwitch(subrule.fallbackConfig?.enable)}
             </div>
             {subrule.fallbackConfig?.enable && (
@@ -744,7 +748,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div>
                             <div className={shared.fieldLabel}>响应码</div>
                             {editorState.editable ? (
-                                <InputNumber theme="normal" value={subrule.fallbackConfig?.response?.code} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.code = Number(value || 0); })} />
+                                <InputNumber aria-label={`第 ${subRuleIdx + 1} 个熔断子规则降级响应码`} theme="normal" value={subrule.fallbackConfig?.response?.code} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.code = Number(value || 0); })} />
                             ) : renderReadonlyValue(subrule.fallbackConfig?.response?.code ?? '-')}
                         </div>
                         <div>
@@ -768,7 +772,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                         <div className={styles.fallbackBodyCell}>
                             <div className={shared.fieldLabel}>响应体</div>
                             {editorState.editable ? (
-                                <Textarea value={subrule.fallbackConfig?.response?.body || ''} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.body = value as string; })} />
+                                <Textarea aria-label={`第 ${subRuleIdx + 1} 个熔断子规则降级响应体`} value={subrule.fallbackConfig?.response?.body || ''} onChange={(value) => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.body = value as string; })} />
                             ) : (
                                 <pre className={styles.readonlyCodeBlock}>{subrule.fallbackConfig?.response?.body || '-'}</pre>
                             )}
@@ -820,7 +824,7 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
                                 {subrule.strategies.map((strategy, strategyIdx) => renderStrategy(subRuleIdx, strategy, strategyIdx))}
                             </div>
                             {editorState.editable && (
-                                <Button className={styles.inlineAdd} variant="dashed" icon={<AddIcon />} onClick={() => addStrategy(subRuleIdx)}>
+                                <Button aria-label={`第 ${subRuleIdx + 1} 个熔断子规则添加熔断策略`} className={styles.inlineAdd} variant="dashed" icon={<AddIcon />} onClick={() => addStrategy(subRuleIdx)}>
                                     添加熔断策略
                                 </Button>
                             )}
@@ -844,9 +848,9 @@ const CircuitBreakerEditor: React.FC<ICircuitBreakerEditorProps> = ({ op, refres
             <div>
                 {(subrule?.fallbackConfig?.response?.headers || []).map((tag, idx) => (
                     <div key={idx} className={styles.headerEditRow}>
-                        <Input value={tag.key} placeholder="响应头 Key" onChange={value => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.headers[idx].key = value; })} />
-                        <Input value={tag.value} placeholder="响应头 Value" onChange={value => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.headers[idx].value = value; })} />
-                        <Button aria-label={`删除第 ${idx + 1} 个响应头`} shape="circle" variant="text" onClick={() => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.headers.splice(idx, 1); })}>
+                        <Input aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${idx + 1} 个响应头 Key`} value={tag.key} placeholder="响应头 Key" onChange={value => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.headers[idx].key = value; })} />
+                        <Input aria-label={`第 ${subRuleIdx + 1} 个熔断子规则第 ${idx + 1} 个响应头 Value`} value={tag.value} placeholder="响应头 Value" onChange={value => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.headers[idx].value = value; })} />
+                        <Button aria-label={`删除第 ${subRuleIdx + 1} 个熔断子规则第 ${idx + 1} 个响应头`} shape="circle" variant="text" onClick={() => updateRule(draft => { draft.subrules[subRuleIdx].fallbackConfig.response.headers.splice(idx, 1); })}>
                             <CloseIcon />
                         </Button>
                     </div>

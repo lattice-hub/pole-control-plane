@@ -237,6 +237,10 @@ export async function modifyInstances(params: ModifyInstanceRequest[]) {
 
 export interface DeleteInstancesRequest {
     id: string
+    namespace: string
+    service: string
+    host: string
+    port: number
 }
 
 export async function deleteInstances(params: DeleteInstancesRequest[]) {

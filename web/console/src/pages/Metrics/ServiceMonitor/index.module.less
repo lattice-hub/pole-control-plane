@@ -615,6 +615,14 @@
   border-radius: 999px;
 }
 
+:global([theme-mode='dark']) {
+  .sourceTagMock,
+  .toneWarning { color: #ffd0a0; }
+  .toneDanger { color: #ffb4b9; }
+  .toneSuccess { color: #9fe1bd; }
+  .toneInfo { color: var(--app-brand-foreground); }
+}
+
 .toneDanger {
   border-color: var(--app-status-error-border);
   color: #b91c1c;

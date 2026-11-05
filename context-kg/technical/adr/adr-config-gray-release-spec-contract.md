@@ -1,16 +1,21 @@
 ---
+type: Architecture Decision
+status: deprecated
 title: ADR：配置中心多灰度发布与 spec 契约适配
 tags: [adr, config, api, gray-release]
-links: [config-center, api-servers, cache-layer]
-updated: 2026-07-05
-sources: 0
+links: [config-center, api-servers, cache-layer, adr-config-template-values-unification]
+updated: 2026-10-03
+sources:
+  - resource: adr-config-template-values-unification.md
+    title: 当前统一配置 v1 决策与实现
+
 ---
 
 # ADR：配置中心多灰度发布与 spec 契约适配
 
 ## 状态
 
-Proposed。
+Deprecated。本文保留旧配置模式的历史设计与证据；旧代码已移除，不能作为当前实现或 SDK 验收状态。现行定义、发布、Discover、本地渲染与兼容转换边界见[统一配置 v1 ADR](adr-config-template-values-unification.md)。
 
 ## 背景
 
@@ -56,3 +61,5 @@ Proposed。
 - [[config-center]]
 - [[api-servers]]
 - [[cache-layer]]
+
+- [统一模板与 values 及多灰度方案](adr-config-template-values-unification.md)

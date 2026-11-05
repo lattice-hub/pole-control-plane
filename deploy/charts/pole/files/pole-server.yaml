@@ -1,0 +1,358 @@
+# Tencent is pleased to support the open source community by making Polaris available.
+#
+# Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
+#
+# Licensed under the BSD 3-Clause License (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# https://opensource.org/licenses/BSD-3-Clause
+#
+# Unless required by applicable law or agreed to in writing, software distributed
+# under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations under the License.
+
+# server Start guidance configuration
+bootstrap:
+  # Global log
+  logger: ./conf/pole-log.yaml
+  # 启动模式：
+  # - all：control-plane + console（兼容默认值）
+  # - full：control-plane + limiter-server + console
+  # - control-plane / limiter-server / console：仅启动对应模块
+  # - server：control-plane 的弃用兼容别名
+  mode: all
+  # mode=all、mode=full 或 mode=console 使用的内嵌 Console Gateway 配置。
+  console:
+    logger:
+      ErrorOutputPaths:
+        - ./logs/runtime/pole-console-error.log
+      RotateOutputPath: ./logs/runtime/pole-console.log
+      RotationMaxSize: 500
+      RotationMaxAge: 30
+      RotationMaxBackups: 100
+      level: info
+    webServer:
+      mode: release
+      listenIP: 0.0.0.0
+      listenPort: 8080
+      jwt:
+        secretKey: polarismesh@2021
+        expired: 7200
+      coreURL: /core/v1
+      namingURL: /naming/v1
+      authURL: /auth/v1
+      configURL: /config/v1
+      monitorURL: /api/v1
+      mainUser: pole
+    store:
+      name: mysql
+      option:
+        master:
+          dbType: mysql
+          dbName: pole_observability
+          dbUser: ##DB_USER##
+          dbPwd: ##DB_PWD##
+          dbAddr: ##DB_ADDR##
+          maxOpenConns: 300
+          maxIdleConns: 50
+          connMaxLifetime: 300
+          txIsolationLevel: 2
+    poleServer:
+      address: 127.0.0.1:8090
+    limiterServer:
+      address: 127.0.0.1:8102
+    monitorServer:
+      address: 127.0.0.1:9090
+    observabilityQuery:
+      provider: greptimedb
+      endpoint: http://127.0.0.1:4000
+      database: pole_observability
+      timeout: 10s
+    # Only this root encryption key remains deployment-owned. Product secrets
+    # such as an LLM API Key are versioned and encrypted by Pole itself.
+    systemSecrets:
+      masterKey: ${POLE_SYSTEM_SECRET_MASTER_KEY}
+      pollInterval: 5s
+    # Pole Agent is owned by the Console backend. It is available only when the
+    # LLM Gateway address and API key resolve to non-empty values.
+    agent:
+      runtimeMode: llm
+      # Dedicated machine-auth key for split Console -> Server self-capability probes.
+      # Use the same base64-encoded 32-byte value on both processes.
+      selfManagementProbeKey: ${POLE_SELF_MANAGER_PROBE_KEY}
+      definition:
+        id: pole-control-plane
+        systemPrompt:
+          builtinVersion: v1
+          operatorInstructions: 管理 Pole 控制面资源；自身 MCP、A2A 与 Prompt 期望状态由 pole-self-manager 自动协调，普通业务资源写操作仍遵守各领域既有确认与发布约束
+      model:
+        provider: openai-compatible
+        baseURL: ""
+        model: auto
+        apiKey: ""
+        timeout: 60s
+      mcp:
+        endpoint: http://127.0.0.1:8090/ai/mcp/v1/sse
+        toolAllowlist:
+          - list_namespaces
+          - list_mcp_servers
+          - list_mcp_server_tools
+          - get_config_state
+      a2a:
+        name: Pole Agent
+        description: 通过 MCP 发现并管理 Pole 控制面资源
+        # endpoint 留空时使用启动期探测到的本机可达地址；跨网关部署应显式配置对外 advertised URL
+        endpoint: ""
+      proposalTTL: 30m
+      upstreamTimeout: 10s
+  # Start the server in order
+  startInOrder:
+    # Start the pole-server in order, mainly to avoid data synchronization logic when the server starts the DB to pull the DB out of high load
+    open: true
+    # The name of the start lock
+    key: sz
+  # Register as Arctic Star Service
+  polaris_service:
+    ## level: self_address > network_inter > probe_address
+    ## Obtain the IP of the VM or POD where Polaris is located by making a TCP connection with the probe_adreess address
+    # probe_address: ##DB_ADDR##
+    ## Set the name of the gateway to get your own IP
+    # network_inter: eth0
+    ## Show the setting node itself IP information
+    # self_address: 127.0.0.1
+    # disable_heartbeat disable pole_server node run heartbeat action to keep lease polaris_service
+    # disable_heartbeat: true
+    # Whether to open the server to register
+    enable_register: true
+    # Registered North Star Server Examples isolation status
+    isolated: false
+    # Service information that needs to be registered
+    services:
+      # service name
+      - name: pole.checker
+        # Set the port protocol information that requires registration
+        protocols:
+          - service-grpc
+# Limiter 运行配置，仅在 mode=limiter-server 或 mode=full 时加载。
+# 默认不启用公开 HTTP 兼容端点；gRPC 只应暴露在内部网络。
+limiter:
+  registry:
+    enable: true
+    control-plane-address: 127.0.0.1:8091
+    advertised-host: 127.0.0.1
+    name: pole-limiter
+    namespace: pole-system
+    health-check-enable: true
+  api-servers:
+    - name: grpc
+      option:
+        ip: 0.0.0.0
+        port: 8101
+    - name: http
+      option:
+        ip: 127.0.0.1
+        port: 8102
+  limit:
+    node-id: 1
+    max-counter: 1000000
+    max-client: 20000
+  plugin:
+    statistics:
+      name: echo
+# apiserver Configuration
+apiservers: ./conf/pole-apiserver.yaml
+# Core logic configuration
+auth:
+  # auth's option has migrated to auth.user and auth.strategy
+  # it's still available when filling auth.option, but you will receive warning log that auth.option has deprecated.
+  user:
+    name: defaultUser
+    option:
+      # Token encrypted SALT, you need to rely on this SALT to decrypt the information of the Token when analyzing the Token
+      # The length of SALT needs to satisfy the following one：len(salt) in [16, 24, 32]
+      salt: polarismesh@2021
+  strategy:
+    name: defaultStrategy
+    option:
+      # Console auth switch, default true
+      consoleOpen: true
+      # Console Strict Model, default true
+      consoleStrict: true
+      # Customer auth switch, default false
+      clientOpen: false
+      # Customer Strict Model, default close
+      clientStrict: false
+namespace:
+  # Whether to allow automatic creation of naming space
+  autoCreate: true
+# Short-lived data-plane credentials. Disabled until an Ed25519 keyring is
+# mounted from an external secret source; private key material must not be
+# embedded in this YAML.
+workloadCredential:
+  enabled: false
+  issuer: pole-control-plane
+  audience: pole-data-plane
+  trustDomain: pole.local
+  ttl: 5m
+  clockSkew: 30s
+  bundleSequence: 1
+  bundleTTL: 10m
+  keys: []
+naming:
+  # Whether to allow automatic creation of service
+  autoCreate: true
+  # Batch controller
+  batch:
+    register:
+      open: true
+      queueSize: 10240
+      waitTime: 32ms
+      maxBatchCount: 128
+      concurrency: 128
+    deregister:
+      open: true
+      queueSize: 10240
+      waitTime: 32ms
+      maxBatchCount: 128
+      concurrency: 128
+  # Configuration of health check
+  healthcheck:
+    # Whether to open the health check function module
+    open: true
+    # The service of the instance of the health inspection task
+    service: pole.checker
+    # Time wheel parameters
+    slotNum: 30
+    # It is used to adjust the next execution time of instance health check tasks in the time wheel, limit the minimum inspection cycle
+    minCheckInterval: 1s
+    # It is used to adjust the next execution time of instance health inspection tasks in the time wheel, limit the maximum inspection cycle
+    maxCheckInterval: 30s
+    # Used to adjust the next execution time of SDK reporting instance health checking tasks in the time wheel
+    clientReportInterval: 120s
+    batch:
+      heartbeat:
+        open: true
+        queueSize: 10240
+        waitTime: 32ms
+        maxBatchCount: 32
+        concurrency: 64
+    # Health check plugin list, currently supports heartBeatMemory/heartBeatredis/heartBeatLeader.
+    # since the three belong to the same type of health check plugin, only one can be enabled to use one
+    checkers:
+      - name: heartbeat
+      - name: tcp
+        option:
+          timeout: 3s
+      - name: http
+        option:
+          timeout: 3s
+# Configuration center module start configuration
+config:
+  # Whether to start the configuration module
+  open: true
+# Cache configuration
+cache:
+  # When the incremental synchronization data is cached, the actual incremental data time range is as follows:
+  # How many seconds need to be backtracked from the current time, that is,
+  # the incremental synchronization at time T [T - abs(DiffTime), ∞)
+  diffTime: 5s
+# Maintain configuration
+maintain:
+  jobs:
+    # Clean up long term unhealthy instance
+    - name: DeleteUnHealthyInstance
+      enable: true
+      option:
+        # Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        instanceDeleteTimeout: 60m
+        # Scan independently from the retention threshold so stale instances
+        # converge promptly after this process wins the maintenance election.
+        sweepInterval: 1m
+    # Delete auto-created service without an instance
+    - name: DeleteEmptyAutoCreatedService
+      enable: false
+      option:
+        # Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+        serviceDeleteTimeout: 30m
+    # Clean soft deleted resources
+    - name: CleanDeletedResources
+      enable: true
+      option:
+        timeout: 1h
+# Storage configuration
+store:
+  # Database storage plugin
+  name: defaultStore
+  option:
+    master:
+      dbType: mysql
+      dns: "${MYSQL_USER}:${MYSQL_PWD}@tcp(${MYSQL_HOST})/pole_server?loc=Local&parseTime=true" ##DB_DNS##
+      maxOpenConns: 300
+      maxIdleConns: 50
+      connMaxLifetime: 300 # Unit second
+# pole-server plugin settings
+plugin:
+  crypto:
+    entries:
+      - name: AES
+  cmdb:
+    name: memory
+    option:
+      url: ""
+      interval: 60s
+  history:
+    entries:
+      - name: HistoryLogger
+      - name: otel
+        option:
+          endpoint: 127.0.0.1:4317
+          logsEndpoint: http://127.0.0.1:4318/v1/logs
+          timeout: 5s
+          logQueueSize: 2048
+          logSpoolDir: ./.pole_data/observability/otel-events
+          logSpoolBucket: history
+          logSpoolMaxBytes: 67108864
+          serviceName: pole-control-plane
+          environment: local
+          cluster: local-docker
+          nodeRole: control-plane
+  discoverEvent:
+    entries:
+      - name: EventLogger
+      - name: otel
+        option:
+          endpoint: 127.0.0.1:4317
+          logsEndpoint: http://127.0.0.1:4318/v1/logs
+          timeout: 5s
+          logQueueSize: 2048
+          logSpoolDir: ./.pole_data/observability/otel-events
+          logSpoolBucket: discover_event
+          logSpoolMaxBytes: 67108864
+          serviceName: pole-control-plane
+          environment: local
+          cluster: local-docker
+          nodeRole: control-plane
+  statis:
+    entries:
+      - name: local
+        option:
+          interval: 60
+      - name: otel
+        option:
+          endpoint: 127.0.0.1:4317
+          timeout: 5s
+          reconnectionPeriod: 10s
+          pushInterval: 5s
+          compressor: gzip
+          serviceName: pole-control-plane
+          environment: local
+          cluster: local-docker
+          nodeRole: control-plane
+      - name: prometheus
+  ratelimit:
+    name: token-bucket
+    option:
+      enable: false
+      rule-file: ./conf/plugin/ratelimit/rule.yaml

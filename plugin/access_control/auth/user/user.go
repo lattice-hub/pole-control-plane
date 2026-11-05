@@ -175,7 +175,8 @@ func (svr *Server) UpdateUser(ctx context.Context, req *apisecurity.User) *apimo
 	}
 
 	if !needUpdate {
-		log.Info("[Auth][User] update user data no change, no need update", utils.RequestID(ctx), zap.String("user", req.String()))
+		log.Info("[Auth][User] update user data no change, no need update", utils.RequestID(ctx),
+			zap.String("user-id", req.GetId()))
 		return api.NewUserResponse(apimodel.Code_NoNeedUpdate, req)
 	}
 
@@ -594,7 +595,7 @@ func userRecordEntry(ctx context.Context, req *apisecurity.User, md *authtypes.U
 	operationType types.OperationType) *types.RecordEntry {
 
 	detail, _ := protojson.Marshal(req)
-	detailStr := string(detail)
+	detailStr := types.SanitizeOperationDetail(types.RUser, string(detail))
 
 	entry := &types.RecordEntry{
 		ResourceType:  types.RUser,

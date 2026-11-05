@@ -40,20 +40,22 @@ func (h *DiscoverServer) handleSubscribeServiceReques(ctx context.Context, req n
 	if !ok {
 		return nil, remote.ErrorInvalidRequestBodyType
 	}
-	namespace := subReq.Namespace
+	wireNamespace := subReq.Namespace
+	namespace := nacosmodel.ToPolarisNamespace(wireNamespace)
 	service := subReq.ServiceName
 	group := subReq.GroupName
 	subscriber := core.Subscriber{
-		Key:         remote.ValueConnID(ctx),
-		AddrStr:     meta.ClientIP,
-		Agent:       meta.ClientVersion,
-		App:         utils.DefaultString(req.GetHeaders()["app"], "unknown"),
-		Ip:          meta.ClientIP,
-		NamespaceId: namespace,
-		Group:       group,
-		Service:     service,
-		Cluster:     subReq.Clusters,
-		Type:        core.GRPCPush,
+		Key:           remote.ValueConnID(ctx),
+		AddrStr:       meta.ClientIP,
+		Agent:         meta.ClientVersion,
+		App:           utils.DefaultString(req.GetHeaders()["app"], "unknown"),
+		Ip:            meta.ClientIP,
+		NamespaceId:   namespace,
+		WireNamespace: wireNamespace,
+		Group:         group,
+		Service:       service,
+		Cluster:       subReq.Clusters,
+		Type:          core.GRPCPush,
 	}
 	if subReq.Subscribe {
 		h.pushCenter.AddSubscriber(subscriber)
@@ -93,7 +95,10 @@ func (h *DiscoverServer) sendPushData(sub core.Subscriber, data *core.PushData) 
 			zap.String("conn-id", sub.Key))
 		return nil
 	}
-	namespace := nacosmodel.ToNacosNamespace(data.ServiceInfo.Namespace)
+	namespace := sub.WireNamespace
+	if namespace == "" && data.ServiceInfo.Namespace != sub.NamespaceId {
+		namespace = nacosmodel.ToNacosNamespace(data.ServiceInfo.Namespace)
+	}
 	watcher := sub
 	svr := stream
 	req := &nacospb.NotifySubscriberRequest{

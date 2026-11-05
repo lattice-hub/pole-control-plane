@@ -84,7 +84,7 @@ export interface CreateServiceAliasResponse {
 
 export function createServiceAlias(params: CreateServiceAliasRequest) {
     return apiRequest<CreateServiceAliasResponse>({
-        action: `${BaseURL.ALIAS}`,
+        action: '/naming/v1/service/alias',
         data: params,
     })
 }
@@ -125,7 +125,7 @@ export interface ModifyServiceAliasResponse {
 
 export function modifyServiceAlias(params: ModifyServiceAliasRequest) {
     return putApiRequest<ModifyServiceAliasResponse>({
-        action: `${BaseURL.ALIAS}`,
+        action: '/naming/v1/service/alias',
         data: params,
     })
 }

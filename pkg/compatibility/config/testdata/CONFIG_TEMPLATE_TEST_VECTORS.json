@@ -1,0 +1,463 @@
+{
+  "profile": "pole-mustache-v1",
+  "vectors": [
+    {
+      "name": "typed-scalars",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "typed-scalars"
+        },
+        "definition": {
+          "content": "aG9zdD17e3tkYXRhYmFzZS5ob3N0fX19CnBvcnQ9e3t7ZGF0YWJhc2UucG9ydH19fQplbmFibGVkPXt7e2ZlYXR1cmUuZW5hYmxlZH19fQpyYXRpbz17e3tyYXRpb319fQo=",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "database.host",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            },
+            {
+              "name": "database.port",
+              "type": "VALUE_TYPE_INTEGER",
+              "required": true
+            },
+            {
+              "name": "feature.enabled",
+              "type": "VALUE_TYPE_BOOLEAN",
+              "required": true
+            },
+            {
+              "name": "ratio",
+              "type": "VALUE_TYPE_DECIMAL",
+              "required": true
+            }
+          ],
+          "defaultValues": {
+            "database.host": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "db.internal"
+            },
+            "database.port": {
+              "type": "VALUE_TYPE_INTEGER",
+              "value": "3306"
+            },
+            "feature.enabled": {
+              "type": "VALUE_TYPE_BOOLEAN",
+              "value": "true"
+            },
+            "ratio": {
+              "type": "VALUE_TYPE_DECIMAL",
+              "value": "1.25"
+            }
+          }
+        },
+        "labels": {}
+      },
+      "valid": true,
+      "expectedContent": "aG9zdD1kYi5pbnRlcm5hbApwb3J0PTMzMDYKZW5hYmxlZD10cnVlCnJhdGlvPTEuMjUK",
+      "expectedSha256": "a3a3dc9c34d8e15d11cc7e81aac555e907306598f74ff917aed1d0b6c7b8e64c"
+    },
+    {
+      "name": "unicode-and-newlines",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "unicode-and-newlines"
+        },
+        "definition": {
+          "content": "bWVzc2FnZT17e3ttZXNzYWdlfX19CmxpbmU9e3t7bGluZX19fQo=",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "message",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            },
+            {
+              "name": "line",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            }
+          ],
+          "defaultValues": {
+            "message": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "你好，Pole"
+            },
+            "line": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "second"
+            }
+          }
+        },
+        "labels": {}
+      },
+      "valid": true,
+      "expectedContent": "bWVzc2FnZT3kvaDlpb3vvIxQb2xlCmxpbmU9c2Vjb25kCg==",
+      "expectedSha256": "37bc0b797db90d3ffd33f45e5395b7e7e6349c0552f72cee92918e237375bdba"
+    },
+    {
+      "name": "missing-required-value",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "missing-required-value"
+        },
+        "definition": {
+          "content": "e3t7ZGF0YWJhc2UuaG9zdH19fQ==",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "database.host",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            }
+          ],
+          "defaultValues": {}
+        },
+        "labels": {}
+      },
+      "valid": false,
+      "reason": "MISSING_VALUE"
+    },
+    {
+      "name": "noncanonical-decimal",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "noncanonical-decimal"
+        },
+        "definition": {
+          "content": "e3t7cmF0aW99fX0=",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "ratio",
+              "type": "VALUE_TYPE_DECIMAL",
+              "required": true
+            }
+          ],
+          "defaultValues": {
+            "ratio": {
+              "type": "VALUE_TYPE_DECIMAL",
+              "value": "1.250"
+            }
+          }
+        },
+        "labels": {}
+      },
+      "valid": false,
+      "reason": "INVALID_VALUE"
+    },
+    {
+      "name": "forbidden-section",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "forbidden-section"
+        },
+        "definition": {
+          "content": "e3sjZmVhdHVyZX19e3t7bmFtZX19fXt7L2ZlYXR1cmV9fQ==",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "name",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            }
+          ],
+          "defaultValues": {
+            "name": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "Pole"
+            }
+          }
+        },
+        "labels": {}
+      },
+      "valid": false,
+      "reason": "INVALID_SYNTAX"
+    },
+    {
+      "name": "optional-default",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "optional-default"
+        },
+        "definition": {
+          "content": "e3t7bWVzc2FnZX19fQ==",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "message",
+              "type": "VALUE_TYPE_STRING",
+              "required": false
+            }
+          ],
+          "defaultValues": {
+            "message": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "default"
+            }
+          }
+        },
+        "labels": {}
+      },
+      "valid": true,
+      "expectedContent": "ZGVmYXVsdA==",
+      "expectedSha256": "37a8eec1ce19687d132fe29051dca629d164e2c4958ba141d5f4133a33f0688f"
+    },
+    {
+      "name": "exact-large-integer",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "exact-large-integer"
+        },
+        "definition": {
+          "content": "e3t7YW1vdW50fX19",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "amount",
+              "type": "VALUE_TYPE_INTEGER",
+              "required": true
+            }
+          ],
+          "defaultValues": {
+            "amount": {
+              "type": "VALUE_TYPE_INTEGER",
+              "value": "18446744073709551616"
+            }
+          }
+        },
+        "labels": {}
+      },
+      "valid": true,
+      "expectedContent": "MTg0NDY3NDQwNzM3MDk1NTE2MTY=",
+      "expectedSha256": "8b292fc2d32f1fd491784610c61b90dc4632a6e4add19261eca4c3979e4ea6d2"
+    },
+    {
+      "name": "missing-optional-placeholder",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "missing-optional-placeholder"
+        },
+        "definition": {
+          "content": "e3t7bWVzc2FnZX19fQ==",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "message",
+              "type": "VALUE_TYPE_STRING"
+            }
+          ],
+          "defaultValues": {}
+        },
+        "labels": {}
+      },
+      "valid": false,
+      "reason": "MISSING_VALUE"
+    },
+    {
+      "name": "matched-rule-only",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "matched-rule-only"
+        },
+        "definition": {
+          "content": "e3t7YX19fTp7e3tifX19",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "a",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            },
+            {
+              "name": "b",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            }
+          ],
+          "defaultValues": {
+            "a": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "base"
+            },
+            "b": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "base"
+            }
+          },
+          "valueRules": [
+            {
+              "id": "first",
+              "priority": 0,
+              "audience": {
+                "labels": {
+                  "region": "cn"
+                }
+              },
+              "values": {
+                "a": {
+                  "type": "VALUE_TYPE_STRING",
+                  "value": "first"
+                }
+              }
+            },
+            {
+              "id": "second",
+              "priority": 10,
+              "audience": {
+                "labels": {
+                  "region": "cn"
+                }
+              },
+              "values": {
+                "b": {
+                  "type": "VALUE_TYPE_STRING",
+                  "value": "second"
+                }
+              }
+            }
+          ]
+        },
+        "labels": {
+          "region": "cn"
+        }
+      },
+      "valid": true,
+      "expectedContent": "Zmlyc3Q6YmFzZQ==",
+      "expectedSha256": "63aacc8c3556a7d844b7ed02521d5afffa380da7f4cbfaa8cfe2ce113562e3ec"
+    },
+    {
+      "name": "ambiguous-rules",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "ambiguous-rules"
+        },
+        "definition": {
+          "content": "e3t7YX19fQ==",
+          "engine": "pole-mustache-v1",
+          "format": "text",
+          "parameters": [
+            {
+              "name": "a",
+              "type": "VALUE_TYPE_STRING",
+              "required": true
+            }
+          ],
+          "defaultValues": {
+            "a": {
+              "type": "VALUE_TYPE_STRING",
+              "value": "base"
+            }
+          },
+          "valueRules": [
+            {
+              "id": "region",
+              "audience": {
+                "labels": {
+                  "region": "cn"
+                }
+              },
+              "values": {
+                "a": {
+                  "type": "VALUE_TYPE_STRING",
+                  "value": "cn"
+                }
+              }
+            },
+            {
+              "id": "tier",
+              "audience": {
+                "labels": {
+                  "tier": "canary"
+                }
+              },
+              "values": {
+                "a": {
+                  "type": "VALUE_TYPE_STRING",
+                  "value": "canary"
+                }
+              }
+            }
+          ]
+        },
+        "labels": {
+          "region": "cn",
+          "tier": "canary"
+        }
+      },
+      "valid": false,
+      "reason": "AMBIGUOUS_RULE"
+    },
+    {
+      "name": "literal-binary",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "literal-binary"
+        },
+        "definition": {
+          "content": "AP97e3Jhd319DQo=",
+          "engine": "literal",
+          "format": "text",
+          "parameters": [],
+          "defaultValues": {}
+        },
+        "labels": {}
+      },
+      "valid": true,
+      "expectedContent": "AP97e3Jhd319DQo=",
+      "expectedSha256": "bb945f1189142d5a19bf01503810cf1c475130f39f73d7b7fbe7bd410e97be92"
+    },
+    {
+      "name": "empty-content",
+      "request": {
+        "key": {
+          "environment": "test",
+          "group": "vectors",
+          "name": "empty-content"
+        },
+        "definition": {
+          "content": "",
+          "engine": "literal",
+          "format": "text",
+          "parameters": [],
+          "defaultValues": {}
+        },
+        "labels": {}
+      },
+      "valid": true,
+      "expectedContent": "",
+      "expectedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

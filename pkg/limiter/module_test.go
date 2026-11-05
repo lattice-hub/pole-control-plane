@@ -2,7 +2,9 @@ package limiter
 
 import (
 	"context"
+	"encoding/json"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"testing"
@@ -142,6 +144,40 @@ func TestRunningServesQuotaLeaseProtocol(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(6), settled.GetQuotaSettleResponse().GetSettlements()[0].GetReturnedAmount())
 	require.NoError(t, stream.CloseSend())
+}
+
+func TestRunningServesQuotaLeaseSnapshot(t *testing.T) {
+	cfg := testConfig()
+	cfg.APIServers = append(cfg.APIServers, APIServerConfig{
+		Name:   "http",
+		Option: map[string]interface{}{"ip": "127.0.0.1", "port": 0},
+	})
+	running, err := Start(context.Background(), cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		require.NoError(t, running.Stop(ctx))
+	})
+
+	var httpEndpoint string
+	for _, endpoint := range running.Endpoints() {
+		if strings.HasSuffix(endpoint, "/http") {
+			httpEndpoint = strings.TrimSuffix(endpoint, "/http")
+		}
+	}
+	require.NotEmpty(t, httpEndpoint)
+	response, err := http.Get("http://" + httpEndpoint + "/maintain/quota-leases")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, response.Body.Close()) }()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	var snapshot struct {
+		GeneratedAt int64 `json:"generatedAt"`
+		Leases      []any `json:"leases"`
+	}
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&snapshot))
+	require.NotZero(t, snapshot.GeneratedAt)
+	require.Empty(t, snapshot.Leases)
 }
 
 func testConfig() Config {

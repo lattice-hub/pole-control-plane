@@ -6,20 +6,25 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	globalotel "go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
+	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 
 	cacheapi "github.com/pole-io/pole-server/apis/cache"
 	"github.com/pole-io/pole-server/apis/pkg/types"
 	svctypes "github.com/pole-io/pole-server/apis/pkg/types/service"
 	cachemock "github.com/pole-io/pole-server/pkg/cache/mock"
+	"github.com/pole-io/pole-server/pkg/compatibility"
 	storemock "github.com/pole-io/pole-server/plugin/store/mock"
-	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 )
 
 func TestDeleteNamespaceRejectsProtectedNamespaces(t *testing.T) {
 	t.Parallel()
 
-	server := &Server{}
-	for _, name := range []string{DefaultNamespace, SystemNamespace} {
+	server := &Server{compatibilityResolver: compatibility.NewNamespaceResolver("dev", "dev")}
+	for _, name := range []string{"dev", SystemNamespace} {
 		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -39,7 +44,7 @@ func TestIsProtectedNamespace(t *testing.T) {
 		name      string
 		protected bool
 	}{
-		{name: DefaultNamespace, protected: true},
+		{name: DefaultNamespace, protected: false},
 		{name: SystemNamespace, protected: true},
 		{name: ProductionNamespace, protected: false},
 		{name: "DEFAULT", protected: false},
@@ -58,9 +63,9 @@ func TestIsProtectedNamespace(t *testing.T) {
 func TestDeleteNamespacesRejectsProtectedNamespaces(t *testing.T) {
 	t.Parallel()
 
-	server := &Server{}
+	server := &Server{compatibilityResolver: compatibility.NewNamespaceResolver("dev", "dev")}
 	response := server.DeleteNamespaces(context.Background(), []*apimodel.Namespace{
-		{Name: DefaultNamespace},
+		{Name: "dev"},
 		{Name: SystemNamespace},
 	})
 
@@ -83,7 +88,7 @@ func TestDeleteNamespaceRejectsOwnedGovernanceRules(t *testing.T) {
 	tx.EXPECT().LockNamespace("prod").Return(&types.Namespace{Name: "prod"}, nil)
 	storage.EXPECT().GetServices(map[string]string{"namespace": "prod"}, nil, nil, uint32(0), uint32(1)).Return(uint32(0), nil, nil)
 	storage.EXPECT().CountAIResourcesByNamespace("prod").Return(uint32(0), nil)
-	storage.EXPECT().CountConfigGroups("prod").Return(uint64(0), nil)
+	storage.EXPECT().CountUnifiedConfigs(gomock.Any(), "prod").Return(uint64(0), nil)
 	storage.EXPECT().CountGovernanceRules("prod").Return(uint64(2), nil)
 
 	response := server.DeleteNamespace(context.Background(), &apimodel.Namespace{Name: "prod"})
@@ -166,6 +171,14 @@ func TestCreateNamespacePersistsBusinessKindByDefault(t *testing.T) {
 }
 
 func TestGetNamespacesReturnsKindsAndAppliesKindFilter(t *testing.T) {
+	previousProvider := globalotel.GetTracerProvider()
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	globalotel.SetTracerProvider(provider)
+	t.Cleanup(func() {
+		globalotel.SetTracerProvider(previousProvider)
+	})
+
 	controller := gomock.NewController(t)
 	storage := storemock.NewMockStore(controller)
 	cacheManager := cachemock.NewMockCacheManager(controller)
@@ -183,17 +196,19 @@ func TestGetNamespacesReturnsKindsAndAppliesKindFilter(t *testing.T) {
 		Name: SystemNamespace,
 		Kind: apimodel.NamespaceKind_NAMESPACE_KIND_SYSTEM,
 	}}, nil)
-	storage.EXPECT().CountConfigFileEachGroup().Return(map[string]map[string]int64{}, nil)
+	storage.EXPECT().CountUnifiedConfigsByEnvironment(gomock.Any()).Return(map[string]uint64{}, nil)
 	cacheManager.EXPECT().Service().Return(serviceCache)
 	serviceCache.EXPECT().GetNamespaceCntInfo(SystemNamespace).Return(svctypes.NamespaceServiceCount{
 		InstanceCnt: &svctypes.InstanceCount{},
 	})
 
-	response := server.GetNamespaces(context.Background(), map[string][]string{
+	ctx, requestSpan := provider.Tracer("test").Start(context.Background(), "GET:/core/v1/namespaces")
+	response := server.GetNamespaces(ctx, map[string][]string{
 		"kind":   {"system"},
 		"offset": {"0"},
 		"limit":  {"10"},
 	})
+	requestSpan.End()
 
 	require.Equal(t, uint32(apimodel.Code_ExecuteSuccess), response.GetCode())
 	require.Len(t, response.GetData(), 1)
@@ -201,4 +216,21 @@ func TestGetNamespacesReturnsKindsAndAppliesKindFilter(t *testing.T) {
 	require.NoError(t, response.GetData()[0].UnmarshalTo(namespace))
 	require.Equal(t, apimodel.NamespaceKind_NAMESPACE_KIND_SYSTEM, namespace.GetKind())
 	require.False(t, namespace.GetDeleteable())
+
+	spans := recorder.Ended()
+	require.Len(t, spans, 3)
+	var serviceSpan sdktrace.ReadOnlySpan
+	var storeSpan sdktrace.ReadOnlySpan
+	for _, span := range spans {
+		switch span.Name() {
+		case "service.namespace.get":
+			serviceSpan = span
+		case "store.config.count_by_namespace":
+			storeSpan = span
+		}
+	}
+	require.NotNil(t, serviceSpan)
+	require.NotNil(t, storeSpan)
+	require.Equal(t, requestSpan.SpanContext().SpanID(), serviceSpan.Parent().SpanID())
+	require.Equal(t, serviceSpan.SpanContext().SpanID(), storeSpan.Parent().SpanID())
 }

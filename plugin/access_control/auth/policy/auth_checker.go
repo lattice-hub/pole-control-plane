@@ -33,6 +33,7 @@ import (
 	authtypes "github.com/pole-io/pole-server/apis/pkg/types/auth"
 	"github.com/pole-io/pole-server/apis/store"
 	api "github.com/pole-io/pole-server/pkg/common/api/v1"
+	commonotel "github.com/pole-io/pole-server/pkg/common/otel"
 	"github.com/pole-io/pole-server/pkg/common/utils"
 	matchs "github.com/pole-io/pole-server/pkg/common/utils/match"
 )
@@ -126,7 +127,14 @@ func (d *DefaultAuthChecker) ResourcePredicate(ctx *authtypes.AcquireContext, re
 }
 
 // CheckClientPermission 执行检查客户端动作判断是否有权限，并且对 RequestContext 注入操作者数据
-func (d *DefaultAuthChecker) CheckClientPermission(preCtx *authtypes.AcquireContext) (bool, error) {
+func (d *DefaultAuthChecker) CheckClientPermission(preCtx *authtypes.AcquireContext) (allowed bool, err error) {
+	originalCtx := preCtx.GetRequestContext()
+	spanName := permissionSpanName(permissionSpanPrefix("auth.client", preCtx), preCtx.GetMethods())
+	ctx, end := commonotel.StartSpanOnce(originalCtx, spanName, spanName, "auth")
+	preCtx.SetRequestContext(ctx)
+	defer func() {
+		end(err)
+	}()
 	preCtx.SetFromClient()
 	if !d.IsOpenClientAuth() {
 		return true, nil
@@ -138,7 +146,14 @@ func (d *DefaultAuthChecker) CheckClientPermission(preCtx *authtypes.AcquireCont
 }
 
 // CheckConsolePermission 执行检查控制台动作判断是否有权限，并且对 RequestContext 注入操作者数据
-func (d *DefaultAuthChecker) CheckConsolePermission(preCtx *authtypes.AcquireContext) (bool, error) {
+func (d *DefaultAuthChecker) CheckConsolePermission(preCtx *authtypes.AcquireContext) (allowed bool, err error) {
+	originalCtx := preCtx.GetRequestContext()
+	spanName := permissionSpanName(permissionSpanPrefix("auth.console", preCtx), preCtx.GetMethods())
+	ctx, end := commonotel.StartSpanOnce(originalCtx, spanName, spanName, "auth")
+	preCtx.SetRequestContext(ctx)
+	defer func() {
+		end(err)
+	}()
 	preCtx.SetFromConsole()
 	if !d.IsOpenConsoleAuth() {
 		return true, nil
@@ -182,6 +197,26 @@ func (d *DefaultAuthChecker) CheckPermission(authCtx *authtypes.AcquireContext) 
 			zap.Error(err), zap.Any("method", authCtx.GetMethods()), zap.Any("module", authCtx.GetModule()))
 	}
 	return pass, err
+}
+
+func permissionSpanName(prefix string, methods []authtypes.ServerFunctionName) string {
+	if len(methods) == 0 {
+		return prefix + ".check"
+	}
+	names := make([]string, 0, len(methods))
+	for _, method := range methods {
+		names = append(names, string(method))
+	}
+	return prefix + "." + strings.Join(names, "+")
+}
+
+func permissionSpanPrefix(prefix string, authCtx *authtypes.AcquireContext) string {
+	purpose := "authorize"
+	if value, ok := authCtx.GetAttachment(authtypes.PermissionCheckPurposeKey); ok &&
+		value == authtypes.PermissionCheckPurposeCapability {
+		purpose = authtypes.PermissionCheckPurposeCapability
+	}
+	return prefix + "." + purpose
 }
 
 func (d *DefaultAuthChecker) resyncData(authCtx *authtypes.AcquireContext) error {
@@ -373,11 +408,6 @@ var (
 		apisecurity.ResourceType_Services: func(ctx context.Context, cacheSvr cachetypes.CacheManager,
 			resource *authtypes.ResourceEntry) bool {
 			saveVal := cacheSvr.Service().GetServiceByID(resource.ID)
-			return saveVal != nil
-		},
-		apisecurity.ResourceType_ConfigGroups: func(ctx context.Context, cacheSvr cachetypes.CacheManager,
-			resource *authtypes.ResourceEntry) bool {
-			saveVal := cacheSvr.ConfigGroup().GetGroupByID(resource.ID)
 			return saveVal != nil
 		},
 		apisecurity.ResourceType_MCPServerResources: func(ctx context.Context, cacheSvr cachetypes.CacheManager,

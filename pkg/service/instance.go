@@ -39,6 +39,7 @@ import (
 	"github.com/pole-io/pole-server/apis/service/healthcheck"
 	storeapi "github.com/pole-io/pole-server/apis/store"
 	api "github.com/pole-io/pole-server/pkg/common/api/v1"
+	"github.com/pole-io/pole-server/pkg/common/batchctrl"
 	"github.com/pole-io/pole-server/pkg/common/eventhub"
 	"github.com/pole-io/pole-server/pkg/common/utils"
 	commontime "github.com/pole-io/pole-server/pkg/common/utils/time"
@@ -223,8 +224,18 @@ func (s *Server) DeleteInstances(ctx context.Context, req []*apiservice.Instance
 
 // DeleteInstance 删除单个服务实例
 func (s *Server) DeleteInstance(ctx context.Context, req *apiservice.Instance) *apimodel.Response {
-	// Create a new instance instead of copying to avoid lock value issues
-	ins := &apiservice.Instance{
+	return s.deleteInstance(ctx, req, cloneInstanceRequest(req))
+}
+
+// ShutdownDeregisterInstance synchronously removes a server-owned instance during
+// shutdown. It intentionally bypasses batch controllers because their parent
+// context may already have been cancelled by the process supervisor.
+func (s *Server) ShutdownDeregisterInstance(ctx context.Context, req *apiservice.Instance) *apimodel.Response {
+	return s.serialDeleteInstance(ctx, req, cloneInstanceRequest(req))
+}
+
+func cloneInstanceRequest(req *apiservice.Instance) *apiservice.Instance {
+	return &apiservice.Instance{
 		Id:                req.GetId(),
 		Service:           req.GetService(),
 		Namespace:         req.GetNamespace(),
@@ -241,7 +252,6 @@ func (s *Server) DeleteInstance(ctx context.Context, req *apiservice.Instance) *
 		Location:          req.GetLocation(),
 		Metadata:          req.GetMetadata(),
 	}
-	return s.deleteInstance(ctx, req, ins)
 }
 
 // 删除实例的store操作
@@ -310,12 +320,20 @@ func (s *Server) asyncDeleteInstance(
 	future := s.bc.AsyncDeleteInstance(ins, !allowAsyncRegis)
 	rsp, err := future.Done()
 	if err != nil {
+		if errors.Is(err, batchctrl.ErrorBatchControllerStopped) {
+			return s.serialDeleteInstance(ctx, req, ins)
+		}
+		code, ok := rsp.(apimodel.Code)
+		if !ok {
+			log.Error(err.Error(), utils.RequestID(ctx))
+			return api.NewInstanceResponse(apimodel.Code_ExecuteException, req)
+		}
 		// 如果发现不存在资源，意味着实例已经被删除，直接返回成功
-		if rsp.(apimodel.Code) == apimodel.Code_NotFoundResource {
+		if code == apimodel.Code_NotFoundResource {
 			return api.NewInstanceResponse(apimodel.Code_ExecuteSuccess, req)
 		}
 		log.Error(err.Error(), utils.RequestID(ctx))
-		return api.NewInstanceResponse(rsp.(apimodel.Code), req)
+		return api.NewInstanceResponse(code, req)
 	}
 	instance := future.Detach("instance_val").(*svctypes.Instance)
 

@@ -54,11 +54,23 @@ const LabelInput: React.FC<ILabelInputProps> = ({
 }) => {
     const watchedLabels = Form.useWatch(name, form);
     const [labels, setLabels] = React.useState<Label[]>(() => normalizeLabels(form?.getFieldValue(name)));
+    const pendingLabelsRef = React.useRef<Label[] | null>(null);
     const canEdit = editable !== undefined ? editable : !disabled;
     const nameKey = JSON.stringify(name);
 
     React.useEffect(() => {
         const nextLabels = normalizeLabels(watchedLabels ?? form?.getFieldValue(name));
+        const pendingLabels = pendingLabelsRef.current;
+        if (pendingLabels) {
+            if (labelsEqual(nextLabels, pendingLabels)) {
+                pendingLabelsRef.current = null;
+            } else {
+                // Form.useWatch may briefly emit the value from before setFields.
+                // Keep the in-progress editor state until the form acknowledges
+                // the latest write, otherwise a normal keystroke removes the row.
+                return;
+            }
+        }
         setLabels(prev => labelsEqual(prev, nextLabels) ? prev : nextLabels);
     }, [watchedLabels, form, nameKey]);
 
@@ -85,6 +97,7 @@ const LabelInput: React.FC<ILabelInputProps> = ({
     };
 
     const syncLabels = (nextLabels: Label[], setFields?: (fields: FieldData[]) => void) => {
+        pendingLabelsRef.current = nextLabels;
         setLabels(nextLabels);
         setFields?.([{
             name,
@@ -199,7 +212,12 @@ const LabelInput: React.FC<ILabelInputProps> = ({
     return (
         <FormItem>
             {({ setFields }) => (
-                <FormItem label={hideLabel ? undefined : label} name={name} rules={[{ validator: labelsValidator }]}>
+                <FormItem
+                    label={hideLabel ? undefined : label}
+                    name={name}
+                    initialData={[]}
+                    rules={[{ validator: labelsValidator }]}
+                >
                     {canEdit ? renderEditor(setFields) : renderReadOnly()}
                 </FormItem>
             )}

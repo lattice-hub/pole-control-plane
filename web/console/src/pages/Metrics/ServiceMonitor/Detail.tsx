@@ -141,8 +141,8 @@ export default function ServiceMonitorDetail() {
   const pageRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const namespaceParam = searchParams.get('namespace') || SERVICE_SIGNALS[0].namespace;
-  const serviceParam = searchParams.get('service') || SERVICE_SIGNALS[0].service;
+  const namespaceParam = searchParams.get('namespace') ?? SERVICE_SIGNALS[0].namespace;
+  const serviceParam = searchParams.get('service') ?? SERVICE_SIGNALS[0].service;
   const serviceRows = React.useMemo(() => SERVICE_SIGNALS.filter((row) => row.namespace === namespaceParam && row.service === serviceParam), [namespaceParam, serviceParam]);
   const fallbackRows = serviceRows.length ? serviceRows : SERVICE_SIGNALS.filter((row) => serviceKey(row) === serviceKey(SERVICE_SIGNALS[0]));
   const serviceName = serviceKey(fallbackRows[0]);
@@ -185,6 +185,15 @@ export default function ServiceMonitorDetail() {
     { colKey: 'blocked', title: '拦截 / 降级', width: 120, align: 'right', cell: ({ row }) => formatNumber(row.blocked) },
   ], []);
 
+  if (!serviceRows.length) {
+    return (
+      <div className={style.page} ref={pageRef}>
+        <Empty title="未找到该服务的监控数据" description={`当前监控仅提供示例数据，未包含 ${namespaceParam}/${serviceParam}。`}
+          action={<Button onClick={() => navigate('/metrics/service')}>返回服务监控</Button>} />
+      </div>
+    );
+  }
+
   return (
     <div className={style.page} ref={pageRef}>
       <Breadcrumb className={style.detailBreadcrumb} maxItemWidth="220px">
@@ -197,6 +206,7 @@ export default function ServiceMonitorDetail() {
           <span className={style.headerIcon}><ServiceIcon /></span>
           <div>
             <h1>{serviceName}</h1>
+            <Tag variant="outline">示例数据 · 未连接实际服务观测</Tag>
             <p>service.name、service.namespace、service.instance.id 与语言标签共同绑定调用指标、系统指标和治理事件。</p>
           </div>
         </div>

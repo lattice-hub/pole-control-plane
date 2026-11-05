@@ -33,13 +33,6 @@ const pages = [
     toolbar: '服务清单',
   },
   {
-    name: '配置分组',
-    file: 'src/pages/Configuration/Group/group.tsx',
-    title: '配置分组',
-    create: '新建配置分组',
-    toolbar: '配置分组列表',
-  },
-  {
     name: 'MCP 服务',
     file: 'src/pages/AI/Mcp/index.tsx',
     title: 'MCP 服务',

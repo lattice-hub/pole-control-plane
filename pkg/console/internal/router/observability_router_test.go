@@ -26,11 +26,11 @@ func TestNewRouter_ServesObservabilityV1FromConsoleModule(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case strings.Contains(sql, "pole_control_plane_request_count_total"):
-			_, _ = w.Write([]byte(`{"output":[{"records":{"rows":[[1784386237437,1,"pole-control-plane","ListServices","apiserver","HTTP","success"]]}}]}`))
-		case strings.Contains(sql, "pole_control_plane_request_duration_seconds_sum"):
-			_, _ = w.Write([]byte(`{"output":[{"records":{"rows":[[1784386237437,0.02,"pole-control-plane","ListServices","apiserver","HTTP","success"]]}}]}`))
-		case strings.Contains(sql, "pole_control_plane_request_duration_seconds_count"):
-			_, _ = w.Write([]byte(`{"output":[{"records":{"rows":[[1784386237437,1,"pole-control-plane","ListServices","apiserver","HTTP","success"]]}}]}`))
+			_, _ = w.Write([]byte(`{"output":[{"records":{"rows":[[1784386237437,1,"pole-control-plane","ListServices","apiserver","HTTP","success","pole-system"]]}}]}`))
+		case strings.Contains(sql, "pole_control_plane_request_duration_seconds_bucket"):
+			_, _ = w.Write([]byte(`{"output":[{"records":{"rows":[[1784386237437,1,"pole-control-plane","ListServices","apiserver","HTTP","success","0.025","pole-system"],[1784386237437,1,"pole-control-plane","ListServices","apiserver","HTTP","success","inf","pole-system"]]}}]}`))
+		case strings.Contains(sql, "pole_traces"):
+			_, _ = w.Write([]byte(`{"output":[{"records":{"rows":[["2026-08-05 16:00:00.000","2026-08-05 16:00:00.020",20000000,"","trace-a","span-root","SPAN_KIND_SERVER","ListServices","STATUS_CODE_OK","","pole-control-plane"]]}}]}`))
 		case strings.Contains(sql, "pole_events"):
 			_, _ = w.Write([]byte(`{"output":[{"records":{"rows":[["2026-07-19 09:05:00","INFO","default/checkout/10.0.0.1:8080","{\"pole.event.kind\":\"service\",\"event.name\":\"InstanceOffline\",\"pole.discovery.event\":\"InstanceOffline\",\"pole.namespace\":\"default\",\"pole.service.name\":\"checkout\",\"pole.resource.name\":\"default/checkout/10.0.0.1:8080\",\"pole.server.address\":\"node-0\"}","{}"]]}}]}`))
 		default:
@@ -71,9 +71,10 @@ func TestNewRouter_ServesObservabilityV1FromConsoleModule(t *testing.T) {
 				Configured bool   `json:"configured"`
 			} `json:"provider"`
 			Components []struct {
-				Component string  `json:"component"`
-				API       string  `json:"api"`
-				QPS       float64 `json:"qps"`
+				Component    string  `json:"component"`
+				API          string  `json:"api"`
+				RequestCount float64 `json:"requestCount"`
+				QPS          float64 `json:"qps"`
 			} `json:"components"`
 		} `json:"data"`
 	}
@@ -86,7 +87,8 @@ func TestNewRouter_ServesObservabilityV1FromConsoleModule(t *testing.T) {
 	require.Len(t, body.Data.Components, 1)
 	require.Equal(t, "pole-control-plane", body.Data.Components[0].Component)
 	require.Equal(t, "ListServices", body.Data.Components[0].API)
-	require.Equal(t, 1.0, body.Data.Components[0].QPS)
+	require.Equal(t, 1.0, body.Data.Components[0].RequestCount)
+	require.Equal(t, 0.0003, body.Data.Components[0].QPS)
 
 	eventRecorder := httptest.NewRecorder()
 	eventReq := httptest.NewRequest(http.MethodGet, "/observability/v1/events?namespace=default&service=checkout&event_type=InstanceOffline", nil)
@@ -107,4 +109,16 @@ func TestNewRouter_ServesObservabilityV1FromConsoleModule(t *testing.T) {
 	require.Equal(t, "InstanceOffline", eventBody.Data[0].EventType)
 	require.Equal(t, "default", eventBody.Data[0].Namespace)
 	require.Equal(t, "checkout", eventBody.Data[0].Service)
+
+	traceRecorder := httptest.NewRecorder()
+	traceReq := httptest.NewRequest(http.MethodGet, "/observability/v1/platform/traces?service=pole-control-plane&api=ListServices", nil)
+	router.ServeHTTP(traceRecorder, traceReq)
+	require.Equal(t, http.StatusOK, traceRecorder.Code)
+	require.Contains(t, traceRecorder.Body.String(), "trace-a")
+
+	detailRecorder := httptest.NewRecorder()
+	detailReq := httptest.NewRequest(http.MethodGet, "/observability/v1/traces/trace-a", nil)
+	router.ServeHTTP(detailRecorder, detailReq)
+	require.Equal(t, http.StatusOK, detailRecorder.Code)
+	require.Contains(t, detailRecorder.Body.String(), "span-root")
 }

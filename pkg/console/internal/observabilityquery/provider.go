@@ -14,11 +14,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pole-io/pole-server/apis/pkg/types"
 	"github.com/pole-io/pole-server/pkg/console/internal/common/model"
 )
 
 type Provider interface {
 	PlatformOverview(ctx context.Context, query PlatformOverviewQuery) (*PlatformOverview, error)
+	PlatformTraces(ctx context.Context, query TraceQuery) (*TraceList, error)
+	TraceDetail(ctx context.Context, traceID string) (*TraceDetail, error)
 	ServiceEvents(ctx context.Context, query EventLogQuery) (*model.EventRecordLogResponse, error)
 	Operations(ctx context.Context, query OperationLogQuery) (*model.OperationLogResponse, error)
 }
@@ -90,11 +93,13 @@ type PlatformComponentMetric struct {
 	Status       string    `json:"status"`
 	CPU          float64   `json:"cpu"`
 	Memory       float64   `json:"memory"`
+	RequestCount float64   `json:"requestCount"`
 	QPS          float64   `json:"qps"`
 	P95          float64   `json:"p95"`
 	P99          float64   `json:"p99"`
 	ErrorRate    float64   `json:"errorRate"`
 	RestartCount int64     `json:"restartCount"`
+	Protocol     string    `json:"protocol"`
 	Series       []float64 `json:"series"`
 }
 
@@ -179,7 +184,11 @@ func (p *provider) PlatformOverview(ctx context.Context, query PlatformOverviewQ
 		}
 		return nil, err
 	}
-	durationRows, err := p.queryRequestDurations(ctx, query, start, end)
+	durationRows, err := p.queryRequestDurationBuckets(ctx, query, start, end)
+	if err != nil && !isMissingTable(err) {
+		return nil, err
+	}
+	seriesRows, err := p.queryRequestSeries(ctx, query, start, end)
 	if err != nil && !isMissingTable(err) {
 		return nil, err
 	}
@@ -187,7 +196,7 @@ func (p *provider) PlatformOverview(ctx context.Context, query PlatformOverviewQ
 	if err != nil {
 		return nil, err
 	}
-	overview.Components = buildComponents(countRows, durationRows)
+	overview.Components = buildComponents(countRows, durationRows, seriesRows, end.Sub(start))
 	overview.Stats = buildStats(overview.Components)
 	overview.Series = buildSeries(countRows)
 	overview.Resources = []PlatformResourceMetric{}
@@ -286,7 +295,7 @@ func (p *provider) Operations(ctx context.Context, query OperationLogQuery) (*mo
 			Namespace:       row.LogAttrs["pole.namespace"],
 			OperationType:   row.LogAttrs["pole.audit.operation"],
 			Operator:        row.LogAttrs["pole.audit.operator"],
-			OperationDetail: row.Body,
+			OperationDetail: types.SanitizeOperationDetail(types.Resource(row.LogAttrs["pole.resource.type"]), row.Body),
 			HappenTime:      row.Timestamp.Local().Format(time.DateTime),
 			Server:          row.LogAttrs["pole.server.address"],
 		}
@@ -310,6 +319,7 @@ type requestCountRow struct {
 	Component string
 	Protocol  string
 	Result    string
+	Namespace string
 }
 
 type durationRow struct {
@@ -320,7 +330,8 @@ type durationRow struct {
 	Component string
 	Protocol  string
 	Result    string
-	Kind      string
+	Bound     string
+	Namespace string
 }
 
 type runtimeMetricDef struct {
@@ -428,9 +439,9 @@ var goRuntimeMetricDefs = []runtimeMetricDef{
 }
 
 func (p *provider) queryRequestCounts(ctx context.Context, query PlatformOverviewQuery, start, end time.Time) ([]requestCountRow, error) {
-	sql := "select greptime_timestamp, greptime_value, service_name, pole_api_name, pole_component, pole_protocol, pole_result from pole_control_plane_request_count_total"
+	sql := "select max(greptime_timestamp), max(greptime_value) - min(greptime_value), service_name, pole_api_name, pole_component, pole_protocol, pole_result, k8s_namespace_name from pole_control_plane_request_count_total"
 	sql += platformWhere(query, start, end)
-	sql += " order by greptime_timestamp desc limit 1000"
+	sql += " group by service_name, service_instance_id, pole_api_name, pole_component, pole_protocol, pole_result, k8s_namespace_name"
 
 	result, err := p.querySQL(ctx, sql)
 	if err != nil {
@@ -446,27 +457,41 @@ func (p *provider) queryRequestCounts(ctx context.Context, query PlatformOvervie
 			Component: stringValue(row[4]),
 			Protocol:  stringValue(row[5]),
 			Result:    stringValue(row[6]),
+			Namespace: stringValue(row[7]),
 		})
 	}
 	return rows, nil
 }
 
-func (p *provider) queryRequestDurations(ctx context.Context, query PlatformOverviewQuery, start, end time.Time) ([]durationRow, error) {
-	sumRows, err := p.queryDurationTable(ctx, "pole_control_plane_request_duration_seconds_sum", "sum", query, start, end)
+func (p *provider) queryRequestSeries(ctx context.Context, query PlatformOverviewQuery, start, end time.Time) ([]requestCountRow, error) {
+	sql := "select greptime_timestamp, greptime_value, service_name, pole_api_name, pole_component, pole_protocol, pole_result, k8s_namespace_name from pole_control_plane_request_count_total"
+	sql += platformWhere(query, start, end)
+	sql += " order by greptime_timestamp desc limit 10000"
+
+	result, err := p.querySQL(ctx, sql)
 	if err != nil {
 		return nil, err
 	}
-	countRows, err := p.queryDurationTable(ctx, "pole_control_plane_request_duration_seconds_count", "count", query, start, end)
-	if err != nil {
-		return nil, err
+	rows := make([]requestCountRow, 0, len(result.Rows))
+	for _, row := range result.Rows {
+		rows = append(rows, requestCountRow{
+			Timestamp: int64Value(row[0]),
+			Value:     floatValue(row[1]),
+			Service:   stringValue(row[2]),
+			API:       stringValue(row[3]),
+			Component: stringValue(row[4]),
+			Protocol:  stringValue(row[5]),
+			Result:    stringValue(row[6]),
+			Namespace: stringValue(row[7]),
+		})
 	}
-	return append(sumRows, countRows...), nil
+	return rows, nil
 }
 
-func (p *provider) queryDurationTable(ctx context.Context, table, kind string, query PlatformOverviewQuery, start, end time.Time) ([]durationRow, error) {
-	sql := "select greptime_timestamp, greptime_value, service_name, pole_api_name, pole_component, pole_protocol, pole_result from " + table
+func (p *provider) queryRequestDurationBuckets(ctx context.Context, query PlatformOverviewQuery, start, end time.Time) ([]durationRow, error) {
+	sql := "select max(greptime_timestamp), max(greptime_value) - min(greptime_value), service_name, pole_api_name, pole_component, pole_protocol, pole_result, le, k8s_namespace_name from pole_control_plane_request_duration_seconds_bucket"
 	sql += platformWhere(query, start, end)
-	sql += " order by greptime_timestamp desc limit 1000"
+	sql += " group by service_name, service_instance_id, pole_api_name, pole_component, pole_protocol, pole_result, le, k8s_namespace_name"
 
 	result, err := p.querySQL(ctx, sql)
 	if err != nil {
@@ -482,7 +507,8 @@ func (p *provider) queryDurationTable(ctx context.Context, table, kind string, q
 			Component: stringValue(row[4]),
 			Protocol:  stringValue(row[5]),
 			Result:    stringValue(row[6]),
-			Kind:      kind,
+			Bound:     stringValue(row[7]),
+			Namespace: stringValue(row[8]),
 		})
 	}
 	return rows, nil
@@ -683,6 +709,7 @@ func platformWhere(query PlatformOverviewQuery, start, end time.Time) string {
 	filters := []string{
 		fmt.Sprintf("greptime_timestamp >= '%s'", start.UTC().Format("2006-01-02 15:04:05.000")),
 		fmt.Sprintf("greptime_timestamp <= '%s'", end.UTC().Format("2006-01-02 15:04:05.000")),
+		"service_instance_id is not null",
 	}
 	if query.API != "" {
 		filters = append(filters, "pole_api_name = '"+escapeSQL(query.API)+"'")
@@ -749,7 +776,7 @@ func parseMillis(raw string) (time.Time, bool) {
 	return time.UnixMilli(value), true
 }
 
-func buildComponents(countRows []requestCountRow, durationRows []durationRow) []PlatformComponentMetric {
+func buildComponents(countRows []requestCountRow, durationRows []durationRow, seriesRows []requestCountRow, window time.Duration) []PlatformComponentMetric {
 	type aggregate struct {
 		metric PlatformComponentMetric
 		total  float64
@@ -772,17 +799,22 @@ func buildComponents(countRows []requestCountRow, durationRows []durationRow) []
 					Category:  categoryFromComponent(row.Component),
 					Component: valueOr(row.Service, "pole-control-plane"),
 					Role:      roleFromComponent(row.Component),
-					Namespace: "pole-system",
-					Pod:       valueOr(row.Service, "pole-control-plane"),
+					Namespace: valueOr(row.Namespace, "unknown"),
+					Pod:       "",
 					API:       valueOr(row.API, "unknown"),
 					Status:    "healthy",
+					Protocol:  valueOr(row.Protocol, "unknown"),
 				},
 			}
 			aggregates[key] = item
 		}
-		item.series = append(item.series, Point{Timestamp: row.Timestamp, Value: row.Value})
 		resultKey := countKey{component: key, result: valueOr(row.Result, "unknown")}
 		countsByResult[resultKey] = append(countsByResult[resultKey], Point{Timestamp: row.Timestamp, Value: row.Value})
+	}
+	for _, row := range seriesRows {
+		if item := aggregates[componentKey(row.Service, row.API, row.Component, row.Protocol)]; item != nil {
+			item.series = append(item.series, Point{Timestamp: row.Timestamp, Value: row.Value})
+		}
 	}
 
 	for resultKey, points := range countsByResult {
@@ -797,18 +829,22 @@ func buildComponents(countRows []requestCountRow, durationRows []durationRow) []
 		}
 	}
 
-	durationByKey := aggregateDurations(durationRows)
+	quantilesByKey := aggregateDurationQuantiles(durationRows)
+	windowSeconds := window.Seconds()
+	if windowSeconds <= 0 {
+		windowSeconds = 1
+	}
 	components := make([]PlatformComponentMetric, 0, len(aggregates))
 	for key, item := range aggregates {
 		metric := item.metric
-		metric.QPS = item.total
+		metric.RequestCount = round2(item.total)
+		metric.QPS = round4(item.total / windowSeconds)
 		if item.total > 0 {
 			metric.ErrorRate = round2(item.errors / item.total * 100)
 		}
-		if avg, ok := durationByKey[key]; ok {
-			ms := avg * float64(time.Second.Milliseconds())
-			metric.P95 = round2(ms)
-			metric.P99 = round2(ms)
+		if quantiles, ok := quantilesByKey[key]; ok {
+			metric.P95 = round2(quantiles.P95 * float64(time.Second.Milliseconds()))
+			metric.P99 = round2(quantiles.P99 * float64(time.Second.Milliseconds()))
 		}
 		if metric.ErrorRate > 1 {
 			metric.Status = "warning"
@@ -819,36 +855,85 @@ func buildComponents(countRows []requestCountRow, durationRows []durationRow) []
 	return components
 }
 
-func aggregateDurations(rows []durationRow) map[string]float64 {
-	type durationKey struct {
+type durationQuantiles struct {
+	P95 float64
+	P99 float64
+}
+
+type histogramBucket struct {
+	upperBound float64
+	count      float64
+	infinite   bool
+}
+
+func aggregateDurationQuantiles(rows []durationRow) map[string]durationQuantiles {
+	type bucketKey struct {
 		component string
-		kind      string
+		bound     string
 	}
-	points := make(map[durationKey][]Point)
+	points := make(map[bucketKey][]Point)
 	for _, row := range rows {
 		key := componentKey(row.Service, row.API, row.Component, row.Protocol)
-		pointKey := durationKey{component: key, kind: row.Kind}
+		pointKey := bucketKey{component: key, bound: row.Bound}
 		points[pointKey] = append(points[pointKey], Point{Timestamp: row.Timestamp, Value: row.Value})
 	}
-	averages := make(map[string]float64)
-	for keyWithKind, values := range points {
-		if keyWithKind.kind != "sum" {
+	bucketsByComponent := make(map[string][]histogramBucket)
+	for key, values := range points {
+		bound := strings.TrimSpace(strings.ToLower(key.bound))
+		infinite := bound == "inf" || bound == "+inf"
+		upperBound, err := strconv.ParseFloat(bound, 64)
+		if err != nil && !infinite {
 			continue
 		}
-		sum := counterIncrease(values)
-		count := counterIncrease(points[durationKey{component: keyWithKind.component, kind: "count"}])
-		if count > 0 {
-			averages[keyWithKind.component] = sum / count
+		bucketsByComponent[key.component] = append(bucketsByComponent[key.component], histogramBucket{
+			upperBound: upperBound,
+			count:      counterIncrease(values),
+			infinite:   infinite,
+		})
+	}
+	result := make(map[string]durationQuantiles, len(bucketsByComponent))
+	for component, buckets := range bucketsByComponent {
+		sort.SliceStable(buckets, func(i, j int) bool {
+			if buckets[i].infinite != buckets[j].infinite {
+				return !buckets[i].infinite
+			}
+			return buckets[i].upperBound < buckets[j].upperBound
+		})
+		result[component] = durationQuantiles{
+			P95: histogramQuantile(buckets, 0.95),
+			P99: histogramQuantile(buckets, 0.99),
 		}
 	}
-	return averages
+	return result
+}
+
+func histogramQuantile(buckets []histogramBucket, quantile float64) float64 {
+	if len(buckets) == 0 {
+		return 0
+	}
+	total := buckets[len(buckets)-1].count
+	if total <= 0 {
+		return 0
+	}
+	target := total * quantile
+	lastFinite := 0.0
+	for _, bucket := range buckets {
+		if bucket.infinite {
+			return lastFinite
+		}
+		lastFinite = bucket.upperBound
+		if bucket.count >= target {
+			return bucket.upperBound
+		}
+	}
+	return lastFinite
 }
 
 func buildStats(components []PlatformComponentMetric) []StatValue {
 	var total, errors, latency float64
 	for _, component := range components {
-		total += component.QPS
-		errors += component.QPS * component.ErrorRate / 100
+		total += component.RequestCount
+		errors += component.RequestCount * component.ErrorRate / 100
 		latency += component.P95
 	}
 	errorRate := 0.0
@@ -1141,6 +1226,11 @@ func floatValue(value any) float64 {
 
 func round2(value float64) float64 {
 	parsed, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
+	return parsed
+}
+
+func round4(value float64) float64 {
+	parsed, _ := strconv.ParseFloat(fmt.Sprintf("%.4f", value), 64)
 	return parsed
 }
 

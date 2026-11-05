@@ -264,6 +264,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
     const renderSeconds = (value?: number) => renderReadonly(value === undefined || value === null ? '-' : `${value} Second`);
 
     const renderUnitNumber = (
+        label: string,
         value: number | undefined,
         onChange: (value: number | undefined) => void,
         unit: string,
@@ -273,6 +274,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
     ) => (
         <InputAdornment append={unit} className={styles.unitNumber}>
             <InputNumber
+                aria-label={label}
                 theme="normal"
                 min={min}
                 max={max}
@@ -366,6 +368,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                         <div className={shared.fieldLabel}>命名空间</div>
                         {editable && !(op === 'create' && serviceContext) ? (
                             <Select
+                                aria-label="无损治理命名空间"
                                 filterable
                                 creatable
                                 value={losslessRule.namespace}
@@ -378,6 +381,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                         <div className={shared.fieldLabel}>服务名称</div>
                         {editable && !(op === 'create' && serviceContext) ? (
                             <Select
+                                aria-label="无损治理服务"
                                 filterable
                                 creatable
                                 value={losslessRule.service}
@@ -418,6 +422,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                 <div className={shared.editLabel}>请求方法</div>
                 {editable ? (
                     <Select
+                        aria-label="健康检查请求方法"
                         value={losslessRule.lossless_online.delay_register.health_check_method}
                         options={httpMethodOptions}
                         onChange={(value) => updateDelay({ health_check_method: value as string })}
@@ -428,6 +433,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                 <div className={shared.editLabel}>检查路径</div>
                 {editable ? (
                     <Input
+                        aria-label="健康检查路径"
                         value={losslessRule.lossless_online.delay_register.health_check_path}
                         onChange={(value) => updateDelay({ health_check_path: value as string })}
                     />
@@ -444,6 +450,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                     <div className={shared.editLabel}>匹配方式</div>
                     {editable ? (
                         <Select
+                            aria-label="健康检查报文匹配方式"
                             value={losslessRule.lossless_online.delay_register.payload.match}
                             options={payloadMatchOptions}
                             onChange={(value) => updateDelay({
@@ -460,6 +467,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                     <div className={shared.editLabel}>发送报文</div>
                     {editable ? (
                         <Textarea
+                            aria-label="健康检查发送报文"
                             autosize={{ minRows: 3, maxRows: 6 }}
                             value={losslessRule.lossless_online.delay_register.payload.request}
                             onChange={(value) => updateDelay({
@@ -475,6 +483,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                     <div className={shared.editLabel}>响应匹配</div>
                     {editable ? (
                         <Textarea
+                            aria-label="健康检查响应匹配报文"
                             autosize={{ minRows: 3, maxRows: 6 }}
                             value={losslessRule.lossless_online.delay_register.payload.response}
                             onChange={(value) => updateDelay({
@@ -504,6 +513,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                     </div>
                     {editable ? (
                         <Switch
+                            aria-label="上线保护启用"
                             value={losslessRule.lossless_online.delay_register.enable}
                             onChange={(checked) => updateDelay({ enable: checked as boolean })}
                         />
@@ -520,7 +530,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                                 <div className={shared.stepTitle}>延迟注册时长</div>
                                 <div className={shared.stepContent}>
                                     {editable
-                                        ? renderUnitNumber(losslessRule.lossless_online.delay_register.interval, value => updateDelay({ interval: value || 0 }), 'Second', 0)
+                                        ? renderUnitNumber('延迟注册时长', losslessRule.lossless_online.delay_register.interval, value => updateDelay({ interval: value || 0 }), 'Second', 0)
                                         : renderSeconds(losslessRule.lossless_online.delay_register.interval)}
                                 </div>
                             </div>
@@ -531,6 +541,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                                     <div className={shared.stepContent}>
                                         {editable ? (
                                             <RadioGroup
+                                                aria-label="健康检查协议"
                                                 theme="button"
                                                 variant="primary-filled"
                                                 options={protocolOptions}
@@ -550,7 +561,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                                 <div className={shared.stepTitle}>检查间隔</div>
                                 <div className={shared.stepContent}>
                                         {editable
-                                            ? renderUnitNumber(losslessRule.lossless_online.delay_register.health_check_interval, value => updateDelay({ health_check_interval: value || 0 }), 'Second', 1)
+                                            ? renderUnitNumber('健康检查间隔', losslessRule.lossless_online.delay_register.health_check_interval, value => updateDelay({ health_check_interval: value || 0 }), 'Second', 1)
                                             : renderSeconds(losslessRule.lossless_online.delay_register.health_check_interval)}
                                     </div>
                                 </div>
@@ -584,6 +595,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                     </div>
                     {editable ? (
                         <Switch
+                            aria-label="预热启用"
                             value={losslessRule.lossless_online.warmup.enable}
                             onChange={(checked) => updateWarmup({ enable: checked as boolean })}
                         />
@@ -595,7 +607,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                             <div className={shared.stepTitle}>预热窗口 <span className={shared.stepHint}>新实例不会立即按完整权重接流</span></div>
                             <div className={shared.stepContent}>
                                 {editable
-                                    ? renderUnitNumber(losslessRule.lossless_online.warmup.interval, value => updateWarmup({ interval: value || 0 }), 'Second', 1)
+                                    ? renderUnitNumber('预热窗口', losslessRule.lossless_online.warmup.interval, value => updateWarmup({ interval: value || 0 }), 'Second', 1)
                                     : renderSeconds(losslessRule.lossless_online.warmup.interval)}
                                 <div className={styles.fieldHint}>开启预热后，该时间窗内由治理层按预热曲线逐步放量。</div>
                             </div>
@@ -608,6 +620,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                                         <div className={shared.editLabel}>预热终止保护</div>
                                         {editable ? (
                                             <Switch
+                                                aria-label="预热终止保护"
                                                 value={losslessRule.lossless_online.warmup.enable_overload_protection}
                                                 onChange={(checked) => updateWarmup({ enable_overload_protection: checked as boolean })}
                                             />
@@ -617,7 +630,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                                         <div>
                                             <div className={shared.editLabel}>预热终止百分比</div>
                                             {editable
-                                                ? renderUnitNumber(losslessRule.lossless_online.warmup.overload_protection_threshold, value => updateWarmup({ overload_protection_threshold: value || 0 }), '%', 0, 100)
+                                                ? renderUnitNumber('预热终止百分比', losslessRule.lossless_online.warmup.overload_protection_threshold, value => updateWarmup({ overload_protection_threshold: value || 0 }), '%', 0, 100)
                                                 : renderReadonly(`${losslessRule.lossless_online.warmup.overload_protection_threshold}%`)}
                                         </div>
                                     )}
@@ -631,6 +644,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                                     <div>
                                         {editable ? (
                                             <InputNumber
+                                                aria-label="预热曲线值"
                                                 theme="normal"
                                                 min={1}
                                                 max={5}
@@ -668,6 +682,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                     </div>
                     {editable ? (
                         <Switch
+                            aria-label="下线保护启用"
                             value={losslessRule.lossless_offline.enable}
                             onChange={(checked) => updateOffline({ enable: checked as boolean })}
                         />
@@ -679,7 +694,7 @@ const LossLessEditor: React.FC<LossLessEditorProps> = ({ op, refresh, visible, s
                             <div className={shared.stepTitle}>下线等待</div>
                             <div className={shared.stepContent}>
                                 {editable
-                                    ? renderUnitNumber(losslessRule.lossless_offline.interval, value => updateOffline({ interval: value || 0 }), 'Second', 1)
+                                    ? renderUnitNumber('下线等待', losslessRule.lossless_offline.interval, value => updateOffline({ interval: value || 0 }), 'Second', 1)
                                     : renderSeconds(losslessRule.lossless_offline.interval)}
                             </div>
                         </div>

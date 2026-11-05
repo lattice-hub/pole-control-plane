@@ -20,7 +20,6 @@ const modeSwitch = read('src/layouts/components/Header/WorkspaceModeSwitch.tsx')
 const menu = read('src/layouts/components/Menu.tsx');
 const appLayout = read('src/layouts/components/AppLayout.tsx');
 const rootLayout = read('src/layouts/index.tsx');
-const configFileView = read('src/pages/Configuration/Group/Files/FileView.tsx');
 const pageLayout = read('src/layouts/components/Page.tsx');
 const menuStyles = read('src/layouts/components/Menu.module.less');
 
@@ -117,8 +116,6 @@ assert.match(menu, /!isAgent[\s\S]*<Nav/, 'Agent 模式必须隐藏普通资源�
 assert.doesNotMatch(appLayout, /!agentMode && <Menu/, 'Agent 模式必须保留侧栏壳和返回入口');
 assert.equal([...appLayout.matchAll(/<Menu/g)].length, 2, '侧边和混合布局都必须持续渲染侧栏工作区入口');
 assert.match(rootLayout, /key=\{workspaceMode\}/, '普通与 Agent 模式必须用独立 key 重建工作区布局壳');
-assert.match(configFileView, /交给 Agent/, '配置文件详情必须提供 Agent 上下文交接入口');
-assert.match(configFileView, /kind:\s*'config\.file'/, '配置文件交接必须携带强类型资源 kind');
 assert.match(page, /已接入当前配置/, 'Agent 必须明确展示已接收的资源上下文');
 assert.match(request, /response\?\.requestId/, 'Agent 错误链路必须优先保留后端 Request ID');
 assert.match(notification, /requestError\.requestIdLabel/, '错误通知必须可视化展示 Request ID');

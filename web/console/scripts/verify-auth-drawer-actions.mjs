@@ -11,6 +11,7 @@ const files = {
   userEditor: 'src/pages/Auth/Principal/UserEditor.tsx',
   groupEditor: 'src/pages/Auth/Principal/GroupEditor.tsx',
   roleEditor: 'src/pages/Auth/Principal/RoleEditor.tsx',
+  labelInput: 'src/components/LabelInput/index.tsx',
   principalPolicyTable: 'src/pages/Auth/Principal/PrincipalPolicyTable.tsx',
   authPolicyService: 'src/services/auth_policy.ts',
   policyEditor: 'src/pages/Auth/Policy/PolicyEditor.tsx',
@@ -40,8 +41,12 @@ for (const [key, source] of Object.entries({
 
 assert.match(sources.userTable, /openUserDetail\(row\)/,
   '用户名称和主操作必须进入用户详情页');
+assert.match(sources.userTable, /action="edit"[\s\S]*operateUser\('edit', 'user', row\)/,
+  '用户列表必须暴露已有的编辑抽屉链路');
 assert.match(sources.groupTable, /openGroupDetail\(row\)/,
   '用户组名称和主操作必须进入用户组详情页');
+assert.match(sources.groupTable, /action="edit"[\s\S]*handleEditGroup\(row, 'edit', 'group'\)/,
+  '用户组列表必须暴露已有的编辑抽屉链路');
 assert.match(sources.groupTable, /describeUserGroupToken/,
   '用户组 Token 操作不能继续为空实现');
 assert.match(sources.roleTable, /openRoleDetail\(row\)/,
@@ -90,5 +95,10 @@ for (const [key, source] of Object.entries({
 
 assert.match(sources.policyEditor, /footer=\{policyViewMode \? false : drawerFooter\}/,
   '策略详情查看态必须是纯查看抽屉，不再提供编辑/关闭 footer');
+
+assert.match(sources.labelInput, /name=\{name\}[^>]*initialData=\{\[\]\}/s,
+  'LabelInput 必须把空标签注册为表单字段默认值，不能只保存在组件本地状态');
+assert.match(sources.userEditor, /getFieldValue\('user_labels'\)[^\n]*\|\| \[\]/,
+  '创建用户未填写标签时，提交边界必须把 undefined 归一化为空数组');
 
 console.log('auth drawer action verification passed');

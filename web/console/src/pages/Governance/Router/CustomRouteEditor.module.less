@@ -95,7 +95,7 @@
     flex: 0 0 auto;
     border-radius: 999px;
     background: var(--app-brand-subtle);
-    color: #1677ff;
+    color: var(--app-brand-foreground);
     font-size: 13px;
     font-weight: 600;
 }
@@ -392,7 +392,7 @@
     padding: 0 8px;
     border-radius: 999px;
     background: var(--app-brand-subtle);
-    color: #1677ff;
+    color: var(--app-brand-foreground);
     font-size: 12px;
 }
 
@@ -796,7 +796,7 @@
         grid-template-columns: 1fr;
     }
 
-    .baseGrid > div {
+    .baseGrid :global(.fluent-col) {
         flex: 0 0 100% !important;
         max-width: 100% !important;
     }
@@ -864,7 +864,8 @@
     }
 
     .metaDescription,
-    .metaLabels {
+    .metaLabels,
+    .editMetaGrid .metaLabels {
         grid-column: auto;
     }
 
@@ -875,4 +876,8 @@
     .route-editor-header-arrow {
         transform: rotate(90deg);
     }
+}
+
+@media (max-width: 900px) {
+    .formPane { padding: 12px; }
 }

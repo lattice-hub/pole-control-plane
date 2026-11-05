@@ -1,12 +1,1187 @@
 ---
+type: Task Plan
 title: 任务计划与 Review
 tags: [tasks, todo]
-links: [lessons, adr-otel-observability-platform, adr-pole-rust-client-observability]
-updated: 2026-08-02
-sources: 0
+links: [lessons, adr-otel-observability-platform, adr-pole-rust-client-observability, adr-environment-promotion-topology, adr-kubernetes-production-deployment, kubernetes-production-sop, console-orbstack-browser-acceptance]
+updated: 2026-10-10
+sources: []
 ---
 
 # 任务计划与 Review
+
+## 2026-10-10 配置模板原型简化
+
+- [x] 对照截图与当前 HTML，确认重复说明、常驻变量表和模式选项挤占正文任务。
+- [x] 收敛模板首屏为编辑器、简短保存状态和变量/设置入口，保留校验与跨环境发布语义。
+- [x] 真实浏览器核对变量入口、草稿保留、预览/选择环境发布与宽窄布局，更新 Review。
+
+### 执行边界
+
+- 仅修改已有 HTML demo 及本任务/经验/导航记录，不调整正式 spec、React 控制台或后端。
+- 不新增自动猜测变量类型或隐式 values 继承；主路径简化采用按需展开。
+
+### Review
+
+- 模板首屏取消正文标题/常驻变量表/模式与格式选项，以及正文前后重复的归属说明；保留编辑器、简短保存状态与行数/格式。“变量 6”按需打开变量抽屉，“模板设置”打开格式/模式；已有 Fluent 外壳、环境页签、预览和选择环境发布入口保留。
+- 变量抽屉可改类型和必填、添加及移除未引用变量；添加完成返回同一变量视图，仍被正文引用的变量拒绝删除。完成或 Esc 后焦点回到原入口。没有自动猜测类型、删除声明校验或将环境 values 合入共享模板。
+- 本轮浏览器验证：主模板内容无常驻表格和 select；连续编辑正文再修改变量/格式、添加删除变量和关闭后，正文末尾标记与“未保存”状态均保留，行数同步。变量类型/必填修改再次打开仍保留。草稿普通客户端预览为 timeout 1500 且含新正文，线上 v12 为 2000 且无新正文；仅发布 prod 后变为 v15、保留两个灰度，staging v5/dev v4 均未变化。
+- 1440px 桌面与 390px 窄窗口无页面横向溢出；窄窗口变量抽屉为 358px，内部横向宽度一致，底栏位于窗口内。JS 语法通过，所查 error/warn 日志为空。截图为 web/console/output/playwright/config-demo-simplified-template-20261010.jpg。
+- 文档 diff --check 通过；知识库 lint 与修改前相比无新增诊断，既有 119 条格式诊断保留。
+- 验证后恢复初始示例与默认视口，已刷新用户两个现有 HTTP demo 标签。改动仅为独立原型和任务/经验/导航记录，不调整正式 spec、React 控制台、后端，也未提交、推送或部署。
+
+
+## 2026-10-03 配置管理 HTML 交互 demo
+
+### 跨环境模板与环境取值（用户纠正）
+
+- [x] 核对最新 spec 与 ADR，确认当前环境内完整草稿缺少共享模板管理层。
+- [x] 调整 HTML 为共享模板、环境 values/规则、选择目标环境发布，并保留独立多灰度。
+- [x] 验证跨环境共享、环境值隔离、未选环境保持生效快照，记录管理协议待补边界。
+
+#### Review
+
+- 管理入口改为共享模板列表，以及“共享模板 / 环境变量 / 环境发布 / 发布历史”四页签。变量名称、类型与必填约束只在共享模板编辑；默认值、标签取值规则和兼容开关按环境维护。发布抽屉使用现有 720px 常规宽度，支持选择多个环境，分别冻结完整发布，不设置独立生效的模板/values/binding 发布链。
+- 本轮真实浏览器验证：prod/staging/dev 默认 timeout 分别为 1500/3000/5000；共享正文保存 T3 后，草稿预览使用新正文，线上快照仍保持旧正文。仅选 prod+dev 正式发布后，prod v15/1700 与 dev v5/5000 使用 T3，未选 staging 保持 v5/3000 与旧正文；prod 原有两个灰度仍生效。
+- 多环境新增灰度保留各自正式版与已有灰度，prod 灰度 2→3、dev 0→1、staging 仍 0。勾选目标环境后自定义标签和优先级保留。新增共享布尔变量后，prod/dev 环境值均保持“待填写”，不隐式继承默认值。features.json 发布 prod+dev 时，prod 成功、dev 因缺少布尔值失败，逐环境结果明确显示。
+- 1440px/390px 页面无横向溢出；390px 发布抽屉为 358px，固定底栏可达；环境取值页窄屏无页面溢出。所查 error/warn 日志为空，内嵌 JS 语法通过。 本任务文档 diff --check 通过，知识库 lint 无新增诊断，既有格式错误仍存在。验证结束已恢复初始样例及默认视口，保留 HTTP 预览。截图为 web/console/output/playwright/config-demo-cross-environment-publish.jpg 与 config-demo-cross-environment-values.jpg。
+- 更新当前 ADR、术语及功能摘要，明确 specification 当前仅有环境内完整草稿，正式协议/后端/React 控制台仍缺共享模板管理层。需要补齐目录、独立保存/CAS、指定来源候选冻结与逐环境发布结果等合同；本轮没有修改这些正式实现，也没有提交、推送或部署。以下早期 31 项检查与 560px 发布抽屉记录是改模前证据，不能作为本轮全部功能验收。
+
+
+### 现有设计对齐（用户纠正）
+
+- [x] 核对实际 AppLayout/Menu/Header、ResourceLayout、Fluent token 与 EditorDrawer 尺寸及交互合同。
+- [x] 将同一 HTML 的导航、页面标题、控件、表面与抽屉对齐到现有控制台，保留配置交互。
+- [x] 实际浏览器验证修正产物与关键动作，刷新已有 HTTP 预览；本地文件标签由用户刷新。
+
+
+- 修正以当前 AppLayout/Menu/Header、ResourceLayout、styles/fluent.less 与 EditorDrawer 为依据：复用仓库完整/紧凑 logo、已安装 Fluent 图标的静态 SVG、真实菜单顺序和层级；移除原型私有导航分组和页面大标题。
+- 统一 232px/64px 侧栏、顶部资源标题、24px 页面边距、32px 常规按钮和 4px 控件圆角；发布/预览抽屉为 560px/960px，保留 max-width: calc(100vw - 32px)、固定底栏和内容滚动，点击遮罩不关闭。
+- 本轮浏览器核对 1440px 桌面及 390px 窄窗口无页面横向溢出；实测侧栏收放 232px/64px、按钮 32px、页面 padding 24px、预览宽度 960px、发布宽度 560px，窄窗口预览 358px 且底栏可达。草稿 1700/线上 2000 隔离、VIP 标签选中 v14、新增灰度保留正式与两个原灰度均通过；本轮浏览器 error/warn 日志为空。
+- 新截图为 web/console/output/playwright/config-demo-aligned-editor.jpg 与 config-demo-aligned-publish.jpg。实际控制台 http://pole.localhost 被浏览器策略拦截，未能做登录后的同屏对比；对齐证据为当前源码与修改后的原型实测。本地 file: 标签也不可由工具刷新，已有 HTTP 原型已刷新，用户可自行刷新原文件标签。
+- 保留独立 HTML 和本地内存示例边界，静态样式及图标复用不代表正式 React/Fluent 组件接入；本轮未修改正式前后端或 spec。
+
+- [x] 按统一配置模型重组列表、编辑、预览和多灰度发布任务，保持单一配置对象及整份发布。
+- [x] 制作独立 HTML demo，提供模板、默认值、取值规则、预览、发布及生效版本交互。
+- [x] 用真实浏览器验证主要动作及窄屏，提供可打开的预览与截图。
+
+### 执行边界
+
+- 用户要求先看快速 HTML demo；本轮只制作交互原型，不接真实 API、不调整正式前后端或发布协议。
+- 所有数据是本地示例；共享模板与各环境取值分别维护，预览标签和灰度投放条件分别持有。
+- demo 保存至 web/console/output/configuration-demo/index.html，后续正式实现以用户审阅后的方向为准。
+
+### Review
+
+- 已制作无外部依赖的独立 HTML，包含环境内配置列表、模板与类型化默认值编辑、标签取值规则、独立预览抽屉、正式/多灰度发布、生效版本和历史比较/复制/回滚。发布冻结完整定义，预览标签不进入灰度条件。
+- Playwright 真实浏览器共 31 项检查通过：草稿与生效快照隔离、标签选版、单条取值规则、多灰度并存/替换/停止、回滚创建新版本、下线保留草稿、环境隔离、创建/搜索及仅灰度/无生效版本状态。1440px 与 390px 页面无横向溢出，移动预览抽屉容纳其内容，所测主流程无 JavaScript 运行错误。
+- 已检查编辑、预览与窄屏截图；截图位于 web/console/output/playwright/config-demo-*.png。窄屏列表撑宽问题通过 grid 轨道及子项最小宽度修正。
+- 本地预览 http://127.0.0.1:59752/，单 HTML 也可离线打开。数据为内存示例，刷新恢复初始样例；未连接真实 API，不作为服务端编译器、协议兼容性、业务授权或正式控制台验收证据。
+- 本轮仅新增原型和任务/经验记录，正式前后端、spec 及已有共享改动未调整；未提交、推送或部署。原型方向仍待用户审阅。
+
+## Polaris 命名遗留审计（2026-10-02）
+
+- [x] 检查 specification 的源协议、跨语言生成选项与产物，区分版权与运行时命名。
+- [x] 核对 control-plane 的实际 gRPC 注册、方法开关与心跳日志过滤。
+- [x] 扫描其他控制面运行配置与对外字段，汇总影响及修正边界。
+
+### 执行边界
+
+- 本轮为只读代码审计，仅记录 findings；不做全仓品牌替换，不修改接口、数据库或配置行为。
+- CodeGraph 用于 Go 调用/注册链；proto 选项、任意字符串与文档不在图的完整覆盖范围，使用 rg 定位并核对源文件。
+
+### Review
+
+- 已确认 specification 源协议还剩服务发现 Java 外层类名 PolarisGRPCService，以及两个限流 proto 的 package polaris.metric.v2；后者进入真实 RateLimitGRPC 服务路径、Go/Rust 生成代码与服务注册，属于当前对外协议命名，不是纯注释。
+- grpcserver/utils/help.go 仍生成 /v1.PolarisGRPC、PolarisHeartbeatGRPC、PolarisServiceContractGRPC 旧方法开关项，而实际注册是 DiscoverGRPC、PoleHeartbeatGRPC 等新服务；旧项为冗余。base.go 的旧 Heartbeat 日志过滤项也已失效，但当前 Heartbeat 是 stream、该过滤仅用于 unary，因此不据此认定当前日志异常。polarisCode 等变量属于普通内部命名残留。
+- 当前运行配置/元数据保留 polaris_service：bootstrap/config/config.go:65 声明 YAML 键，deploy/conf/pole-server.yaml:118 使用；apis/pkg/types/metadata.go:22 定义同名 metadata，bootstrap/server.go:584 写入、健康检查 cache.go:70 读取。修改应同步生产消费方，不能只改展示名。
+- 当前认证仍接受 X-Polaris-Token（auth/user/user.go:480、httpserver/admin_access.go:448、skillmarketplace/server.go:676），默认日志路径仍为 logs/runtime/polaris-*.log（pkg/common/log/options.go:160）。这些是生效的对外字段/运维输出，不是版权署名；是否更名与调用方同步须按对应模块实施。
+- deploy/tools/include:16-17 使用 polaris-server，start/stop/check/p 脚本会 source；当前 Kubernetes 入口使用 pole-server。该旧辅助脚本在以 pole-server 为制品名时存在调用错误候选，但未证实它进入当前发布包，不声明线上故障。
+- 本次新配置专用 proto、统一 core 及新存储/入口未再查到 Polaris 产品命名；共享基础设施和其他模块尚未完全收敛。保留版权头；不把匹配总数当缺陷数，不将取消配置历史兼容的决定自动扩展为全仓迁移。
+- 证据为源文件、生成描述符和注册/生产消费调用链的静态审计；未运行部署或业务验收。代码未修改，只更新任务记录。
+
+## Discover 统一请求响应读取（2026-10-02）
+
+- [x] 按用户纠正固定双向流上的逐次请求/响应，当前不建设订阅或主动 push；检查共享改动。
+- [x] ConfigGRPC 仅保留 Discover，使用统一读取请求和最终结果消息，同步 Go/Rust 生成合同。
+- [x] Discover 接入统一核心并逐帧授权/限流，删除重复 Resolve/Watch RPC 及旧原生读取映射。
+- [x] 验证重复请求、无请求不推送、配置变化后再请求、领域失败续读、取消/EOF 和注册开关，同步文档与 Review。
+
+### 执行边界
+
+- 原生配置 gRPC 使用 ConfigKey/labels/min_cursor 请求与 ResolvedConfig 响应；每次请求返回完整当前结果，SDK 根据 resolved_revision 去重。保留单一 Discover，不建设旧 SDK 转换或目录枚举兼容层。
+- HTTP 管理和现有 HTTP 读取/长轮询本轮不改；分组、文件名枚举的既有 HTTP/适配器实现保持独立，不声称已接入统一核心。存储、发布、灰度与渲染语义不变。
+- 本任务只收敛原生 gRPC；SDK 定时读取与缓存接纳仍为后续实施。不提交、推送或部署。
+
+### Review
+
+- 追加跨语言命名修正：配置协议 java_outer_classname 从 PolarisConfigGRPCService 改为 PoleConfigGRPCService，同步 Rust proto 副本与 Go 描述符；定向生成、配置 Go 契约测试、Rust 构建及临时 Java 生成检查通过，字段和 gRPC 路径未改。
+- ConfigGRPC 已收敛为唯一 Discover，直接收发 ResolveRequest / ResolvedConfig；原生读取只走统一核心，移除重复 RPC、旧 ConfigDiscover 转换与旧 configServer 注入。旧消息仍供其他既有入口使用，本轮不清理数据或修改第三方适配。
+- 每帧独立执行开关、限流与真实授权；顺序返回完整当前结果，领域失败可以续读；没有订阅登记、后台推送或等待配置变化的任务。SDK 主动刷新和缓存接纳仍待后续接入。
+- Go/Rust 协议测试、定向 vet、Rust check/fmt、定向生成及副本一致性检查通过；共享 auth/Skill 及 Rust 非配置服务内容保持一致。control-plane 核心/存储普通回归、定向 vet 和主程序构建通过，使用临时 modfile 指向本地 spec。
+- 入口六包 race 通过，覆盖 HTTP 发布后生成 Discover 客户端读取、相同结果重复帧、同标签可见结果变更后无请求不推送、下一次请求读取新灰度、逐帧撤权/恢复、下线、依赖失败后续读，以及取消/deadline/EOF、传输错误和逐帧限流；强化 canary 无推送场景后 HTTP/config race 再次通过。
+- 生产 streamInterceptor / VirtualStream 的真实 bufconn 回归通过；修复非旧 ResponseMessage 错误日志的空指针，最终配置响应仅记录领域错误码，不输出正文。差异、文档链接及生成检查通过；知识库保持 112 errors / 13 warnings 基线，无新增诊断。
+- spec 全量 vet 仍有旧测试 config_template_contract_test.go:232 copylock，本机缺少 golangci-lint；本轮未重跑数据库故障集成、不提交或部署。此前三方法及主动订阅建议被本轮明确的请求/响应边界取代。
+
+## 配置管理 HTTP 与客户端 gRPC 边界（2026-10-02）
+
+- [x] 按用户纠正明确管理动作只走 HTTP，核对共享工作树与现有 ConfigGRPC 注册。
+- [x] 删除独立 ConfigService 和管理 RPC，统一由现有 ConfigGRPC 承载客户端 Discover、Resolve、Watch。
+- [x] 同步 Go/Rust 生成代码、运行时注册与方法开关；将管理历史测试迁到 HTTP。
+- [x] 验证管理 HTTP、客户端 gRPC 和拒绝管理 RPC，同步 ADR、索引与 Review。
+
+### 执行边界
+
+- 本轮保留 HTTP 编解码使用的管理请求/响应消息，只移除 gRPC service 中的管理动作；不改变发布、灰度、渲染和存储语义。
+- 原有客户端 Discover 仍属于当前实现参考，不据此声明已接入统一核心。保持共享改动，不提交、推送或部署。
+
+### Review
+
+- `config.proto` 只保留消息；唯一 `v1.ConfigGRPC` 声明 `Discover`、`Resolve`、`Watch`。新 ConfigService、九个管理 RPC 和原服务四个管理 RPC 均已移除，Go/Rust 客户端及定向生成脚本同步。HTTP 九个管理动作继续可用，消息继续用于 HTTP protobuf JSON 编解码。
+- 生产服务只在 client/config 启用时注册 ConfigGRPC；覆盖 client 未配置、关闭、仅 discover、显式 config 和空 include 默认情况。移除方法开关中的管理动作与不可达旧方法，关闭的新运行时方法使用 gRPC transport status，不返回类型错误的旧 Response。
+- HTTP 真实管理入口连接共用核心，生成 ConfigGRPC 客户端验证 Resolve/Watch、鉴权、deadline 和显式取消到达核心；管理方法调用及独立 ConfigService 返回 Unimplemented。连续九个 512KiB HTTP 发布后，管理历史分页完整遍历/单版本详情可读，默认 gRPC 接收预算只消费最终 512KiB 结果。
+- specification 全量 Go 测试、Rust test/check/fmt、两生成包及新合同定向 vet、两份 proto 同步和脚本检查通过。共享 auth/Skill 文件未改变；Rust v1.rs 除 ConfigGRPC 生成模块外与本轮开始时逐字一致。
+- control-plane HTTP/config、HTTP/server、grpcserver、discover、discover/v1、utils 六包 race 通过；随后新增的注册缺省与显式取消断言所在包再次 race 通过。config 核心及 MySQL 普通回归、定向 vet、全程序本地构建通过，使用临时 modfile 联调本地 spec。没有重跑与入口调整无关的真实数据库故障测试。
+- 差异/格式检查通过，知识库 lint 为 112 errors / 13 warnings，比原基线少一条日期分组诊断，无新增诊断；spec 全量 vet 仍有既有 config_template_contract_test.go:232 copylock，本机仍缺少 golangci-lint，未声称这两项通过。未提交、推送或部署。
+- 以下较早 Review 中的 ConfigService 与 gRPC 管理容量证据是当时实现记录；当前入口及验证以本节为准。SDK、Console 与外部协议接入仍按 ADR 后续阶段推进。
+
+## 统一配置沿用 v1（2026-10-02）
+
+- [x] 确认尚未正式对外发布，撤销本任务新增的配置 v2 版本边界；核对共享工作树及路由冲突。
+- [x] 将 proto、Go/Rust 生成包、原生 HTTP/gRPC 与测试统一到 v1，清理本任务的 v2 产物。
+- [x] 将 HTTP 配置动作合并进单一 /config/v1 路由服务，复验注册、权限和调用。
+- [x] 同步协议文档、ADR、索引与纠正记录，执行相关检查。
+
+### 执行边界
+
+- 仅收敛新配置协议的版本；Nacos v2、限流 polaris.metric.v2 与其他模块的版本独立，不做全仓数字替换。
+- 同字段/编号/业务语义保持一致，不引入 v2 转发别名；已有其他共享改动保留。不提交、推送或部署。
+
+### Review
+
+- 权威合同归入 `api/v1/config/config.proto`，package 为 `pole.config.v1`；Go/Rust 路径、stub、构建脚本和契约测试已同步，协议文档归入 `specification/CONFIG.md`。字段、编号及业务语义保持不变，旧本任务 v2 产物已清理。
+- 定向生成开关使用 `config`，未知参数直接报错，不接受旧版本别名或误触全量覆写；spec 原有 auth、v1 及 skill_resource 并行文件内容哈希保持一致。限流与第三方协议版本未改。
+- Go/Rust 契约测试、定向 vet、Rust check/fmt、proto 副本与脚本检查通过。control-plane 核心与存储回归、定向 vet、主程序本地构建通过；仍使用临时 modfile 联调本地 spec。
+- HTTP 配置服务复用同一个 `/config/v1` WebService，生产 `createRestfulContainer` 测试验证唯一 root，分组和 11 个动作实际可达且开关正确；原 v2 地址返回 404。统一动作显式声明 JSON，不继承分组导入导出的 multipart/zip 格式。gRPC 只注册 `pole.config.v1.ConfigService`，无 v2 别名。
+- HTTP/config、HTTP/server、grpcserver、discover、discover/v1、utils 六包 race 回归通过，包含业务鉴权、真实 HTTP/1/2 长轮询及取消、默认 gRPC 接收上限的发布/分页读取。生产容器测试证明注册与分派，业务成功由共用核心/真实授权检查器的入口测试分别证明；未声称外部 SDK E2E。
+- 旧配置 v2 字面量仅保留在拒绝旧地址的负面测试与历史日志；生产引用、生成产物和当前文档已收敛。差异、格式与文档链接检查通过，知识库 lint 与原基线一致无新增诊断。本轮未重跑与改名无关的真实数据库故障测试、未提交或部署；本机缺失 golangci-lint 及旧全量 spec vet 基线仍按前项记录。
+
+
+## 统一配置模型 P0/P1 实现（2026-10-02）
+
+- [x] 确认新 ADR 为实现依据，核对 specification/control-plane 及共享工作树边界。
+- [x] 固定新的 protobuf、Go/Rust 生成合同与原生读写/监听响应，保留无关修改。
+- [x] 实现统一领域核心：草稿 CAS、原子发布、多灰度选择、标签 values、literal/服务端渲染、停止/晋升/回滚/下线。
+- [x] 实现主库一致快照、事务游标与持久事件；接入原生 API、资源鉴权和失败状态。
+- [x] 运行契约、核心行为、存储与入口验证，并更新设计实施状态和 Review。
+
+### 执行边界
+
+- 本轮按用户“开始”推进 P0/P1；SDK、Console 和 Apollo/Nacos/Consul 适配按 ADR 后续阶段接入。本轮不发布制品、不迁移存量数据、不提交/推送/部署。
+- specification 与 control-plane 的 dirty/untracked 改动属于共享工作树；仅修改新合同与核心链路相关文件。旧协议源码的阶段性存在不成为兼容约束，新链路不转调旧发布对象。
+- CodeGraph umbrella 索引已 sync complete；protobuf 不在其语言列表内，协议源与生成脚本按已知路径直接检查。
+
+### Review
+
+- 新协议见相邻 specification 的 `CONFIG.md`，实现状态见[ADR 第 10.1 节](../technical/adr/adr-config-template-values-unification.md)。本轮完成首批新合同与核心链路，不把本任务完成等同于 P0/P1 全部阶段退出或三种外部协议兼容完成。
+- 新核心不依赖旧 TemplateRelease/ValueRelease/BindingRelease 组装。发布冻结完整 definition，服务端先选唯一发布、再按该发布规则取值并渲染；CAS 失败和无效定义不产生部分状态，正式发布不隐式停止灰度，复制灰度到草稿不改变生效状态。
+- 存储正文拆为不可变 release 行，聚合只保存草稿和成员引用；旧快照禁止覆写/删除，事件失败时状态、release、clock 全回滚。runtime 仅加载 active 发布。管理回包新增有界元数据分页、完整 active IDs 和可选单版本详情，避免大历史积累撑破 gRPC 默认接收限制；集合变更使旧页 token 冲突，不静默漏项。
+- 核心 `-race` 验证包括 literal 任意字节与空内容、同版本按标签输出、值规则歧义拒绝、增长/收缩混合的渲染容量、灰度优先级与同优先级 sequence、停止/回滚/下线、并发 CAS、失败无回退、游标下限/世代变化、监听初读与事件之间的提交以及等待期间撤权。新增分页预算/全量历史遍历/失效 token、128 灰度容量及容量内替换测试。
+- 真实隔离 MySQL 8.0.46 在 `UNIFIED_CONFIG_TEST_DSN` gated 合同中通过 race：锁等待证明确有并发交错；48 次一致读取覆盖 24 次提交；持久事件重启续读；回调与 outbox trigger 失败回滚；epoch 换代保留状态；34 个 512KiB 版本独立提交，聚合引用头小于 4KiB，运行时仅加载当前 active 正文。仅创建/清理随机测试子库，专用容器已退出并移除，共享业务库未操作。
+- HTTP/gRPC 入口使用真实默认权限检查器及边界替身，验证凭据拒绝、管理/运行时权限隔离、路由开关、状态映射、取消与 deadline。真实 HTTP/1、HTTP/2（含生产 otel writer 包装）在 20ms 全局 WriteTimeout 下完成 250ms Watch；生成 gRPC 客户端保持默认接收上限，连续 9 个 512KiB 发布后仍能完整分页及读取历史详情。相关 HTTP/gRPC 六包 race 通过；这不是实际 Token + MySQL + SDK 的业务 E2E。
+- 最终 `go test -tags nomsgpack -p 1` 通过 `./pkg/config/... ./plugin/store/mysql ./plugin/apiserver/httpserver/... ./plugin/apiserver/grpcserver/...`；新核心、存储及入口定向 `go vet` 通过。Go/Rust spec 全量测试、定向 vet、Rust check/fmt、proto 副本与差异检查通过。control-plane 使用 `/tmp/pole-unified-config-20261002/pole-server.mod` 指向本地 specification，未改共享 go.mod；正式构建前仍需发布并固定新 spec 版本。
+- 验证缺口：本机缺少 `golangci-lint`，未执行该门禁；spec 全量 `go vet` 的旧 `config_template_contract_test.go:232` copylock 基线未改。知识库 lint 与上轮 113 项错误、13 项警告完全一致，无新增诊断；没有以全库 lint 通过作结。
+- 后续范围：原生 SDK 的响应接纳与缓存、Console 统一编辑、多协议地址删除/重建及适配，恢复换代流程接入与日志清理；管理事务内部仍加载完整历史、全局时钟锁串行写入，规模化性能尚未验证。没有提交、推送、部署或存量迁移。
+
+## 配置中心统一模板与 values 方案（2026-10-02）
+
+- [x] 核对已有模板、环境组合发布、配置文件和客户端渲染设计，保留共享工作树改动。
+- [x] 核查 Apollo、Nacos、Consul 官方配置协议及本仓适配器覆盖范围。
+- [x] 形成统一领域模型、兼容投影、写入与监听语义、迁移阶段和验收矩阵的 ADR。
+- [x] 同步配置中心功能页、相关 ADR、索引与日志，并检查新增文档与链接。
+
+- [x] 根据用户澄清补齐客户端标签取值：发布定义与客户端渲染结果分离，修正缓存、结果 revision、监听和兼容边界。
+
+- [x] 补齐多灰度版本并存、稳定唯一选择、独立发布/停止/晋升/回滚、集合 revision 与两阶段标签解析的 spec 和验收合同。
+
+- [x] 对完整方案进行 Standards / Spec 双轴复核，修正操作范围、协议事务、缓存与恢复语义并复验文档。
+
+- [x] 第二轮审查：固定修订后的文档快照，独立推演协议状态转换、旧 SDK 迁移和并发场景，报告仍需解决的问题。
+
+第二轮审查项的最新处理（用户随后取消 Pole 历史兼容约束）：
+
+- [x] 撤销原 P1：旧 Pole SDK 的兼容不在新设计范围，不增加降级或能力适配。
+- [x] P2：将删除重建后的旧 CAS 隔离保证限定到具备存在期/版本信息的协议，明确 Nacos casMd5 无法防止相同内容重建及 A→B→A。
+- [x] P2：Consul Value/Flags 等完整条目不变时保留 ModifyIndex，不因内部发布审计前进而制造协议 CAS 冲突。
+- [x] P2：标签取值示例改用 pole-mustache-v1 支持的 triple-mustache，并由真实渲染入口验证示例。
+- [x] 按用户澄清删除历史迁移/旧模式约束，收敛统一服务端渲染及新 spec/SDK，复核正文与相关记录一致性。
+
+- [x] 新模型复审：固定取消历史兼容后的方案快照，检查客户端上下文切换、响应时序与外部协议一致性；仅记录确切的新问题。
+- [x] 新模型复审 P2：补齐原生 SDK 的迟到响应/回调接纳规则，使标签或身份切换后的旧请求失效，并防止较旧观察结果覆盖已接纳的新状态；结果 revision 只用于判等，不用 release_id 推断时序。
+- [x] 根据用户确认把接纳规则写入 ADR、新原生读取/监听合同和验收矩阵，同步导航与审查记录，并完成定向一致性复核。
+
+### 执行边界
+
+- 本轮交付设计方案及证据，不修改业务代码，不迁移数据，不提交、推送或部署。
+- “统一模板 + 环境 values”是用户确认的方向；兼容 profile 和分期为方案建议，真实客户端兼容性需后续实现与验收。
+- 用户已明确取消 Pole 原有模式和历史兼容；新模型仍须满足 Apollo/Nacos/Consul 外部协议。下方较早 Review 的旧 SDK、迁移和能力协商要求已由此决定取代。
+- 现有知识库使用旧 frontmatter 和 WikiLink 约定；新增文档遵守 OKF v0.2，已有共享日志与任务记录保留原格式。全库 lint 基线已记录，避免为本任务重写无关历史。
+
+### Review
+
+- 根据用户确认，已将新模型复审 P2 写入 ADR 第 4.1 节：同配置串行协调器、本地 context_generation/request_seq、observation_cursor/min_cursor、通知与已接纳位置分离、拒绝/失败及重同步。补明首次全量读取建立基线，应用通知绑定已接纳状态而非后续请求序号，避免去重导致漏发。独立定向复核确认上一轮 P2 在设计层关闭，未发现该补充引入新的确切时序矛盾；实现仍须执行停止灰度、标签 A→B→A、旧拒绝/缺失、删除重建及断线恢复等验收场景。
+- 原生读取合同、版本表、P0 交付、验收矩阵、功能页和导航已同步。6 份触达文档的适用结构、YAML、本地链接与空白检查通过；全库 lint 与上轮 113 项既有诊断完全一致，无新增诊断。本轮仍仅修改设计文档，未执行 SDK E2E、提交或部署。
+
+- 新模型复审固定主 ADR SHA-256 `d4d7e4aedf6fe18993ef57bcda6afc861398af666fdb0ab415be84b49000ff9f`。Standards/协议一致性轴未发现新增 P1/P2；Spec 轴确认 1 项 P2：L182/L186 的原子缓存更新与上下文隔离，未规定在途响应失效及接纳顺序。请求 A 读取灰度后延迟，停止灰度触发请求 B 返回正式版并生效，随后 A 到达仍可能覆盖缓存；标签切换后旧回调亦同。建议复用上下文世代及持久观察游标，明确存在/缺失/拒绝状态均受接纳规则约束，验收加入上述逆序场景。`resolved_revision` 判等与读取先后顺序分开，停止灰度可能选中更早发布的正式版，不能按 release_id 排序。
+- 本次未发现需要推翻统一发布定义、服务端标签渲染或多灰度模型的问题；结论是设计复审，不代表实现或 SDK E2E 通过。只补充审查记录与待办，方案正文保持被审快照，未修改业务代码。
+
+- 最新范围调整：撤销旧 SDK 兼容 P1，移除旧消息/旧 API 适配、历史绑定转换、保留旧排序、shadow 迁移及双路径验收。主 ADR 改为建议统一服务端渲染，新原生 SDK 只负责结果拉取、监听、校验与缓存；模板/values/取值规则仍是不可变发布定义，同版本按不同标签生成不同结果。
+- 第二轮其余三项已在设计层修订：Nacos MD5 CAS 明确内容相等与存在期隔离的不同保证，Consul 完整条目不变时不强迫 ModifyIndex 前进，示例采用 triple-mustache。协议基线补入固定版本官方源码；旧 ADR 增加历史参考提示，功能页、索引和 lesson 同步最新范围。
+- 独立定向复核后继续去掉“共享模板管理输出”导致去重影响可写性的残留，以及跨环境晋升依赖旧合同的措辞。10 份相关文档的链接/空白与适用结构检查通过，示例与此前真实渲染成功的输入一致；全库 lint 仍为 113 项旧格式错误，无新增诊断。本轮没有业务代码、数据操作或发布部署。
+
+- 第二轮审查固定 ADR SHA-256 `9d4addcfee4a3345d5b624af149a4c69491be83edfa78b55dd2bdd63555b8609`。Standards 独立审查发现 Nacos CAS 防 ABA 过度承诺；Spec 独立审查发现相同 Consul KV 不应强制推进索引，并交叉确认 Nacos CAS 问题。根代理另外核实 literal 的旧 SDK 交付合同缺失和示例语法错误，共 1 项 P1、3 项 P2；当时尚未修订，后续范围调整和处理状态见本节顶部。
+- Nacos 证据：[2.4.3 insertOrUpdateCas](https://github.com/alibaba/nacos/blob/2.4.3/config/src/main/java/com/alibaba/nacos/config/server/service/repository/extrnal/ExternalConfigInfoPersistServiceImpl.java#L188-L197) 及 [MD5 比较](https://github.com/alibaba/nacos/blob/2.4.3/config/src/main/java/com/alibaba/nacos/config/server/service/repository/extrnal/ExternalConfigInfoPersistServiceImpl.java#L615-L618)；Consul 证据：[v1.22.0 kvsSetTxn](https://github.com/hashicorp/consul/blob/v1.22.0/agent/consul/state/kvs.go#L148-L153) 和 [DirEntry.Equal](https://github.com/hashicorp/consul/blob/v1.22.0/agent/structs/structs.go#L2623-L2629)。这些是上游源码核查，不是本地协议 E2E。
+- 当前 GetConfigFileWithCache（历史路径 `pkg/config/client.go#L78`，旧实现现已移除） 仅对 CONFIG_TEMPLATE 要求渲染能力，普通文本仍交付 File.Content；该历史兼容要求现已按用户指示撤销。提取当前 render.go 的独立探针实际调用 Render：方案 double-mustache 示例返回 `unsupported template token`，替换为 triple-mustache 后输出正确；未修改源代码或新增仓库测试。
+
+- 完整方案复核固定到 ADR 内容 SHA-256 `26c2ed66673fe09e2484fb2ba3106828f7dbcf324f930442365628cc8b0a336f`，需求依据为本会话已确认的原子发布定义、标签渲染、多灰度并存和三协议兼容。审查对象是完整设计文档，不是共享工作树全部代码差异。
+- Standards：删除范围、完整集合缓存替换、兼容写入/CAS 目标、灰度回滚受众转移、Apollo 草稿/生效边界五项已修正；独立复核确认设计层关闭。Spec：重复确认删除与灰度写入歧义，并补齐 Consul 内容/存在状态/索引必须事务物化，三项在设计层关闭；未发现额外缺失需求。
+- 同步补齐地址 tombstone 不自动复活、同上下文 last-known-good 与显式缺失/拒绝区分、地址改指与跨出口校验、无 CAS 请求的真实覆盖语义和过期游标重查。明确新公开 spec 只需草稿/统一发布/解析结果，保留内部快照及协议状态；未新增用户手动组装的发布对象。
+- 复核后的 ADR、协议基线与任务文档通过 frontmatter、YAML 示例、本地链接及空白检查；全库 lint 与此前 113 项旧格式错误基线完全一致，无新增错误或警告。后续 P0 仍须锁定 SDK/profile 矩阵及原生能力协商字段，本次结论不代表实现或 SDK E2E 通过。
+
+- 多灰度补充：核对现有模板存储只替换 active normal、查询 priority 升序，以及普通文件按 version/mtime 的不同排序；方案显式保留多条 active gray，规定命中版本内部独立取值、停止后重选剩余灰度、正式发布不暗改灰度，仍只交付设计。
+
+- 后续澄清：同一发布版本可按客户端标签生成不同有效 values；原子发布不等于固化一份最终配置。已修正 ADR、功能页、协议研究的设计建议及相关 lesson；此取值规则是待实现方案，未将当前“按标签选完整发布”的能力扩大表述。
+
+- 方案见[统一模板与 values ADR](../technical/adr/adr-config-template-values-unification.md)，官方依据见[协议兼容基线](../technical/apis/config-protocol-compatibility-baseline.md)。确认一份配置的模板与环境 values 原子发布，常量模板保留原文，协议地址、写入所有者、输出字节与监听状态分别有明确合同。
+- 通过 CodeGraph 与源文件复核 Apollo/Nacos 查询缺少模板输出能力、兼容订阅未使用组合 revision、Apollo 条件读取/格式投影及 Nacos v1 监听身份缺口；没有把现有原生组合 Watch 误判为未实现。Consul 按新增 KV 适配器规划。
+- 官方研究固定 Apollo 提交与 Nacos 2.4.3 源码，区分 Nacos 3.0/3.2、Client/Admin API 和 MSE 灰度范围；记录 Apollo 双游标、Nacos MD5 和 Consul index/CAS 差异。
+- 11 份新增/修改文档的结构、标准 Markdown 本地链接和尾随空白检查通过；全库 lint 仍有旧格式问题，从基线 122 项降到 115 项，本任务未新增错误或警告，未扩大到全库格式迁移。
+- 本轮没有业务代码改动、数据迁移、SDK E2E、提交、推送或部署。协议兼容 profile 仍是后续实现与验收目标。
+
+## Console 认证态与授权拒绝分离（2026-08-19）
+
+- [x] 建立“新用户已登录，访问无权资源”的前端与 Console Proxy 紧凑回归。
+- [x] 用 CodeGraph 追踪 HTTP 401、业务码 `401001`、JWT Cookie 与 Session 恢复链路。
+- [x] 修复普通授权拒绝触发清理本地登录态、过期 HttpOnly Cookie 和跳转登录页的错误行为。
+- [x] 完成专项、Console build、Go 回归与浏览器/接口验收。
+- [x] 发布新的多架构 GHCR digest，升级用户指定 ACK context 并保持现有 PVC/公网 ALB。
+- [x] 更新 lessons、Review、操作日志并执行 context-kg lint/Git 边界检查。
+
+### 执行边界
+
+- 认证失效可以结束 Session；已认证用户的资源/函数授权拒绝必须保留 Session，并交给页面呈现无权状态。
+- 所有 ACK 命令继续显式指定 context，不修改 OrbStack，不输出用户口令或 Token。
+
+### Review
+
+- 根因同时存在于前后端：`request.ts` 将任意 HTTP 401 与业务码 `401001` 归类为未登录；Console Proxy 又对任意
+  后端 401 下发过期 JWT Cookie。CodeGraph 将页面请求、代理、认证错误映射与 Cookie 刷新链路收敛到同一修复边界。
+- 前端现在只对 Console Session 接口的 HTTP 401、旧兼容码 `407`、Token 禁用 `401003` 与 Token 缺失/无效
+  `401004` 清理登录态；资源无权 `401001` 保留 Session。后端只在响应明确携带 `401003/401004` 时清除 Cookie，
+  并将 `ErrorTokenInvalid` 映射为 `401004`，避免真实失效 Token 被误当成资源无权。
+- 专项回归先红后绿；`go test ./apis/pkg/types/auth ./pkg/console/internal/handlers ./plugin/access_control/auth/user/...`
+  与 Console release build 通过。部署后使用有效普通用户 Session 请求用户组与服务列表，均返回 HTTP 401 / `401001`
+  且不下发过期 Cookie；明确无效 Token 返回 `401004` 并清除 Cookie。
+- ACK Helm revision 9 固定双架构 GHCR digest
+  `sha256:0e0ebb117a1735d9dbe9952a5623503f0c0e424eda44bff4bbd0755f9149346f`。Control Plane Ready、零重启，
+  公网 Console/functions 200、Limiter Endpoint Ready，原有三块 PVC、独立公网 ALB 与 `full` 拓扑保持不变。
+- 部署后 Playwright 对两个并发 `401001` 做受控浏览器回归：页面保持在 `/auth/principals?tab=2`，本地用户标识未清除，
+  UI 仍显示已登录用户；无权请求仍会在浏览器开发者工具中表现为 401 网络错误，这是授权反馈而非 Session 丢失。
+
+## ACK Demo 同步 OrbStack 验收修复（2026-08-19）
+
+- [x] 只读核对 ACK context、Helm revision、运行镜像、公开入口、PVC 与数据库基线。
+- [x] 确认当前工作树对应的可发布多架构镜像边界，构建并推送不可变 GHCR tag/digest。
+- [x] 使用现有 ACK demo values、Secret 与 PVC 迁移 overlay 做 Helm server dry-run。
+- [x] 以 `--rollback-on-failure --wait` 升级 ACK release，保持 `full` 拓扑和现有数据卷不变。
+- [x] 验证 Pod、Service、Ingress、Console/API、MySQL 数据、OTel 回读及 A2A/Skill 修复制品。
+- [x] 更新部署 Review、操作日志并执行 context-kg lint 与 Git 边界检查。
+
+### 执行边界
+
+- 所有云端命令显式使用用户指定 ACK context，不切换本地 current-context，不修改 OrbStack。
+- 不重新生成或输出 Secret，不替换现有 PVC，不创建新的公网入口；复用当前 demo ALB 与 full 模式。
+- 发布镜像必须同时包含 amd64/arm64 且以 digest 部署，不能把仅存在于本机的 arm64 镜像直接用于 ACK。
+
+### Review
+
+- 基线为 Helm revision 5、`full` 模式、三块旧 PVC 与公网 ALB 200；首次 revision 6 因长版本字符串超过
+  `instance.version VARCHAR(32)` 导致自注册失败，已立即回滚为 revision 7，数据和公网入口均恢复。
+- 自注册边界现按存储契约截断版本并返回字段级错误上下文；专项单测和隔离的首次启动回归通过。
+- 最终 revision 8 固定多架构 GHCR digest
+  `sha256:b4a4268eb5d263ad0be456faabe0d0a8182e5a5c83aa081f03fcdc9b7a0f020f`；Control Plane 跨多个探针周期 Ready、零重启，
+  自注册成功，Console 和 functions 公网请求均为 200，Limiter 8101/8102 Endpoint Ready。
+- MySQL 保持 `pole_server=61`、`pole_observability=3` 张表；Greptime `pole_events` 从基线 3351 增至 3389，证明
+  OTel 写入/查询链路延续。ACK Metrics API 可用，`kubectl top pods` 已返回实时 CPU/内存。
+- 本次确认部署制品包含已验收的 A2A 删除与 Skill 导入修复，但 ACK 上未重放需登录的业务写操作；
+  这部分仍以 OrbStack 浏览器 E2E 为业务验收证据。
+
+## OrbStack Console 验收缺口补齐（2026-08-19）
+
+- [x] 定位 A2A 逻辑定义生命周期契约，实现 Console 删除入口、确认提示与删除后刷新。
+- [x] 为 A2A 删除补充静态/单元回归，构建并部署新的 OrbStack `full` 模式镜像。
+- [x] 在 `orbstack` 安装并校验 Metrics Server，证明 `kubectl top pod/node` 返回实时 CPU/内存。
+- [x] 制作隔离测试 Skill，通过 Console 执行可用的 ZIP、Git 或 Registry 导入链路并回读结果。
+- [x] 用真实浏览器删除遗留 A2A 测试定义、清理新测试数据，并复核运行态与日志。
+- [x] 更新 Console 浏览器验收知识页、任务 Review 与操作日志，执行 context-kg lint。
+
+### 执行边界
+
+- 所有 Kubernetes 操作必须显式使用 `--context orbstack`；不修改 ACK 环境。
+- Skill 测试对象使用唯一 `e2e-skill-*` 前缀，只删除本轮创建的数据。
+- Metrics Server 使用官方组件并收敛到 OrbStack 本地节点可用配置，不以静态 Deployment Ready 替代 `kubectl top` 成功。
+
+### Review
+
+- A2A/MCP 共享逻辑资源目录新增删除动作；有绑定时前端禁用，无绑定时要求二次确认。遗留
+  `e2e-ai-0819-a2a` 经 UI 删除，接口 200、列表刷新为 0、浏览器控制台 0 error。
+- OrbStack 安装官方 Metrics Server `v0.9.0`，APIService Available，`kubectl top node/pod` 已返回实际 CPU/内存；
+  安装没有使用 kubelet insecure TLS 规避证书校验。
+- 自包含 ZIP `e2e/e2e-orbstack-check@0.0.1` 经 Console 上传返回 201，安全扫描通过并回读 `SKILL.md` 文件树。
+  首次上传暴露 MySQL 时间字段扫描错误，DSN 增加 `parseTime=true` 后同一操作通过。
+- 当前 OrbStack 使用 `pole-control-plane:console-e2e-final10-20260819`，Control Plane Ready、零重启；临时验收账号已停用，
+  A2A 遗留定义已清理，测试 Skill Release 与 Publisher 按回归制品保留。
+
+## OrbStack Console 全量操作按钮验收（2026-08-19）
+
+- [x] 盘点全部 Console 路由、页面、操作按钮及其 API/状态变更，形成可追踪矩阵。
+- [x] 核验当前工作树、镜像构建边界和 `orbstack` 集群状态，部署当前制品。
+- [x] 建立带统一前缀的隔离验收数据，明确创建、编辑、发布、回滚、删除顺序。
+- [x] 用真实浏览器逐页执行桌面端导航、查询及当前运行依赖允许的写操作。
+- [x] 补测窄屏、深色主题、权限、确认弹窗、空态和失败提示中的关键操作。
+- [x] 对发现的缺陷实施最小修复并重复受影响操作回归。
+- [x] 清理可由 UI 删除的验收数据，记录通过、失败、权限受限和未验证边界。
+
+### 验收口径
+
+- “按钮可用”必须证明其真实导航、请求或状态变化符合预期，不能只证明 DOM 可点击。
+- 写操作需要验证请求、响应、刷新后可见性与删除清理；发布类操作还需验证状态迁移。
+- 仅静态存在、Mock、禁用、权限隐藏或依赖未配置的能力单独归类，不冒充业务 E2E 通过。
+- 所有 Kubernetes 命令显式使用 `--context orbstack`，不切换当前 context，不启动宿主机 Pole 进程。
+
+### Review
+
+- 已用真实浏览器完成 13 个一级页面导航，并对环境、配置、服务/别名/实例、认证、A2A、MCP 执行创建、
+  回读、更新和删除；配置发布覆盖 v1/v2、比较与回滚生成 v3。
+- 修复并重放实例 metadata/删除键、环境服务删除键、配置删除后残留详情路由、A2A 绑定回显、MCP 长地址和
+  390×844 窄屏头部溢出；最终配置删除后不再请求已删除详情，浏览器 0 error/0 warning。
+- 当前 OrbStack 镜像为 `pole-control-plane:console-e2e-final8-20260819`，`full` 模式 Pod Ready、零重启，
+  HTTPRoute Accepted/ResolvedRefs，Console/functions 均为 200，Limiter 8101/8102 Endpoint Ready。
+- 临时配置文件、配置分组、环境、服务、别名、实例、用户、用户组、角色、策略和 MCP 对象已从 UI 清理；
+  A2A 逻辑定义因产品没有删除入口而保留为明确限制。
+- Skill 外部导入、Agent 模型调用、系统配置发布/重启与九类治理规则逐类发布仍受依赖或共享运行态边界限制，
+  未将页面可打开冒充为这些业务链路已通过。详细矩阵见 [[console-orbstack-browser-acceptance]]。
+
+## ACK Demo 创建用户 `undefined.reduce` 缺陷（2026-08-19）
+
+- [x] 检查创建入口与相关编辑器现有工作区改动，建立不覆盖用户资产的修改边界。
+- [x] 从 ACK 在线哈希资源定位 `user_labels.reduce`，建立可稳定失败的专项回归。
+- [x] 用 CodeGraph 追踪 `NamespaceEditor/UserEditor -> FormStore.submit -> saveUsers` 数据链路并验证根因。
+- [x] 为共享 `LabelInput` 注册空数组默认值，并在用户提交边界再次归一化。
+- [x] 完成专项测试、Console lint、release build 和多架构镜像发布。
+- [x] 将不可变镜像 digest 滚动更新到 ACK `full` 模式并验证运行态资源。
+- [ ] 由当前已登录用户强制刷新后复验真实创建；自动化浏览器未继承该认证会话。
+
+### Review
+
+- 线上旧资源 `index-B0bHS1BA.js:1:1947` 精确对应创建用户提交代码：未添加用户标签时，
+  `form.getFieldValue('user_labels')` 为 `undefined`，随后直接执行 `.reduce`；异常发生在 API dispatch 前。
+- 红色反馈环 `node scripts/verify-auth-drawer-actions.mjs` 连续两次稳定失败；共享字段默认值与提交边界修复后
+  连续两次通过。`test:fluent-input-controls`、`oxlint --quiet` 和 release build 同时通过。
+- GHCR 多架构镜像包含 AMD64、ARM64、provenance 与 SBOM，固定 digest 为
+  `sha256:39d56fdd8b65a1df94c6035fbb0a3221fc9c9c77ae247fed099f8fbd568afe48`。
+- ACK Helm revision 5 已部署；`pole-control-plane-0` Ready、零重启，公网 SPA 入口为
+  `index-D6IUd8cp.js`，运行中的用户模块已确认使用 `getFieldValue("user_labels") || []`。MySQL 仍保留
+  `pole_server=61`、`pole_observability=3` 张表，其它三个工作负载也保持 Ready。
+- 浏览器自动化连接超时且没有当前管理员认证会话，因此未把真实创建写操作标记为已验证；需用户强制刷新后重试。
+- 升级后的 Pod/Service 始终为 200，但公网 ALB 一度静默超时。最终确认最初的 White ACL 未因省略
+  `aclConfig` 自动解绑；改为显式空 Black ACL 后两个 EIP 均恢复 200。临时 Ingress 同时切到预先创建、明确标注
+  `server-group-type: Ip` 的 `pole-console-public-backend`，保证 ClusterIP 后端按 Pod IP 注册。
+
+## ACK Demo Console 临时公网初始化入口（2026-08-18）
+
+- [x] 核对 ACK LoadBalancer Service 能力、现有公网资源和 Console endpoint。
+- [x] 尝试独立临时公网 CLB Service，并在阿里云账号风控拒绝后清理失败资源。
+- [x] 创建独立临时公网 ALB HTTP Listener，仅允许当前公网 IPv4 `/32` 访问。
+- [x] 等待公网 DNS，验证允许来源可访问且独立外部抓取来源无法访问。
+- [x] 提供管理员初始化 URL、使用期限和一键删除命令。
+- [x] 按用户后续要求移除 ALB Listener 来源白名单，验证任意公网来源可访问。
+- [ ] 初始化完成后删除临时 Service，并验证云负载均衡回收。
+
+### Review（等待用户初始化）
+
+- ACK CCM 接受临时 LoadBalancer Service，但创建 CLB 时返回 `The Account is rejected by risk control system`；
+  该 Service 已立即删除，未留下 LoadBalancer 或 NodePort。
+- 按既定 ACK ALB 路径创建 `AlbConfig/IngressClass pole-demo-bootstrap-alb` 和 Ingress
+  `pole-system/pole-console-bootstrap-public`。ALB ID 为 `alb-6mxsno0bmnnm827z8a`，HTTP 80 Listener
+  使用 White ACL，仅允许执行机当前公网 IPv4 `103.54.154.56/32`。
+- 当前初始化入口为
+  `http://alb-6mxsno0bmnnm827z8a.cn-hongkong.alb.aliyuncsslbintl.com/`；允许来源实测 HTTP 200，
+  初始 `/32` White ACL 已由显式空 Black ACL 覆盖，当前拒绝条目为零、任意公网来源均可访问。该入口没有 TLS，只用于一次性管理员
+  初始化，不是正式公网发布。
+- 本地清理清单位于 `.handoff/2026-08-18-ack-demo-console-alb.yaml`。用户确认初始化完成后，必须先删除
+  Ingress 和临时 IP 后端 Service，再删除 IngressClass 和 AlbConfig；等待 AlbConfig finalizer 完成并确认 ALB/EIP
+  已回收，避免持续计费。
+
+## ACK Helm 资源命名规范化（2026-08-18）
+
+- [x] 核对 fullname helper、线上 StatefulSet/PVC/PV 和 Helm 所有权关系。
+- [x] 修复 release 与 chart 同名时生成 `pole-pole-*` 的 fullname 根因。
+- [x] 增加复用既有 PVC 的迁移参数，并验证新旧安装渲染契约。
+- [x] 对旧 StatefulSet 做有序停机，升级到 `pole-*` 且保留三块云盘数据。
+- [x] 重新验收数据、服务、遥测和回滚边界，并同步知识库。
+
+### Review
+
+- 根因是自定义 fullname helper 无条件拼接 `.Release.Name` 与 chart 名；现已采用 Helm 标准 `contains` 规则，
+  release `pole` 的全部 workload、Service、ConfigMap 和 Job 统一生成 `pole-*`。
+- Chart 为 Control Plane、MySQL、GreptimeDB 增加可选 `persistence.existingClaim`。新安装默认仍使用
+  volumeClaimTemplate；本次 ACK 迁移通过本地忽略的 overlay 复用三个旧 PVC，不把环境迁移状态写入通用 demo values。
+- 迁移前记录 PV ID、MySQL 61/3 张表和 Greptime `pole_events=3273`；按 Control Plane/OTel → GreptimeDB/MySQL
+  顺序停机后升级到 Helm revision 4。迁移后 PV ID 完全一致、MySQL 仍为 61/3，`pole_events` 增长到 3320。
+- 当前运行资源为 `pole-control-plane-0`、`pole-mysql-0`、`pole-greptimedb-0` 和 `pole-otel-collector-*`，
+  全部 Ready、零重启；旧 `pole-pole-*` workload、Service、ConfigMap、Job 均已清理。
+- 六项 HTTP smoke 全部 200；`ack-rename-canary-20260818T135130Z` 已从新 `pole-otel-collector` 写入并在
+  `pole-greptimedb` 精确回读，最近日志没有 ERROR、FATAL、panic 或遥测 drop。
+- 三个旧 PVC 名仍包含 `pole-pole`，这是保留原云盘数据的显式迁移桥，不属于运行资源重复命名。对应 overlay
+  位于被 Git 排除的 `.handoff/2026-08-18-ack-demo-existing-pvcs.yaml`，后续升级必须继续携带，直到另行完成
+  经快照保护的数据卷改名迁移。
+
+## ACK Pole 运行拓扑收敛（2026-08-18）
+
+- [x] 追踪 `all`、`control-plane`、`console` 与 `limiter-server` 的源码装配和监听端口。
+- [x] 核对 ACK 当前三个 Pole workload 的真实依赖关系与功能使用边界。
+- [x] 明确最简拓扑、可用性取舍和安全迁移步骤，并由用户确认线上变更。
+- [x] 确认后修改 Helm Chart、升级 ACK release 并重新验收。
+- [x] 同步更新部署 ADR、SOP、任务 Review 与纠正 lessons。
+
+### 调查结论
+
+- `ResolveStartProfile` 的当前源码和表驱动测试明确：`all = Control Plane + Console`，`full = Control Plane +
+  Console + Limiter`；`all` 不会启动 Limiter。
+- 当前 ACK Chart 人为选择了三个独立 workload：Control Plane 使用 `control-plane`，Console 使用 `console`，
+  Limiter 使用 `limiter-server`。Control Plane 和 Console 的基本运行不依赖 Limiter；Limiter 只承担 SDK 分布式
+  限流数据面，以及 Console `/limiter/v1/quota-leases` 的运行态反向代理目标。
+- 删除 Limiter 会失去全局限流执行和 quota-leases 运行态查询，但不影响服务发现、配置、认证、Console 网关和
+  Control Plane API。改用 `all` 还需让 Control Plane Pod 暴露 8080，并把 Console Service/Ingress selector
+  指向 Control Plane；不能只删除 Console Deployment 或只改启动参数。
+- 合并后 ACK 当前 Console 2 副本会收敛为跟随 Control Plane StatefulSet 的单副本，Console 与 Control Plane
+  共用故障域、资源限制、扩缩容和滚动重启。等待用户确认接受该可用性取舍后再修改线上 release。
+
+### Review（ACK demo full 模式）
+
+- 用户确认本次环境为 demo 后，Chart 新增 `deploymentMode=split|full`，默认仍为生产拆分模式；
+  `values-aliyun-demo.yaml` 显式选择 `full`，并将合并 Pod 调整为 request 1 CPU/2 GiB、limit 4 CPU/4 GiB。
+- ACK Helm release 已原子升级到 revision 3。集群仅剩一个 Pole StatefulSet Pod，日志确认
+  `resolved start mode: full`；独立 Console/Limiter Deployment 和 Console PDB 已由 Helm 删除。
+- Control Plane、Console、Limiter 三个 Service 均指向同一 Pod `10.182.156.186`；8080、8090、8091、8101、
+  8102 均实际监听。Console 根路径、Console API、Control Plane API、Limiter maintenance 与直接
+  `/maintain/quota-leases` 均返回 200。
+- 未认证访问 Console 的 `/limiter/v1/quota-leases` 返回 407 包装的 500，属于 Console 访问令牌门禁；Limiter
+  直接运行态接口已返回 200。本轮未伪造登录态，认证后的 Console 页面 E2E 保留为公网入口完成后的验收项。
+- `ack-full-canary-20260818T133622Z` 已经由 OTel HTTP Receiver 写入并在 GreptimeDB `pole_events` 精确回读；
+  合并 Pod Ready、零重启、镜像 digest 未变化，最近日志没有 panic、fatal、ERROR 或遥测 drop。
+
+## 阿里云 ACK 生产部署（2026-08-15 至 2026-08-18）
+
+- [x] 识别用户指定的 kubectl context，并只读核对集群版本、CNI、ALB IngressClass、CSI StorageClass 和现有资源。
+- [ ] 核对可拉取的 GHCR 镜像 digest、生产域名/证书、OSS 与 Kubernetes Secret 输入。
+- [x] 使用目标 context 完成 Helm 服务端 dry-run，再以 atomic/wait 部署 Pole 全栈。
+- [ ] 验收 Pod、PVC、内部 Service、Console ALB HTTPS、OTLP 写入回读和 OSS 备份恢复入口。
+- [x] 记录真实部署证据、回滚 revision 和尚未完成的生产边界。
+
+### 执行约束
+
+- 所有 kubectl/Helm 命令显式指定目标 context，不修改本地 current-context。
+- 不在日志、values、Git 或 Helm release 中写入 Secret 明文。
+- 不删除或覆盖集群中的既有 workload、PVC、ALB、Secret 和 namespace；发现命名冲突时先停下核对。
+- Console 是唯一公网入口；MySQL、GreptimeDB、OTel 与协议端口保持集群内访问。
+
+### Review（ACK 内部栈）
+
+- 使用 context `209760786532155929-cf522255c398e4464bad8e61bf6151665` 在 `pole-system`
+  部署 Helm release `pole`；当前 revision 2 为 deployed，7 个 Pod 全部 Ready、零重启，所有 Service
+  均为 ClusterIP 或 Headless，没有公网地址。
+- Pole 使用公开 GHCR 快照镜像
+  `ghcr.io/lattice-hub/pole-control-plane@sha256:a1513ca03af8f03e53401b64c55b1b0e9b4321efd5461dd12bbc272c5d61c2d1`；
+  Console 两副本、Control Plane 与 Limiter 的实际 imageID 均匹配该 digest。该镜像来自当前工作区快照，尚非正式
+  GitHub Release 产物，未携带正式流水线的 SBOM/provenance。
+- ACK CSI 已绑定 20 Gi Control Plane、100 Gi MySQL、200 Gi GreptimeDB 三块云盘；MySQL 初始化出
+  `pole_server` 与 `pole_observability`，其中 `pole_server` 有 61 张表。首次 MySQL 启动因容器缺少
+  `SETGID` 等最小能力失败，Chart 已补充官方 entrypoint 所需能力并升级到 revision 2，PVC 未重建。
+- Console 与 Control Plane HTTP 均返回 200，Limiter maintenance 根路径返回 200，GreptimeDB health 与
+  OTel `/health` 返回 200。OTel 初始化建表窗口曾出现一次性 400；稳定后最近 5 分钟无新增 drop/error，
+  canary `ack-deploy-canary-20260818T125846Z` 已从 OTel HTTP 接收端写入并在 `pole_events` 精确回读，
+  同时 `pole_traces` 与业务指标表持续有数据。
+- Helm lint 通过，19 个资源通过 ACK API Server dry-run；NetworkPolicy 因当前 Terway 配置显式关闭策略执行而
+  暂停启用。生产域名、TLS 证书和 OSS 凭据尚未提供，因此本轮明确禁用 Ingress 与备份；公网 ALB HTTPS、
+  OSS 备份对象检查和隔离恢复演练仍未验收，不能把当前结果表述为完整生产上线。
+
+## 通用 Kubernetes 生产部署手册与 Helm 交付（2026-08-15）
+
+- [x] 核对 Pole 三模块运行模式、配置注入、数据目录和依赖服务契约。
+- [x] 实现云厂商无关的 Helm Chart，内置 MySQL、GreptimeDB 与 OpenTelemetry Collector。
+- [x] 提供 ACK 托管版生产 values，以公网 ALB Ingress 暴露 Console，其余服务保持集群内访问。
+- [x] 使用 Kubernetes 原生 Secret 管理数据库、Console、认证、主密钥和 OSS 备份凭证。
+- [x] 增加 GHCR 公共多架构镜像发布流程，并让生产部署支持固定镜像 digest。
+- [x] 编写安装、验证、升级、回滚、备份恢复、卸载和故障排查 SOP。
+- [x] 更新 context-kg 长期技术方案、索引和日志，并完成 Helm、YAML、Shell 与知识库验证。
+
+### 已确认边界
+
+- 正式交付入口为 Helm；通用模板使用标准 Kubernetes API，阿里云能力放入独立 ACK values。
+- 生产使用同一 Pole 镜像、独立的 Control Plane、Console 与 Limiter workload，不使用 `full` 合并进程。
+- 默认数据基线为带 PVC 的 MySQL 单主与 GreptimeDB Standalone，后续可扩展 HA profile。
+- Console 使用公网 ALB HTTPS；HTTP/gRPC、Limiter、Nacos、Apollo、Eureka、xDS、MySQL、GreptimeDB
+  和 OTel Collector 默认仅通过 ClusterIP 访问。
+- 镜像权威来源为公开 `ghcr.io/lattice-hub/pole-control-plane`，生产固定 SemVer 与 digest。
+- 备份由 Kubernetes CronJob 执行并上传 OSS；所有凭据暂时只使用 Kubernetes 原生 Secret。
+
+### Review
+
+- 新增 `deploy/charts/pole`，默认强制内置 MySQL、GreptimeDB、OTel Collector，并将三种 Pole mode 拆分为独立 workload；ACK 覆盖只新增 ALB、云盘、OSS 和 NetworkPolicy 参数。
+- 新增 release 专用多阶段 Dockerfile；GitHub Release 通过固定 commit SHA 的 Actions 发布 GHCR `amd64/arm64` 镜像、SBOM 与 provenance attestation。
+- 原生 Secret 默认由 Helm 外部创建；生产 values 不携带密码。Pole 镜像、依赖镜像与备份镜像均支持 digest，SOP 将 Pole digest 列为上线强制输入。
+- MySQL 与 GreptimeDB 备份 CronJob 上传 OSS；SOP 明确手动触发、对象检查、隔离恢复、RPO/RTO 演练和 schema 回滚边界。
+- 本地验收覆盖 Helm lint、通用/ACK 模板渲染、kubectl 客户端 dry-run、Shell 语法、入口配置渲染、专项 Go 测试、容器构建和 context-kg lint；真实 ACK ALB、云盘、OSS、域名、证书及业务 E2E 仍需目标账号执行。
+
+## Console 侧边抽屉创建体验统一（2026-08-11）
+
+- [x] 盘点所有 Drawer 入口，区分创建/编辑、关联/发布和只读详情。
+- [x] 定义 compact / standard / wide / workspace 四档宽度与统一的标题、说明、滚动区、固定底栏规范。
+- [x] 抽取可复用的编辑抽屉框架，统一遮罩、关闭保护、提交中和响应式行为。
+- [x] 迁移服务发现、配置管理、认证管理、AI、治理与系统配置域的创建/编辑抽屉。
+- [x] 为各档位补充暗黑主题、窄视口和键盘/焦点回归验证。
+- [x] 完成 Console 构建、OrbStack 部署和代表性真实浏览器验收。
+
+### 初始盘点
+
+- Console 当前有 33 个包含 Drawer 的 TSX 文件；创建/编辑入口混用 `large`、百分比、固定像素和
+  `min(..., 94vw)`，遮罩、底栏、提交按钮和关闭行为也没有统一约束。
+- 只读详情抽屉不强制套用编辑表单布局，但应复用同一宽度档位和主题边界；发布、Agent Card 等复杂工作区
+  保留宽屏档位，不压缩成普通表单。
+
+### Review（静态与构建阶段）
+
+- 新增 `EditorDrawer` 和 `EditorDrawerActions`，形成 560 / 720 / 960 / 1180 四档语义宽度，并统一
+  32px 窄视口安全边距、主题表面、标题说明、滚动内容区、固定底栏和点击遮罩不关闭。
+- 已覆盖 20 个创建、编辑、关联或发布入口；配置分组、命名空间、服务、别名、实例、用户、用户组、角色、
+  授权等高频表单将提交操作移到固定底栏，AI 与发布工作区保留宽屏内容密度。
+- 新增编辑抽屉契约脚本，阻止入口回退到任意像素宽度、无遮罩或点击遮罩丢失草稿；Console release 构建通过。
+- OrbStack 已部署镜像 `sha256:472fd129ed806e9e3c96e447fb221256593ad35fc19972bf3ed05fe968129891`，
+  Pod `pole-control-plane-94b5469b7-6qdz2` Ready 1/1、零重启。真实浏览器确认 compact 560、standard 720、
+  workspace 1180 三档桌面宽度，620px 视口按 32px 安全边距收缩为 588px；浅色/暗色主题、必填校验、
+  环境预选和点击遮罩保留草稿均通过。wide 档由相同语义映射与契约脚本覆盖。
+
+## 配置分组创建抽屉体验优化（2026-08-11）
+
+- [x] 收敛创建抽屉宽度与内容层级，消除超长空白区域。
+- [x] 将必填标识、可选归属和标签拆成清晰分组，并补充上下文说明。
+- [x] 将创建/取消操作固定到抽屉底栏，增加提交中状态并防止重复提交。
+- [x] 验证新建、校验、标签增删、暗黑模式和窄视口响应式表现。
+- [x] 构建 Console、部署 OrbStack，并完成真实浏览器验收。
+
+### 实现约束
+
+- 复用现有 Fluent、Form 和 LabelInput，不引入新的 UI 依赖或重写创建 API。
+- 保留现有字段、校验和提交数据契约，仅优化信息架构、布局和交互反馈。
+- 不覆盖工作区中其它并行修改。
+
+## `pole.controller.orbstack` 无健康实例诊断（2026-08-11）
+
+- [x] 核对 OrbStack Controller 工作负载、Pod IP、镜像和运行配置。
+- [x] 核对服务端 `pole.controller.orbstack` 服务与实例持久化状态。
+- [x] 追踪 Controller 注册、心跳失败重试和服务端健康检查链路。
+- [x] 核对控制台系统服务与实例列表的 namespace、service 和健康过滤行为。
+
+### Review
+
+- Controller Pod `polaris-system/pole-controller-pole-controller-0` 正在运行，Pod IP 为
+  `192.168.194.108`，配置目标为 `pole-system/pole.controller.orbstack`。
+- 服务端不是没有记录：存在 6 条 `flag=0` 实例，但健康实例为 0；当前 Pod 对应记录为
+  `192.168.194.108:80`，其 `enable_health_check=0`、`health_status=0`、协议和元数据为空。
+- Controller 在 Control Plane 不可用或心跳返回 `500007 heartbeat execute exception` 时会调用
+  `RegisterInstance` 重试；服务端对已存在坐标返回旧实例，Controller 随即用该响应覆盖本地期望实例。
+  因旧记录缺少心跳配置，后续重试持续携带退化后的实例描述，无法恢复为健康注册。
+- 控制台系统服务视图正确查询 `namespace=pole-system`，实例表没有默认健康过滤；页面显示“无健康实例”
+  的根因是注册生命周期状态退化，而不是系统空间路由缺失。
+
+## Kubernetes 自注册与心跳健康修复（2026-08-11）
+
+- [x] 建立心跳检查器未初始化、Limiter loopback 广播和旧实例残留的回归测试。
+- [x] 恢复 `pole.checker` peer 生命周期，使 HEARTBEAT 上报和健康状态转换真正生效。
+- [x] 统一 Kubernetes 自注册为 Pod IP，并保持 Service DNS/ClusterIP 只承担稳定访问入口。
+- [x] 完善异常退出后的过期实例收敛，避免历史 Pod 地址长期作为活跃实例展示。
+- [x] 运行专项 Go 测试、格式检查与部署配置检查。
+- [x] 构建并部署 OrbStack，验证实例地址、健康状态、旧记录和实际端口可达性。
+
+### 实现约束
+
+- 不把 ClusterIP 注册成单个服务实例；每个运行副本必须保留独立 Pod IP 身份。
+- 不依赖主动 TCP 探测替代现有 HEARTBEAT 语义；修复心跳路由、记录和健康状态转换本身。
+- 不用部署脚本直接清空所有 `pole-system` 资源；旧实例清理由服务生命周期或明确的定向迁移完成。
+- 保留工作区已有并行改动，只修改自注册、健康检查和 Kubernetes 地址注入的最小必要范围。
+
+### Review
+
+- 根因包含三层：Kubernetes limiter 未显式注入 Pod IP、心跳 checker peer 集合从未由 dispatcher 初始化、
+  父 context 取消时批处理队列关闭与退出反注册存在竞态；三者均已按运行生命周期修复。
+- OrbStack 最终 Pod `192.168.194.91` 以该 Pod IP 注册 `pole.checker:8091`、
+  `pole-limiter:8101/8102`，数据库三条活跃记录均为健康，`198.18.2.17` 活跃记录为 0。
+- 真实滚动重启验证旧 Pod 正常退出，日志流退出码为 0，无关闭阶段 panic 或 limiter 反注册错误。
+- `DeleteUnHealthyInstance` 每分钟扫描一次、保留阈值仍为 60 分钟；运行验证成功软删 70 条过期记录。
+  另按精确条件软删 25 条本轮未满保留期的旧 Pod 不健康记录，最终活跃不健康记录为 0。
+- 专项测试通过：`pkg/common/batchctrl`、`pkg/service`、`pkg/service/batch`、`pkg/service/healthcheck`、
+  `plugin/service/healthchecker/heartbeat`、`pkg/admin/job`、`pkg/limiter`、`bootstrap`；Shell 语法与
+  `git diff --check` 通过。全仓测试仅有工作区既有 observability router 断言失败（期望 `0`、实际 `0.0003`），
+  与本任务改动无关。
+
+## OrbStack 自注册地址与健康状态诊断（2026-08-10）
+
+- [x] 核对 Pod IP、Service ClusterIP/DNS、容器网卡与已注册实例坐标。
+- [x] 追踪 Pole 自注册 IP、端口及健康检查类型的配置和生成链路。
+- [x] 验证 `198.18.2.17` 的实际来源、Pod 内可达性以及健康检查失败原因。
+- [x] 明确 Kubernetes 部署应使用 Pod IP、Service 地址还是其它可达地址。
+
+### 诊断边界
+
+- 本轮先做只读诊断，不修改注册地址、服务实例或 Kubernetes 工作负载。
+
+### Review
+
+- OrbStack 当前 Pod IP 为 `192.168.194.38`，`pole-control-plane` ClusterIP 为 `192.168.194.247`；
+  Kubernetes 入口脚本已通过 Downward API 注入 `POD_IP`，所以当前 `pole.checker:8091` 使用 Pod IP 自注册。
+- `198.18.2.17:8101` 是 2026-07-26 留在数据库中的活跃旧实例，属于 OrbStack `198.18.0.0/15`
+  虚拟路由网段，不是当前 Pod IP，也不是当前 Service ClusterIP。Pod 重建后历史实例没有成功注销或清理，
+  因此 Console 仍将它与大量旧 Pod IP 一起展示。
+- `pole-limiter` 当前配置把 `advertised-host` 固定为 `127.0.0.1`，因此会注册
+  `127.0.0.1:8101/8102`；该地址只对同一 Pod 网络命名空间有效，不应作为 Kubernetes 服务实例地址。
+- 实例健康类型是 HEARTBEAT，不会主动 TCP 探测注册地址。心跳检查器只有 `SetCheckerPeers` 会置为已初始化，
+  但仓库中没有生产调用方，运行日志也从未出现 peer 刷新；未初始化时 `Report` 丢弃心跳并返回成功、
+  `Check` 保持状态不变，因此当前自注册实例也会一直显示不健康。
+- Kubernetes 中逐实例注册应使用 Pod IP；Service DNS/ClusterIP 用于客户端入口和负载均衡，不能冒充单个
+  实例，否则多个 Pod 会坍缩到同一虚拟地址，实例级健康、摘除和元数据都会失真。Headless Service 可用于发现
+  Pod endpoints，但注册实体仍应是 Pod IP。
+
+## 服务与系统空间一级入口对齐（2026-08-10）
+
+- [x] 核对逻辑服务、未关联环境服务、系统服务与系统空间的现有入口和路由语义。
+- [x] 在服务首页增加“系统服务”一级入口，同时保留 `scope=system&namespace=pole-system` 深链。
+- [x] 确保环境空间继续以“业务环境 / 系统空间”分区，并可直接进入 `pole-system` 资源。
+- [x] 增加前端静态回归契约，运行专项检查、lint 与构建。
+- [x] 使用真实浏览器验证三类服务入口、系统空间跳转和暗黑主题表现。
+- [x] 更新 OrbStack，并验证 Pod、入口和页面运行态。
+
+### 设计约束
+
+- `pole-system` 是默认 SYSTEM Namespace，不是唯一系统服务；其下可承载多条内部运行时服务。
+- “未关联环境服务”是 BUSINESS 环境服务的关联状态，不新增第三种后端服务实体。
+- 系统服务不参与逻辑服务聚合，也不进入环境晋升拓扑。
+
+### Review
+
+- 服务首页现在并列展示“逻辑服务 / 未关联环境服务 / 系统服务”三个受控页签；系统服务复用原始
+  Namespace 服务列表，固定显式查询 `pole-system`，没有新增后端服务类型或复制查询实现。
+- 三个页签使用可分享 URL：未关联环境服务为 `view=unbound`，系统服务继续使用
+  `scope=system&namespace=pole-system`；从系统服务切回未关联环境服务不会被默认页签覆盖。
+- 环境空间真实显示 `业务环境 (5)` 与 `系统空间 (1)`，系统空间汇总 3 条系统服务；“查看系统服务”进入
+  同一深链并保持系统服务页签选中。
+- 浏览器验收时额外发现主题切换仍调用 `tvision-color 1.4` 已移除的 `getColorGradations`；已改用
+  `getPaletteByGradation` 并按输入色定位品牌色阶。暗黑主题切换后 Console 为 0 error、0 warning。
+- `test:system-namespace-kind`、`test:logical-service-console`、`test:dark-theme`、目标 oxlint、`build:test`、
+  release 构建和 `git diff --check` 均通过；暗黑验收截图为 `output/playwright/service-system-tab-dark.png`。
+- OrbStack 最终镜像为 `sha256:ab4667adb84229064948167e3eeb6a260dd7d14cd14bcd73bb9edd0a4f305caf`；
+  Deployment 1/1 Ready、零重启，镜像修订匹配，入口 HTTP 200，最近日志无 panic、fatal 或 error。
+
+## 环境晋升拓扑暗黑模式适配（2026-08-10）
+
+- [x] 建立真实暗黑主题下主体背景、卡片、文字和拓扑节点对比度的失败检查。
+- [x] 定位拓扑页硬编码浅色样式及其主题 token 替代关系。
+- [x] 修复页面画布、摘要、拓扑预览、编辑区与操作区的暗黑主题。
+- [x] 增加前端回归契约并运行专项检查、lint 与构建。
+- [x] 部署 OrbStack，使用真实浏览器复验暗黑和浅色主题。
+
+### 初始证据
+
+- 用户截图显示应用壳层、侧栏和表单控件已经进入暗色主题，但晋升拓扑主体仍是浅灰白画布；标题、说明、
+  拓扑节点文字接近白色，形成低对比度。这说明缺陷集中在页面私有样式，而不是全局主题没有切换。
+
+### Review
+
+- 根因是 `PromotionTopology.module.less` 的页面画布、摘要、预览、节点、编辑卡片、行和发布栏全部硬编码
+  浅色；全局 `theme-mode=dark` 与 Fluent 控件正常，CSS Module 私有表面没有读取主题 token。
+- 所有自定义表面已改用 `--app-bg`、`--app-surface`、`--app-surface-subtle`、`--app-text`、
+  `--app-text-secondary`、`--app-border-subtle`、`--app-brand-subtle` 和 `--app-brand-border`。
+- 现有 `verify-dark-theme-tokens.mjs` 修复前稳定指出该文件，修复后通过；目标 oxlint、`build:test`、release
+  构建与 `git diff --check` 通过。
+- 暗色主题真实 computed color：页面 `rgb(27,26,25)`、卡片 `rgb(37,36,35)`、预览
+  `rgb(41,40,39)`、文字白色；浅色主题分别为 `rgb(245,245,245)`、白色、`rgb(250,250,250)`、
+  文字 `rgb(36,36,36)`。
+- 已部署 OrbStack 镜像 `sha256:dd1a52375124b5bc28f83116340c994bbcc4015d7f208c9cbb08cc103156328b`；
+  Pod Ready、零重启，Gateway HTTP 200。暗色验收截图：`output/playwright/environment-promotion-topology-dark.png`。
+
+## Nacos / Eureka 默认环境动态兼容（2026-08-10）
+
+- [x] 核对 Nacos `public`/空 Namespace 与 Eureka 缺省请求的现有映射链路。
+- [x] 核对 System Configuration 的 desired/effective、apply mode 与当前 applier 能力。
+- [x] 明确 Nacos 与 Eureka 是否使用独立配置项，以及热切换对存量会话的语义。
+- [x] 归档兼容别名领域模型与动态配置 ADR。
+- [x] 实现 Namespace 引用校验、删除保护和服务端 GuardedHotReload applier。
+- [x] 将 Nacos/Eureka 适配器改为按请求读取 effective 兼容映射。
+- [x] 补充协议、发布、回滚、多实例收敛与故障场景测试。
+- [x] 完成 OrbStack 数据重建、动态映射发布和真实协议验收。
+
+### 调研结论
+
+- 当前 Nacos 通过包级变量把空 `namespaceId`/`public` 映射到 Pole `default`；Eureka 在请求未携带
+  `x-namespace` 时回退到初始化时注入的默认 Namespace。两者都不是运行时动态解析。
+- 现有 System Configuration 已具备不可变发布、desired/effective 展示和 apply mode 元数据，但普通
+  Pole Server 领域发布后统一标记 `pending_restart`；要实现动态兼容映射，必须新增真实 applier 与实例回执，
+  不能只注册两个可编辑字段。
+- 兼容默认值应是协议入口别名，不创建名为 `default` 或 `public` 的业务环境，也不进入环境晋升拓扑。
+
+### 实施 Review
+
+- Nacos 与 Eureka 使用两个独立动态配置项，首个不可变发布版本均指向 `dev`；Pole Server 每秒读取 active
+  revision，校验目标为有效 BUSINESS 环境后原子切换，非法版本保持 Last-Known-Good 并写入实例回执。
+- Nacos 空 `namespaceId`/`public` 和 Eureka 缺失 `x-namespace` 按请求读取当前 effective 值；显式环境不改写。
+  长轮询、订阅和推送固定注册时的 wire alias，避免热切换后把既有连接迁移到另一环境。
+- 删除环境时保护当前 effective 与 active desired 引用，发布前后均校验引用存在，避免发布与删除竞态。
+- 真实 Nacos 与 Eureka 注册均在不携带显式环境时写入 `dev`；数据库确认后已注销并物理清除冒烟服务和实例，
+  重启缓存后 Console 五个业务环境的服务、配置文件和实例均为 0。
+- 动态 revision 1 在最新 Pod 的 apply receipt 为 `applied`；Console “协议兼容”领域显示两项当前有效值均为
+  `dev`、来源为 `Pole 动态配置`，真实浏览器 console error/warning 为 0。
+
+## OrbStack 业务数据清理与环境拓扑重建（2026-08-10）
+
+- [x] 盘点 `pole_server` 当前环境、业务资源和拓扑数据。
+- [x] 确认清理边界以及 lane 与基线环境的拓扑语义。
+- [x] 创建清理前可恢复快照。
+- [x] 清空业务资源并保留系统账号、权限、系统空间和运行配置。
+- [x] 创建 `dev`、`lane`、`tst`、`pre`、`pro` 五个业务环境。
+- [x] 保存并发布环境晋升拓扑。
+- [x] 验证数据库、API、Console、Pod 与日志。
+
+### 盘点 Review
+
+- OrbStack `pole_server` 当前有 22 条 Namespace 记录，其中 `pole-system` 为系统空间，另有 `default`、
+  `Polaris`、`spec-governance` 以及多批 E2E/probe 环境；环境拓扑表当前没有草稿或发布版本。
+- 业务数据覆盖服务/实例、配置分组/文件/发布、治理规则/发布、MCP/A2A、逻辑服务、健康检查等；
+  认证用户、角色、策略和策略资源也位于同一数据库，不能把“全部数据”直接解释成整库清空。
+- 当前拓扑约束禁止 lane 作为基线晋升 DAG 节点；建议基线使用 `dev -> tst -> pre -> pro`，
+  lane 通过 `lane_base_bindings` 单独绑定 `dev`，表达从 dev 分叉并回归 dev 的泳道语义。
+
+### 清理 Review
+
+- 清理前完整逻辑备份保存到本机受限目录，gzip 校验、SHA256 和临时库恢复表数/核心数据签名均通过；临时验证库
+  已删除。认证用户、角色、策略、系统锁、运行配置与 `pole-system` 服务、MCP/A2A 资源保留。
+- 所有 BUSINESS 环境及其配置、治理、服务、实例、逻辑服务、模板发布和 AI 业务资源已物理清理；最终数据库
+  只有 `dev`、`lane`、`tst`、`pre`、`pro` 五个 BUSINESS 环境和 `pole-system` 一个 SYSTEM 空间。
+- 拓扑草稿与发布版本均为 r1，基线边为 `dev -> tst -> pre -> pro`，泳道绑定为 `lane -> dev`；API 校验返回
+  `valid=true` 且 issues 为空。真实 Console 显示 3 条基线边、1 条泳道绑定和已发布 r1。
+- 修复拓扑 Store 在 MySQL DSN 未启用 `parseTime` 时直接扫描 DATETIME 导致页面 500 的问题，统一改为
+  `UNIX_TIMESTAMP` 并补充拓扑及 Revision 时间读取测试。
+- 最新 OrbStack 镜像为 `sha256:612c6f0b8488980e7703f23abeace4fad77ee05693ae0d7cad40d23c56f11948`；Pod
+  Ready、零重启，Gateway HTTP 200，最近日志无 panic、错误或时间扫描异常。
+
+## Governance Workbench 默认环境诊断（2026-08-10）
+
+- [x] 建立“未主动选择时自动勾选 default”的可重复状态断言。
+- [x] 追踪环境选项、路由参数与受控选中值的初始化链路。
+- [x] 对比当前工作树与基线，锁定首次写入 `default` 的位置。
+- [x] 记录诊断证据、影响边界与结论。
+
+### Review
+
+- Workbench 将环境状态显式初始化为 `serviceContext.namespace -> URL namespace -> default`；无服务上下文且 URL
+  不带 `namespace` 时，受控 `Select` 因而直接显示 `default`。这不是 Fluent Select、命名空间列表顺序或浏览器持久化造成的。
+- 初次 `refreshData('')` 使用该状态向全部治理规则列表 API 传入 `namespace=default`，因此不仅 UI 被勾选，首次数据查询也真实限定在
+  `default`。筛选器的重置逻辑同样把独立 Workbench 恢复到 `default`。
+- `default` fallback 已存在于提交 `6a533465`（2026-07-24）；当前工作树仅增加 URL `namespace` 的更高优先级，
+  让环境工作区跳转可以选择指定环境，并非本次默认行为的来源。
+- 确定性断言从当前源码抽取初始化表达式，在空上下文、空 query 下得到 `"default"`，并按“应保持空选择”预期失败；
+  独立浏览器因没有登录态只能确认入口重定向到登录页，未执行带凭据的运行态复现。
+
+### 修复与 OrbStack 更新
+
+- [x] 补充独立 Workbench 不预选环境的回归契约。
+- [x] 将独立 Workbench 的初始值和筛选重置值改为空，同时保留服务上下文与 URL 环境。
+- [x] 验证空环境会查询全部规则，创建规则前仍要求显式选择归属环境。
+- [x] 完成 Console 聚焦测试、lint 与生产构建。
+- [x] 更新 OrbStack 并验证 Pod、镜像、HTTP 和真实页面状态。
+
+### 修复 Review
+
+- 独立 `/governance/workbench` 的初始环境与重置值改为空，表示全部环境；环境工作区传入的 URL
+  `namespace` 和服务详情嵌入的 `serviceContext.namespace` 继续按显式上下文优先。
+- 工作台摘要在空环境时显示“当前环境：全部环境”；新建规则弹窗在未选择归属环境时禁用规则类型入口，
+  避免向创建页传递空 `ruleNamespace`。
+- 回归契约先因硬编码 `default` 失败，修复后通过；同时通过治理 Namespace、跨环境资源、服务治理上下文契约、
+  目标 oxlint 和 `build:test`。目标 lint 仅保留 Workbench 原有未使用 `Input` import 警告，无新增错误。
+- `build-image.sh` 完成 release Console、Linux/ARM64 二进制和镜像构建；本地镜像 ID 为
+  `sha256:67427efa459fc789a063c3bfd223c33652c25f7f468d997c6610dd99d207bb6a`。
+- 已部署到 OrbStack Pod `pole-control-plane-6487cc987c-7796q`，Ready、零重启；Deployment 镜像修订
+  `990fc448b031421e62d17938a6a1b45fcd818663daecf4ff1e0311daa3ae74ac` 与本地镜像一致，入口 HTTP 200，
+  新 Pod 最近日志未发现 panic、fatal 或 error。
+- 真实浏览器确认独立入口显示“当前环境：全部环境”和“已选 0 项”，12 条跨环境规则可见，请求携带
+  `namespace=` 而非 `namespace=default`；`?namespace=Polaris` 仍显示一个已选环境，点击重置恢复全部环境，
+  浏览器控制台为 0 error、0 warning。
+
+## OrbStack Alloy 缩容核查（2026-08-07）
+
+- [x] 核对历史 OTel Collector 与 GreptimeDB 数据链路。
+- [x] 定位 Alloy 部署、配置及其采集目标。
+- [x] 检查 OrbStack 当前工作负载、Service 与 Collector 配置。
+- [x] 判断 Alloy 是否可缩容为 0，并列出前置条件与验证方法。
+
+### Review
+
+- `maas-alloy-metrics` 只抓取 `tidemind` namespace 的 `gateway:9090` 与 `platform:18889`，写入
+  GreptimeDB 的 `maas_metrics`；当前两个 Deployment 均为 0 副本，对应 Service 均无 Endpoint。
+- `maas-alloy-logs` 只采集 `tidemind` 中标签为 `admin/platform/gateway/website` 的容器 stdout，写入
+  `maas_logs`；当前没有匹配的活跃 Pod。它是 DaemonSet，不能使用 Deployment 的 replicas=0 语义。
+- Pole 的 metrics、traces、结构化 logs 直接发送到 `pole-otel-collector:4317/4318`，Collector 再写入
+  `pole_observability`，运行链路不依赖上述两个 Alloy release。因此本地暂不运行 MaaS 业务时可停用
+  两个 Alloy；metrics 可缩到 0，logs 应通过 Helm 停用或卸载，不能误停共享的 `maas-greptimedb-*`。
+- 运行态另发现 `pole-otel-collector` 向共享 GreptimeDB 导出 metrics/traces 时持续收到 HTTP 500 并丢弃
+  数据；这是 GreptimeDB 写入健康问题，与 Alloy 是否冗余是两个独立问题，缩容 Alloy不会修复该问题。
+
+### 执行与修复
+
+- [x] 通过 Helm 持久停用 `maas-alloy-metrics` 与 `maas-alloy-logs`。
+- [x] 验证 Alloy Pod 消失且 Pole Collector、共享 GreptimeDB 保持运行。
+- [x] 定位并修复 GreptimeDB Region/Leader 写入异常。
+- [x] 验证 Pole metrics、traces 与 logs 端到端写入恢复。
+
+### 运行态验收
+
+- 两个 Alloy release 已通过 `helm uninstall --keep-history` 停用，相关 Deployment、DaemonSet、Pod、
+  Service 与 ConfigMap 均已消失；Helm revision 历史保留，可按需恢复。
+- 共享 `maas-greptimedb` 的 Frontend、Meta、Datanode 和 Pole Collector 均保持 Ready。故障源于 OrbStack
+  恢复阶段 Meta 解析 `dev-postgres` 暂时失败，Datanode 随后无法取得 Meta leader；组件重启后 Region
+  已重新打开并恢复 Leader 写入，不需要重建数据库或清理持久化数据。
+- 恢复后连续检查 10 分钟窗口未再出现 Collector `Exporting failed`、GreptimeDB Follower 或 Leader 错误。
+  8 秒端到端窗口内 `pole_traces` 从 `898398` 增至 `898460`，运行时指标从 `185841` 增至
+  `185843`；经 Collector 发送的日志 canary `codex-alloy-shutdown-1786112431` 已从 `pole_events` 回读。
+
+## 业务环境资源视图（2026-08-07）
+
+目标：点击业务环境名称后进入独立环境工作区，以 Namespace 为唯一查询范围，集中查看该环境下的
+服务、实例、配置与治理资源，并继续复用各领域现有详情和编辑页面。
+
+- [x] 梳理命名空间点击入口、环境统计字段与各资源查询接口。
+- [x] 明确信息架构：环境身份与健康摘要、资源域导航、统一资源目录、原模块跳转。
+- [x] 新增业务环境资源路由并替换名称点击行为。
+- [x] 实现环境摘要、资源筛选、搜索、加载/错误/空态与响应式布局。
+- [x] 接通服务、配置和治理模块的 Namespace 过滤跳转。
+- [x] 补充 Console 静态契约并完成 lint、构建、浏览器与 OrbStack 验收。
+
+### 设计约束
+
+- 页面是环境资源工作区，不是命名空间编辑抽屉；编辑命名空间仍由行内操作入口承担。
+- 首屏先回答“这个环境是否健康、有哪些资源”，资源条目再按注册发现、配置中心、治理规则分域。
+- 资源目录只聚合查询与导航，不复制服务、配置和治理模块的编辑器，避免产生两套生命周期入口。
+- 系统空间继续使用现有专用入口，不进入业务环境聚合视图。
+
+### Review
+
+- 业务环境名称进入 `/namespace/environment?name=<namespace>`；行内“查看/编辑”仍打开基础信息抽屉，
+  系统空间继续沿用系统资源入口，点击语义不再混用。
+- 环境工作区首屏展示环境身份、实例健康以及注册发现、配置中心、治理规则、AI 工具四个资源域；
+  点击资源域会过滤统一目录，搜索支持资源名称、类型和摘要。
+- 服务和配置分组使用分页拉取，治理侧覆盖路由、本地/全局限流、熔断、主动探测、无损上下线、
+  泳道、鉴权、镜像与 Mock；AI 域覆盖 MCP Server 与 A2A Agent。跨域请求使用
+  `Promise.allSettled`，单个接口失败不会清空其它真实结果。
+- 资源条目进入既有服务实例、配置分组文件或治理规则详情；领域入口分别将 Namespace 传递给注册发现、
+  配置中心和治理工作台，浏览器实测治理工作台显示“当前环境：Polaris”。
+- Polaris 真实数据验收得到 `3` 项可见资源：`1` 个运行时服务、`2` 条治理规则；资源域筛选后计数、
+  表格与已选条件同步，浏览器控制台无 error。
+- `1600×1000` 与 `760×900` 通过响应式验收；窄屏资源域为两列，页面
+  `scrollWidth = clientWidth = 760`，表格仅在自身内部滚动。截图为
+  `output/playwright/environment-resource-view-final.png` 与
+  `output/playwright/environment-resource-view-narrow.png`。
+- `test:environment-resources`、目标 oxlint、`build:test`、release 构建、镜像构建、context-kg lint 和
+  `git diff --check` 通过；OrbStack Pod `pole-control-plane-7c4bcb5bbc-6cmtx` Ready、零重启，镜像为
+  `sha256:b95275c5cac1034d9b3cd3e7b1b5c9563f743150f68514414121abc5d282af35`，产品入口返回 HTTP 200。
+
+## 登录 JWT 滑动续约修复（2026-08-05）
+
+- [x] 建立可重复的 JWT 有效期与请求续约检查信号。
+- [x] 追踪登录签发、请求鉴权、Console 代理与前端 401 登出链路。
+- [x] 核实默认有效期、续约条件与自动登出根因。
+- [x] 将默认会话有效期调整为 2 小时。
+- [x] 通过统一中间件覆盖所有成功的 Console 用户活动。
+- [x] 保留登录、鉴权失败和 handler 自有 Cookie 的正确语义。
+- [x] 完成 Console 聚焦测试、相关包回归与 OrbStack 运行态验证。
+
+### Review
+
+- 修复前默认与 OrbStack 运行配置均为 `expired: 1800` 秒，即 30 分钟，并非 2 小时；默认配置、部署配置和 E2E 运行配置现已统一为 `7200` 秒。
+- 登录签发的 JWT 与 Cookie 使用同一有效期；普通 control-plane 认证代理请求原本已在后端 2xx 后重新签发 Cookie，但滑动续约没有覆盖 Console 本地 session、系统监控、Trace、指标和部分 Agent/系统配置接口。
+- 新增统一活动续约中间件，在有效 JWT 的成功响应写出或流式响应首次 Flush 前刷新 JWT/Cookie；续约逻辑集中在 Router seam，新旧 handler 无需分别接入。
+- 后端 HTTP 401 会清除 JWT，前端遇到 HTTP 401、407 或业务码 `401001` 也会清理 localStorage 并跳转登录页；此类凭据失效不能按普通活动续约。
+- 中间件排除登录请求与非 2xx 响应，并在 handler/代理已设置 JWT Cookie 时保留其结果，避免覆盖新登录、401 清理或重复写 Cookie。
+- 验证通过：Console config/handlers/bootstrap、相关 Router、E2E 配置编译与 handlers race；全 Console 回归仅命中既有观测 QPS 断言（期望 `0`、实际 `0.0003`）。OrbStack Pod `pole-control-plane-c8cbc8b89-5j8cg` Ready、零重启，Deployment 镜像修订与本地镜像一致；实测有效会话请求 `/auth/v1/user/session` 返回单个新 JWT Cookie，`Max-Age=7200` 且 `exp` 剩余 7200 秒。
+
+## Trace 鉴权 Span 语义修正（2026-08-05）
+
+- [x] 追踪命名空间查询中的 Update/Delete Span 调用链。
+- [x] 区分请求授权与响应操作能力探测。
+- [x] 补充鉴权 Span 命名测试。
+- [x] 构建、部署并验证真实 Trace。
+
+### Review
+
+- `GET /core/v1/namespaces` 只执行命名空间查询；原 Update/Delete Span 来自列表响应回填 `editable/deleteable` 前的权限能力检查，不会调用更新或删除业务服务。
+- 鉴权入口统一使用 `auth.console.authorize.<Method>`；命名空间列表操作能力探测使用 `auth.console.capability.<Method>`，避免把权限判断误读成业务副作用。
+- 聚焦测试通过：`plugin/access_control/auth/policy` 与 `pkg/namespace/...`；Console 生产构建和 ARM64 镜像构建通过。
+- OrbStack 新 Trace `ccbecb4858767d06c82477d3152c0b22` 已从 GreptimeDB 回读，包含 `authorize.DescribeNamespaces`、`capability.UpdateNamespaces`、`capability.DeleteNamespaces`，三者均为同一 handler 的鉴权子 Span。
+
+## Trace 调用树可视化重构（2026-08-05）
+
+- [x] 对照成熟开源 Trace 产品收敛调用树交互准则。
+- [x] 保留 Span 微秒时间精度并按父子树稳定排序。
+- [x] 实现折叠、选中、时间概览和 Span 详情。
+- [x] 补充响应式样式、契约测试和后端精度测试。
+- [x] 完成构建、OrbStack 部署和真实页面视觉验收。
+
+### Review
+
+- 采用成熟 Trace 产品的“调用树 + 同行时间轴 + Span 检查器”模型：父 Span 始终先于子 Span，层级通过缩进、连接线和展开控件共同表达。
+- Trace 详情新增安全的 epoch 微秒字段，保留毫秒字段兼容性；真实链路可区分 `+47μs`、`+113μs`、`+185μs` 等子毫秒开始顺序。
+- 增加全局时间概览、五段刻度、SERVER/CLIENT/INTERNAL/ERROR 图例、全部展开/折叠、行选中态和 Span ID/Parent/偏移/耗时检查器。
+- 验证通过：观测查询 Go 测试、Console 观测契约、lint（仅既有 warning）、生产构建和 `git diff --check`。
+- OrbStack Pod `pole-control-plane-7764db7c77-dmtq6` Ready、零重启，本地镜像 `sha256:54d44cf860c9cf4c5aa7a7e233f5bdbcd49d38516e67127d61ad98eaae23cd6e`，`pole.localhost` 返回 200。
+- Playwright 真实验收：展开态为六级 `11/11` 调用树，全部折叠为 `1/11`，选中 `cache.namespace.query` 显示 `+185μs` 和 Parent Span；截图为 `output/playwright/system-monitor-trace-tree-final.png`。
+
+## 系统监控内部 Span 补齐（2026-08-05）
+
+- [x] 保留 HTTP 请求父 Context，并打通 Console 到 control-plane 的 Trace 传播。
+- [x] 在鉴权、业务服务、缓存和存储稳定边界补充语义化子 Span。
+- [x] 增加 Context 传播、Span 层级和错误状态测试。
+- [x] 完成 Go/Console 构建、OrbStack 部署与真实 Trace 验收。
+
+### Review
+
+- HTTP handler 不再用 `context.Background()` 丢弃入口 Span；Console ReverseProxy 使用 OTel Transport，运行态静态接口形成 `Console SERVER -> proxy CLIENT -> control-plane SERVER -> handler`。
+- namespace 列表真实链路形成 `SERVER -> handler -> rate_limit/auth -> service.namespace.get -> cache.namespace.query/store.config.count_by_namespace`；鉴权按 Describe/Update/Delete 动作去重，最终 Trace 为 9 个可读 Span。
+- 新增 Span helper、请求内去重、父 Context 保留、代理传播和 service/store 父子关系测试；聚焦 Go 测试与 Console 观测契约/生产构建通过。
+- 全量 `go test -tags nomsgpack -p 1 ./...` 仅有既有 `pkg/console/internal/router` 观测断言失败：期望 QPS `0`、真实结果 `0.0003`，与本次 Trace 改动无关。
+- OrbStack Pod `pole-control-plane-574d948868-75l5w` Ready、零重启，镜像 `sha256:9c2dec4397c8f62ef3f2e1aaf2ad4cd26030159ec5109c892184de48e44e24e8`，`pole.localhost` 返回 200，Trace API 回读 `span_count=9`。
+
+## 系统监控搜索框撑满工具栏（2026-08-05）
+
+- [x] 让搜索框占满右侧操作区之外的剩余宽度。
+- [x] 验证宽屏与窄屏响应式布局。
+- [x] 完成构建、OrbStack 部署和视觉验收。
+
+### Review
+
+- `QueryComposer` 在存在 actions 时解除搜索框 `420px` 最大宽度，搜索框弹性占满操作区之外的剩余空间。
+- 不带 actions 的查询组件保持原有最大宽度；`1180px` 以下仍按现有响应式规则换行。
+- 验证通过：`npm run test:metrics-observability`、`npm run lint`（仅既有 warning）和生产构建；已部署 OrbStack。
+- `1600x1000` 真实页面视觉验收通过，截图为 `output/playwright/system-monitor-toolbar-search-fill.png`。
+
+## 系统监控顶部工具栏单行化（2026-08-05）
+
+- [x] 将搜索、高级筛选、时间窗、数据源状态和刷新操作合并为一行。
+- [x] 保留窄屏自动换行与操作可用性。
+- [x] 完成构建、OrbStack 部署和视觉验收。
+
+### Review
+
+- 复用 `QueryComposer.actions` 将搜索、高级筛选、时间窗、步长、时区、GreptimeDB、实时状态和刷新操作放入同一查询工具栏。
+- `1180px` 以上保持单行；窄屏允许操作区换行，搜索和筛选交互保持不变。
+- 验证通过：`npm run test:metrics-observability`、`npm run lint`（仅既有 warning）和生产构建；已部署 OrbStack。
+- `1600x1000` 真实页面视觉验收通过，截图为 `output/playwright/system-monitor-toolbar-single-row.png`。
+
+## 接口指标与 Trace 产品闭环（2026-08-05）
+
+- [x] 将接口请求量、QPS 和延迟分位数修正为准确统计口径。
+- [x] 为 control-plane HTTP/gRPC 请求补齐 OTel Span instrumentation。
+- [x] 实现 Trace 列表与 Span 树查询 Provider/API。
+- [x] 在接口明细提供按接口和时间窗的 Trace 下钻。
+- [x] 完成后端、Console 契约测试和生产构建。
+- [x] 更新并部署 OrbStack，完成真实 Trace 视觉验收。
+
+### Review
+
+- 接口明细改为真实请求增量、窗口 QPS、直方图 P95/P99 和错误率；HTTP 2xx 正确归类为成功，
+  `service.instance.id` 隔离进程重启后的累计计数器，未知 Pod 不再伪造组件名。
+- control-plane HTTP、gRPC 与 Console 网关均生成 OTel Span；Collector 将 Trace 通过
+  `greptime_trace_v1` 写入 GreptimeDB `pole_traces`，本地终检为 `4,314` 个 Trace/Span。
+- 新增接口行“查看 Trace”入口，产品链路为“接口聚合指标 -> 同接口 Trace 列表 -> Span 瀑布”；
+  支持真实状态、开始时间、总耗时、父子层级和子毫秒刻度，无 Mock 回退。
+- 验证通过：`go test -tags nomsgpack -p 1 ./...`、`npm run test:metrics-observability`、
+  `npm run lint`（仅既有 warning）和生产构建。
+- OrbStack 最终 Pod `pole-control-plane-758fc4495-nk8km` 为 Ready、零重启，镜像修订
+  `f895b7989b13be9c827457212bfe284dd462c76bc5bc3054dd9414290187a8b9` 与本地镜像一致，
+  `pole.localhost` 返回 200。
+- 最终截图：`output/playwright/system-monitor-trace-list.png`、
+  `output/playwright/system-monitor-trace-detail.png`。
+
+## 接口明细数据与 Trace 接入调查（2026-08-05）
+
+- [x] 追踪系统监控“接口明细”的前端数据来源。
+- [x] 核实后端查询、GreptimeDB 存储与真实数据边界。
+- [x] 评估指标明细关联 Trace 的现有基础与缺口。
+- [x] 给出可实施的 Trace 下钻方案与验证依据。
+
+### Review
+
+- “接口明细”直接展示 `/observability/v1/platform/overview` 的 `components`，后端查询
+  GreptimeDB `pole_control_plane_request_count_total` 与 duration sum/count 表；本地请求计数表
+  已有 `1,556,952` 条样本，因此数据源不是前端 Mock。
+- 当前表格是按 component/api/protocol 聚合的时间窗摘要，不是逐请求明细；`QPS` 当前实际为
+  窗口 counter increase，`P95/P99` 当前均为 sum/count 平均耗时，Pod/namespace 也尚未使用真实
+  K8s resource labels，产品文案与统计口径仍需收敛。
+- Collector 已配置 OTLP traces -> GreptimeDB `greptime_trace_v1` pipeline，但仓库没有业务 Span
+  instrumentation、Trace 查询 Provider/API/Console；本地 GreptimeDB 当前 52 张表中也没有 trace 表。
+- 推荐在聚合行增加“查看 Trace”下钻，按 service/api/time window 查询 trace 列表，再进入 span tree；
+  不把 `trace_id` 放入 metrics label。直接精确关联需通过 exemplars 或 event/trace 的
+  `trace_id/span_id`，普通聚合行只能做条件下钻。
+
+## OrbStack 部署当前工作树（2026-08-05）
+
+- [x] 显式使用 `orbstack` context 预检集群、MySQL、GreptimeDB 和运行密钥。
+- [x] 重建 Console 静态资源、Linux 二进制与本地容器镜像。
+- [x] 复用集群现有密钥滚动部署当前工作树。
+- [x] 验证 Pod、Service、HTTPRoute、日志、`pole.localhost` 和系统监控布局。
+
+### Review
+
+- 本地镜像 `pole-control-plane:local` 更新为
+  `sha256:ba131a506479e202ef49e0c19b36ce04c05fc9f09e4dfd61fb3d8313f0aad139`，
+  Deployment 中的镜像修订值与部署脚本计算结果一致。
+- 新 Pod `pole-control-plane-64bd67b44c-xgmr4` 为 `Running`、`1/1` Ready、零重启；
+  启动日志无异常，HTTPRoute `Accepted=True`、`ResolvedRefs=True`，`pole.localhost` 返回 200。
+- Playwright 在部署环境读取到“实时数据”且不存在“Mock 预览”；`1200px` 下 Stat 卡为
+  `284/284/284 + 432/432`，趋势图和热力图同为 `277px` 高，热力图区在 `172px` 内滚动。
+- 部署验收截图：`output/playwright/system-monitor-orbstack-deployed.png`。
+
+## 系统监控首屏布局优化（2026-08-05）
+
+- [x] 拆分热力图固定时间轴与可滚动数据区。
+- [x] 限制热力图首屏高度，消除趋势图下方大块空白。
+- [x] 优化宽屏双列比例与窄屏单列适配。
+- [x] 更新监控页布局契约并完成构建、视觉复核。
+
+### Review
+
+- 热力图拆分为固定时间轴和 `172px` 内部滚动数据区，单元格收敛为 `22px`；
+  接口数量增长不再撑高整个 dashboard 行。
+- 宽屏趋势图/热力图比例调整为 `1.35fr / 0.9fr`，到 `1080px` 才切换单列；
+  `1280px` 以下五张 Stat 卡以六列网格排成填满宽度的 `3 + 2`。
+- 真实浏览器 `1200px` 宽度下，Stat 卡宽度为 `284/284/284 + 432/432`，趋势图与
+  热力图均为 `277px` 高，热力图 `clientHeight=172`、`scrollHeight=526`。
+- 验证通过：`npm run test:metrics-observability`、`npm run lint`（仅既有 warning）、
+  `npm run build`；验收截图为 `output/playwright/system-monitor-layout-optimized.png`。
+
+## 系统监控移除 Mock 回退（2026-08-05）
+
+- [x] 删除系统监控页内置的组件与 Go runtime Mock 数据。
+- [x] 接口返回空数据时保持真实空态，不注入样例数据。
+- [x] 接口请求失败时显示查询失败状态，不伪装成可用指标。
+- [x] 更新监控页静态契约并完成构建验证。
+
+### Review
+
+- 删除 `SYSTEM_ROWS`、`MOCK_RUNTIME_ROWS`、资源派生 Mock 和 `DataSource` 回退分支；
+  组件、资源与 runtime 看板只消费 `/observability/v1/platform/overview` 响应。
+- 查询期间显示“加载中”，请求失败时清空指标并显示“查询失败”；成功空响应
+  保持各面板的真实空态。
+- 验证通过：`npm run test:metrics-observability`、`npm run lint`（仅既有 warning）和
+  `npm run build`。
+
+## 准入结果提示视觉收敛（2026-08-04）
+
+- [x] 移除把配置策略误表现为错误状态的红色结果卡。
+- [x] 改为中性、紧凑的准入行为说明。
+- [x] 重建部署并完成真实页面视觉验收。
+
+### Review
+
+- 移除红底、错误图标和重复的“快速失败”标题，改为中性边框信息条。
+- TPM 显示“请求前校验”，普通快速失败显示“超额请求处理”，排队模式显示“排队策略”。
+- 前端契约和生产构建通过，OrbStack 镜像 `sha256:493a1c4d...` 已部署；Playwright 截图保存为
+  `output/playwright/ratelimit-admission-note-final.png`。
+
+## 限流接口行布局修复（2026-08-04）
+
+- [x] 定位协议、方法、匹配类型和路径列的宽度冲突。
+- [x] 修复 Fluent 控件在网格中的最小宽度与响应式布局。
+- [x] 重建部署并完成真实页面视觉验收。
+
+### Review
+
+- 根因是 Fluent Combobox 内部 input 的默认最小宽度突破 120/150px 网格列并覆盖相邻控件。
+- grid item、Combobox 根节点和内部 input 均增加收缩约束，接口网格保留 720px 最小宽度供窄容器横向滚动。
+- 前端契约和生产构建通过，OrbStack 镜像 `sha256:d7bd5dd5...` 已部署；Playwright 测得四个控件
+  边界依次为 `380-444 / 500-564 / 620-714 / 770-1105`，无交叠。截图保存为
+  `output/playwright/ratelimit-interface-layout-final.png`。
+
+## 限流资源交互去重（2026-08-04）
+
+- [x] 让计量场景卡成为唯一资源类型选择入口。
+- [x] 移除重复的请求数、Token 数、并发数单选组。
+- [x] 直接展示当前场景对应的窗口阈值或并发上限并完成部署验收。
+
+### Review
+
+- QPS、TPM、并发场景卡成为唯一资源选择入口；卡片下方直接展示“阈值窗口”或“并发上限”。
+- 前端契约脚本和生产构建通过，OrbStack 镜像 `sha256:f3956a09...` 已滚动部署。
+- Playwright 在 `pole.localhost` 确认页面不存在请求数、Token 数、并发数重复单选，截图保存为
+  `output/playwright/ratelimit-interaction-deduplicated.png`。
+
+## 限流场景模板收敛（2026-08-04）
+
+- [x] 移除与可配置窗口重复的 RPM 模板。
+- [x] 保留 QPS 请求数、TPM Token 数和并发三种资源场景。
+- [x] 更新契约脚本、文案、知识库并完成浏览器验收。
+
+### Review
+
+- QPS 对应请求数资源并默认 1 秒，TPM 对应 Token 数资源并默认 60 秒；用户修改窗口后场景仍按
+  资源保持选中，60 秒请求数不再切换成独立 RPM 卡片。
+- 前端契约脚本、lint 和生产构建通过；OrbStack 新镜像 `sha256:6fc8fba2...` 已滚动部署。
+- Playwright 通过 `pole.localhost` 验证页面只有 QPS、TPM、并发三个卡片，并验证 QPS 窗口可改为
+  60 秒；截图保存为 `output/playwright/ratelimit-scenarios-final.png`。
+
+## OrbStack 当前工作树更新（2026-08-04）
+
+- [x] 核对当前 context、本地镜像和 control-plane Deployment。
+- [x] 使用现有运行密钥重建并部署当前工作树。
+- [x] 验证统一 Pod、Limiter 快照和 Console 产品入口。
+
+### Review
+
+- 本地镜像 `sha256:94e1fcc7...` 已部署，Deployment 的 `POLE_IMAGE_REVISION` 与镜像摘要匹配。
+- 新 Pod `pole-control-plane-5d7ff9564c-6wgw2` Ready，零重启且最近日志无 panic/fatal/error。
+- Limiter 8102 快照接口正常；产品仅通过 `http://pole.localhost/` 暴露，宿主机直连
+  `127.0.0.1:8080` 已关闭。
+
+## Streaming TPM 限流完整产品闭环（2026-08-04）
+
+目标：把已完成的 Quota Lease 协议和 Limiter 账本落实为用户可理解、可配置、可观测的
+完整产品，而不是只在表单中增加 `TOKEN` 枚举。
+
+- [x] 明确 Limiter 租约快照、Console 代理与前端展示的数据边界。
+- [x] 提供 TPM/RPM/并发场景化配置，并保留底层资源映射。
+- [x] 修正 Token 阈值摘要、校验、准入拒绝与流中语义文案。
+- [x] 展示预留、已使用、已归还、可用量、活跃租约与 TTL 回收状态。
+- [x] 重建嵌入式 Console，使用真实 8080 验证创建与运行态页面。
+
+### Review
+
+- specification `v0.1.0-ALPHA.45` 增加规范化 `RateLimit.callee`，六语言发布工作流全部成功；
+  control-plane 通过正式 tag 集成，不使用本地 replace。
+- Console 已用真实浏览器创建归属 `default`、目标 `Polaris/pole.controller.orbstack` 的
+  `llm-streaming-tpm-v2`，规则阈值为 `120000 Token / 60s`，列表和详情均可回读。
+- 详情页展示 Quota Lease 活跃租约、当前预留、流中已使用、最近归还和完整生命周期；认证代理
+  `/limiter/v1/quota-leases` 持续返回 200。
+- 修复公共数字输入忽略 Fluent `displayValue` 的问题，以及限流列表把归属环境错误解释为目标
+  服务命名空间的问题；浏览器复验覆盖了真实多位 TPM 阈值输入和 owner/callee 分离。
+- 验证通过：`go test -tags nomsgpack -p 1 ./...`、Limiter race、前端 lint/build/契约脚本、
+  context-kg lint、脚本语法和 `git diff --check`；OrbStack 统一 Pod Ready 且 Limiter 快照接口正常。
 
 ## Quota Lease specification tag 发布与消费者升级（2026-08-02）
 
@@ -8088,6 +9263,10 @@ Review：
 - [[lessons]]
 - [[adr-otel-observability-platform]]
 - [[adr-pole-rust-client-observability]]
+- [[adr-environment-promotion-topology]]
+- [[adr-kubernetes-production-deployment]]
+- [[kubernetes-production-sop]]
+- [[console-orbstack-browser-acceptance]]
 
 # 修复 go test ./... 既有失败点
 
@@ -12264,6 +13443,85 @@ PolarisMesh、Istio、Kmesh 的兼容、竞争和组合关系。
   `go test -tags nomsgpack -p 1 ./...`；Console lint（仅既有 warning）与 test build；Rust SDK
   使用真实 `v0.1.0-ALPHA.40` 的全工作区测试（SDK 174 项）和 fmt；context-kg lint、三仓
   `git diff --check`。Rust 全仓 clippy `-D warnings` 仍被 125 个既有 lint 问题阻塞。
+
+## Rust SDK 与分布式 TPM 当前能力审计（2026-08-04）
+
+- [x] 核对 Rust SDK 本地与远程限流入口。
+- [x] 核对 Quota Lease 的场景接入边界。
+- [x] 追踪 control-plane 分布式 TOKEN/TPM 链路。
+- [x] 运行 Rust SDK 与 Limiter 定向测试。
+- [x] 记录当前能力结论与未完成项。
+
+### Review
+
+- Rust SDK 已按 `LOCAL`/`GLOBAL` 规则分别使用进程内账本和远端 `RateLimitGRPC`，QPS、TOKEN、
+  CONCURRENCY 均进入同一 Quota Lease 生命周期；本地与分布式 TPM 的预留、累计更新、结算归还
+  测试均通过。
+- Rust SDK 的责任边界是提供显式 `reserve_quota`、`update`、`finish` API；调用方或模型适配层负责
+  解析 Token，并在请求前提供输入 Token 与最大输出 Token、在流中上报累计值。
+- control-plane Limiter 将 TOKEN 作为 `CONSUMABLE` 配额处理，服务端通用账本支持原子预留、幂等更新、
+  最终结算和 TTL 回收；gRPC 运行测试覆盖完整 INIT/RESERVE/UPDATE/SETTLE。
+- 当前全局账本是单个 Limiter 进程内存状态；Rust SDK 用规则 affinity 确定性选择一个 Limiter 节点，
+  尚无多 Limiter 副本间的租约状态复制或共享强一致存储，节点故障切换会失去原节点窗口账本。
+- 验证：Rust `cargo test traffic::ratelimit --lib` 15 项通过；control-plane
+  `go test -tags nomsgpack -p 1 ./pkg/limiter/... ./pkg/goverrule/...` 通过；随后 Rust 与 control-plane
+  均已对齐 Specification `v0.1.0-ALPHA.45`。
+
+## Rust SDK Specification ALPHA.45 对齐（2026-08-04）
+
+- [x] 将根 crate 与 e2e crate 统一升级到 `v0.1.0-ALPHA.45`。
+- [x] 重新解析 Cargo 锁文件并确认单一 Specification 版本。
+- [x] 运行限流定向测试与 Rust 工作区测试。
+- [x] 记录升级结果与兼容性结论。
+
+### Review
+
+- 根 crate、e2e crate 与 `Cargo.lock` 已统一解析到正式 tag `v0.1.0-ALPHA.45`，依赖树中只有一份
+  `pole-specification`，提交为 `29e2f675`。
+- `cargo check --workspace`、`cargo fmt --all -- --check` 和 `cargo test --workspace` 均通过；其中
+  SDK 单元测试 174 项、公开 API 测试 7 项以及 e2e 辅助测试全部通过。
+- ALPHA.45 对现有 Quota Lease、LOCAL/GLOBAL、QPS/TOKEN/CONCURRENCY 实现保持源码兼容，无需修改
+  Rust 限流逻辑；SDK 继续只接收调用方明确提供的预留量和累计用量，不负责 Token 解析。
+
+## 系统监控数据真实性审计（2026-08-04）
+
+- [x] 追踪系统监控页面到后端指标接口的数据链路。
+- [x] 核对实时、缓存、演示和模拟数据回退条件。
+- [x] 检查 OrbStack 当前接口响应与页面展示值。
+- [x] 记录页面当前数据真实性结论。
+
+### Review
+
+- 页面绿色“实时数据”仅在 `/observability/v1/platform/overview` 至少返回 components、resources 或
+  runtime 任一真实数组时显示；接口报错或三个数组全空才整体切换到 `SYSTEM_ROWS`、
+  `MOCK_RUNTIME_ROWS`，并明确显示“Mock 预览”。截图因此不是 Mock 回退。
+- 当前 Go runtime 数值和请求计数来自 GreptimeDB；但页面仍有指标语义占位：所谓“峰值 QPS”实际是
+  时间窗 counter increase，总请求量被写入 `QPS` 字段；P95/P99 当前都使用 sum/count 平均延迟，
+  并非真实分位数；component namespace/pod 也存在固定值或 service 名回填。
+- 后端当前明确返回空 resources 数组，因此组件 CPU/MEM 看板在实时模式下没有真实数据，不会混入
+  Mock 卡片。OrbStack 在本次复核时 API Server 与 `pole.localhost` 均超时，无法重新抓取接口 JSON；
+  数据源判断和语义结论已由当前前后端代码确认。
+
+## 系统监控 Trace 页面层级优化（2026-08-05）
+
+目标：Trace 下钻保持在系统监控内容区内，不覆盖全局侧栏和顶部栏，并让页面返回、详情返回与浏览器
+前进/后退遵循一致的两级导航语义。
+
+- [x] 定位全屏 OverlayDrawer 与现有返回状态。
+- [x] 明确系统监控 → Trace 列表 → Span 详情导航层级。
+- [x] 将 Trace 抽屉重构为内容区工作页。
+- [x] 接通浏览器前进/后退与显式返回。
+- [x] 完成静态检查、构建、浏览器验收和 OrbStack 部署。
+
+### Review
+
+- Trace 不再挂载全屏 `OverlayDrawer`，改为系统监控内容区内的定高工作页；全局侧栏、顶部栏和
+  当前菜单选中态始终保留，Trace 列表独立滚动。
+- 导航状态写入浏览器 History：系统监控、Trace 列表、Span 详情形成两级下钻，显式返回和浏览器
+  前进/后退保持一致；从看板底部进入时自动回到工作区顶部，返回入口常驻首屏。
+- `test:metrics-observability`、定向 oxlint、`build:test`、release 构建与镜像构建通过；真实浏览器已
+  验证侧栏和顶部栏可见、列表到详情、浏览器返回详情到列表。OrbStack 新 Pod Ready 且零重启。
+
 ## 配置模板工作区布局复查（2026-08-05）
 
 目标：修正模板目录提前收高、分组工作区与模板目录贴合，以及参数 Schema 位于模板正文下方导致
@@ -12300,6 +13558,76 @@ PolarisMesh、Istio、Kmesh 的兼容、竞争和组合关系。
 - Playwright 在 `1600×1000` 实测目标格式与模板说明由修复前重叠 `84px` 变为 `0`，字段间距为
   `16px`；`1000×900` 下模板说明自动进入下一行，无重叠且 `scrollWidth = clientWidth = 1000`。
   浏览器无 error；验收截图为 `output/playwright/config-template-metadata-no-overlap.png`。
+
+## 环境空间入口命名修正（2026-08-07）
+
+- [x] 将 Console 左侧导航“命名空间”调整为“环境空间”。
+- [x] 保留服务表单、权限资源等底层领域字段中的“命名空间”术语。
+- [x] 完成国际化文件解析与差异检查。
+
+### Review
+
+- `menu.namespace` 的中文文案已调整为“环境空间”；JSON 解析、context-kg lint 和
+  `git diff --check` 均通过。
+- release 构建与 ARM64 镜像构建通过，已部署到 OrbStack Pod
+  `pole-control-plane-6c9676c4b5-789r7`；Pod Ready、零重启，镜像为
+  `sha256:aa8322f96601a4829f3fd7525fdd2c5c40cb40a9b3c8c8f5691f990d3d4d8432`。
+- 产品入口返回 HTTP 200，运行时主资源已确认包含“环境空间”文案。
+
+## 环境资源视图删除能力（2026-08-07）
+
+目标：允许用户在环境资源统一目录中直接删除当前账号有权限操作的资源，并复用各资源域既有删除契约与错误语义。
+
+- [x] 盘点服务、配置分组、治理规则、MCP Server 与 A2A Agent 的现有删除 API。
+- [x] 为统一资源模型补充删除类型、权限和删除适配器。
+- [x] 在资源目录加入查看、删除操作与二次确认。
+- [x] 补充专项契约检查并完成 lint、构建和差异检查。
+- [x] 部署 OrbStack，验证真实页面确认流程与刷新行为。
+
+### Review
+
+- 统一删除适配器覆盖运行时服务、配置分组、路由、本地/全局限流、熔断、主动探测、无损上下线、
+  泳道、鉴权/镜像/Mock、MCP Server 和 A2A Agent；各类型继续调用原有 API，不新增通用删除后门。
+- 操作列统一为“查看 + 删除”；删除前展示资源类型、名称和不可恢复提示，无权限资源禁用。含配置文件
+  的分组不允许直接删除，并提示需要先删除的文件数量。
+- `test:environment-resources`、定向 oxlint、`build:test`、release 构建和 ARM64 镜像构建通过。
+  全仓 `tsc --noEmit` 仍有既有错误，本次新增页面与服务文件已无 TypeScript 错误。
+- 已部署到 OrbStack Pod `pole-control-plane-959b7fd96-gqllx`；Pod Ready、零重启，镜像为
+  `sha256:aaac6246107ec25cd0342f1f3f73908f7766edc3c62f870884d58127d17881d7`，产品入口 HTTP 200。
+- 真实 Polaris 页面验证确认框与取消路径，没有改动原有两条规则；随后创建空配置分组
+  `codex-delete-smoke-20260807`，通过页面确认删除后出现成功通知，目录由 3 项自动刷新回 2 项，临时
+  资源已清理。确认框截图为 `output/playwright/environment-resource-delete-confirmation.png`。
+
+## A2A / MCP 环境化资源视图（2026-08-07）
+
+目标：让 A2A Agent 与 MCP Server 使用“全局逻辑资源 + 环境实例”两层视图，并让从环境空间进入的
+创建、查询和绑定操作始终保持当前环境上下文。
+
+- [x] 复核既有 Definition、Deployment 与环境绑定领域模型及后端唯一性约束。
+- [x] 为 A2A / MCP 增加逻辑资源与环境实例视图切换。
+- [x] 增加逻辑资源目录、环境覆盖信息和显式绑定入口。
+- [x] 环境实例列表补齐环境空间列，并在环境入口锁定创建表单的环境。
+- [x] 更新 Console 契约与 context-kg 实现状态。
+- [x] 完成 lint、测试、构建、代码复核与真实浏览器验收。
+
+### Review
+
+- A2A 与 MCP 无环境参数时默认展示全局逻辑资源；携带 `namespace` 时默认展示该环境实例。
+  逻辑目录提供定义创建、环境覆盖、环境跳转与显式绑定，并同时在前端候选和后端约束层阻止
+  同一定义在同一环境重复绑定；`pole-system` 不进入业务聚合。
+- 环境实例表新增环境空间列并可返回环境工作区；从环境入口创建时环境输入锁定，筛选不再暴露
+  可逃离当前环境的环境字段，MCP 的 Pole 服务候选限定在当前环境。
+- 双轴代码复核发现同一路由切换 `namespace` 时旧查询状态未同步；现已监听环境参数变化并重拉列表。
+  Playwright 实测从 `Polaris` 原地切换到 `default` 后，标题、统计和两条 MCP 数据同步更新。
+- `test:ai-environment-binding`、目标 oxlint、`build:test`、release 构建、context-kg lint 和
+  `git diff --check` 通过；目标新增公共组件无 TypeScript 错误。全仓 `tsc --noEmit` 仍有 310 个
+  既有错误，目标旧页面仍命中原有隐式 `any` 与 Textarea 类型债务。
+- 已部署到 OrbStack Pod `pole-control-plane-77df9f764-4bm8t`；Pod Ready、零重启，运行镜像为
+  `sha256:bf2fa5430cc28e6671650ba3cc07b39aeb9c57939842d49813108db613ceabac`，Deployment 镜像修订
+  与本地镜像一致，产品入口 HTTP 200，浏览器控制台零错误。
+- 浏览器验收确认 A2A/MCP 全局逻辑目录、Polaris 环境实例视图、环境列和创建表单锁定；截图为
+  `output/playwright/a2a-logical-resource-view.png`、`output/playwright/a2a-environment-instance-locked.png`
+  与 `output/playwright/mcp-environment-instance-locked.png`。
 
 ## 配置模板元数据与敏感参数加密（2026-08-08）
 
@@ -12951,3 +14279,454 @@ OrbStack，完成真实 MySQL/API、Console 与集群运行态验收。
   视口均为 18px，Source 双栏切为单列，Git 字段和访问策略控件切为逐行布局，页面及正文横向溢出均为 0。
 - 上传 Publisher 与访问策略主体 ID 连续输入后值完整且焦点保持；浏览器控制台 0 error、0 warning。
   当前 Registry 为空，私有访问策略使用仅拦截三个 GET 的隔离 fixture 验证部署产物，没有向市场写入测试 Skill。
+## 2026-10-03 最新统一配置 v1 实现与旧逻辑清理
+
+- [x] 核对最新 spec、已有工作区修改与旧配置依赖边界
+- [x] 领域与存储使用独立聚合、公共 Response/Code，原生读取仅分发模板和有效 values
+- [x] 管理 HTTP 九个动作与唯一 Discover 流接入，删除原生 Watch/Resolve
+- [x] Apollo/Nacos/Consul 配置入口迁移统一快照与显式兼容开关
+- [x] 删除旧模板/Value/Binding/ConfigFile 发布、缓存、监听与存储路径及过期测试
+- [x] 核验核心状态、权限、CAS、多灰度、分页、游标与兼容渲染，完成必要检查
+
+### 执行边界
+
+- specification 最新 CONFIG.md/CONFIG_TEMPLATE.md 和 config.proto 是权威；不保留旧配置模式兼容。
+- 原生客户端和管理 Preview 由 SDK/控制台本地渲染；服务端只在显式开启的兼容适配请求中渲染。
+- 复用现有持久事务与权限基础，保留其它 dirty/untracked 并行工作；本任务不提交、推送或部署。
+- 分工：config_core_latest 负责统一领域/聚合/存储，config_native_latest 负责原生入口，
+  config_compat_latest 负责外部协议适配；根代理负责旧链路清理、启动接线、整合与验收。
+
+### Review
+
+- 原生配置实现按最新 v1：完整 Definition 原子发布、一个正式版及多个灰度版、有效 values 与模板快照一起交付；
+  管理仅 HTTP 九个动作，客户端仅 Discover 逐请求完整响应。权限、CAS、游标、分页和协议转换门禁统一走同一领域入口。
+- 旧领域/缓存/WatchCenter/独立发布/存储/建表/管理端点/清理任务和旧 Console 页面、service、Redux、专项脚本已删除。
+  MCP 改为 get_config_state，Agent scope 支持 environment 字段；Workbench 保存正文时保留完整 Definition 并携带 CAS。
+- 控制台按 ConfigKey 进入统一草稿、发布和历史视图，Preview 由本地渲染器执行。无配置枚举接口时不拼接旧列表 API。
+  空内容、uint64 字符串、二进制 base64、BOM/CRLF、properties 字面值与续行均有边界检查；共享 Toast 的定位样式改用 CSS，修复成功提示触发的白屏。
+- `go test ./...`、`go build ./...`、本轮核心/适配器/MySQL/Agent/MCP 的 race 检查和范围化 `go vet` 通过。
+  第一条最终 race 命令包含误写的 poleagent 目录导致命令失败；修正为 pkg/console/internal/poleagent 后定向重跑通过，其余目标包均通过。
+- 独立 MySQL 8.0 完成 8 项集成测试并开启 race：CAS、回滚、事件失败整体回滚、并发快照、持久游标、大历史读取，
+  以及环境删除先行/配置保存先行两个实际锁等待场景。临时容器已清理，未操作共享业务数据库。
+- 浏览器隔离 fixture 已验证正常发布与两条灰度并存、单条停止/全部停止、回滚、复制到草稿、下线、CAS 冲突保留编辑，
+  以及切换 ConfigKey 时迟到响应不串状态。历史详情加载失败清空旧详情，等待时禁用编辑和重复选择；复制或重载后清空旧预览。
+  390px/1440px 下每个 input/textarea/select 均位于父容器边界内，页面没有横向溢出。
+  截图为 web/console/output/playwright/unified-config-desktop-layout.png 和 unified-config-mobile-layout.png。
+  `test:unified-configuration` 的 12 个共享向量及 9 个 HTTP 动作检查、`build:test` 均通过。
+  浏览器证据只代表 UI 与请求合同，不代表真实凭据、数据库或外部 SDK 业务验收。
+- 全量 `go vet ./...` 仍报告初始未改动的 pluginapi/registry.go:282 的 sync.Once copylock。
+  TypeScript 初始源码快照有 315 项诊断，当前 299 项，按路径/错误码/正文比较无新增诊断；并未宣称全量 tsc 通过。
+- context-kg lint 从初始 112 error/14 warning 减少至 106 error/13 warning，无新增诊断；保留既有知识库格式问题。
+  `git diff --check` 通过；已有无关 dirty/untracked 修改保留，初始内容及本轮变更清单保存在隔离备份目录。
+- Apollo/Nacos/Consul 目前完成只读配置消费 profile，尚未执行真实外部 SDK E2E；Consul 不提供完整 KV 写入、锁与 Session。
+  当前 go.mod 使用 sibling specification replace，正式发布需发布并固定对应协议版本；管理历史加载、全局 clock 锁与事件保留尚未压测。
+  本轮没有历史迁移、DROP、提交、推送或部署。
+
+## 2026-11-04：Console 全页面 audit / polish 与 OrbStack 本地验收
+
+- [x] 核对当前路由、既有改动和 Fluent 2 设计约定，建立逐页覆盖清单。
+- [x] 在 OrbStack 独立 namespace 部署当前源码及必要依赖，保留已有资源与数据。
+- [x] 逐页检查真实渲染、明暗主题、宽/窄窗口及关键抽屉、错误与空状态。
+- [x] 按影响排序记录审查建议，修复本轮确认且边界清楚的 polish 问题。
+- [x] 执行相关契约、lint、构建及浏览器复验，更新本地部署并交付证据。
+
+### 执行边界
+
+- 本轮以现有 Fluent 2 运维工作台为基线，不重设计、不引入第二套 UI 库。
+- 大量既有配置中心 dirty/untracked 保留；本轮不提交、不推送。
+- 静态检查、真实接口检查与浏览器隔离 fixture 分开记录；空库覆盖不代表业务集成验收。
+- 原部署脚本依赖不存在的 tidemind 共享服务，本轮使用已有 Helm chart 的独立本地配置。
+
+### Review
+
+- 完成 37 个页面路由及 2 个重定向的清单/源码审查；35 个登录后路由按 1440 明暗、1024、620、390px
+  生成 175 个首屏截图与 DOM 量测，认证页另验。另检查 12 类抽屉 × 2 宽度、10 类治理编辑器 × 3 宽度。
+- 本轮仅修整三类：事件/操作真实空态与失败恢复、Skill 授权读取门禁及迟到响应、共享 Tree 键盘与焦点。
+  独立复核后，12 项状态行为及真实策略向导 8 项键盘/鼠标交接验证均通过；Skill PUT 仅在浏览器拦截夹具中发生。
+- release build、Linux arm64 编译和镜像构建通过，lint 退出成功（保留既有警告）。43 项契约 40 通过，
+  environment-resources、error-toast、no-tdesign 与起点相同失败；TypeScript 299 → 296 诊断，归一化无新增，
+  全量类型检查未通过。没有执行或宣称全量后端测试、外部 LLM/SDK、物理触摸、VoiceOver 和其他浏览器验收。
+- 使用项目 Helm chart 在 orbstack/pole-ui-review 独立部署，revision 3，镜像 ui-polish-20261104。4 个 Pod Ready、
+  零重启；创建独立数据卷并保留，入口 http://127.0.0.1:18080。当前产物 118/120 文件匹配，favicon.ico/robots.txt
+  被 SPA 回退为 HTML，列入建议；首页及 JS/CSS 已匹配。未覆盖不存在的 tidemind 资源或其他应用。
+- 剩余 16 项建议：P1 7 / P2 8 / P3 1。关键为审计敏感字段、拓扑未保存即发布、治理窄屏裁切、
+  主题对比度、表单关联、系统域失败误报空草稿及服务监控示例回退。部分用失败/顺序夹具确认，
+  其余源码证据与运行限制在报告逐项标明；未把前端审查扩大为后端修复或生产发布。
+- 本地可筛选报告与逐页图：web/console/output/playwright/ui-audit-2026-11-04/report.html。报告不含测试凭据原值；
+  管理员本地凭据在用户目录 .local/share/pole-ui-review/login.json（600 权限），未写仓库。
+- 保留起点 dirty/untracked；未提交、未推送，未修改后端源代码或长期 memory。
+
+## 2026-11-04：Console 交互合理性与双角色上手成本评审
+
+- [x] 按用户选择，分别评估首次接入开发者及平台管理员/运维。
+- [x] 独立A做任务/设计评估，独立B做detector与浏览器证据；A锁定后再综合B，避免锚定。
+- [x] 将本轮观察与上轮技术审查去重整合，保留原问题ID、修整状态、证据与限制。
+- [x] 更新原HTML报告，支持按用户/优先级筛选、逐页截图与验收标准，并归档critique快照。
+
+### Review
+
+- 用户确认“两者分别评估”。A走环境/逻辑与环境服务/配置只读加载/限流表单/授权向导/系统配置/监控；
+  B独立检查显式筛选、表单验证与取消、配置入口及系统配置状态。均未保存、发布或提交真实资源/权限变更。
+- 本轮Nielsen启发式评分22/40，首次开发者配置路径高认知负担、管理员核心路径中等。
+  未做真实用户计时、理解正确率或完成率测量，不把专家走查当可用性实验。
+- 新确认I17空配置在线/I18首次接入断层/I19授权默认资源未加载/I20筛选反馈；
+  配置协议理解成本合并I12，监控示例下钻合并I07。统一20项（P1 10/P2 9/P3 1），上轮三类修整仍保持已部署。
+- 关键解释因ResourceHeader app-header模式不渲染description而不可见；建议把关键任务说明放正文或空态，
+  保持逻辑身份显式关联及当前ConfigKey接口边界，不恢复旧配置列表/模板或按同名自动合并。
+- B单次detector有12条side-tab warning；导航选中色条有语义，叠层自身遮挡为工具自扰，不机械当新缺陷。
+  临时8400服务已stop --keep-inject，独立浏览器已关；用户18080应用与转发保留。
+- 原报告report.html升级v2，旧版保留为report-v1-technical.html。15张新增任务截图已整合；
+  20条问题/37路由/两类任务/10项原则、用户与优先级筛选、截图放大、1440及390无文档横向溢出均通过报告浏览器检查。
+- critique归档目标web-console-src，首次22/40无历史趋势；上轮技术10/20为不同量表，不合并分母。
+  临时正文已删除，原技术门禁结果仅复用为历史证据，未重新运行或宣称本轮通过。
+- 本轮产品源码哈希与开始时一致；仅报告、截图、评审归档与任务记录变化。无提交、推送、重新部署或长期memory修改。
+
+## 2026-11-04：综合报告10项P1修复与OrbStack更新
+
+- [x] I01：审计生成与新旧查询出口保护敏感字段，补合成哨兵回归。
+- [x] I02/I17/I19：拓扑已保存快照发布、配置状态/高影响审阅、授权默认资源加载。
+- [x] I03/I04：治理10类编辑器窄屏可操作与明暗文字对比度修复。
+- [x] I05/I06/I07：共享表单关联、系统域加载失败与监控示例/不存在态。
+- [x] I18：以看到健康实例为首次接入目标，日常授权优先内置角色。
+- [x] 独立复核实际diff，相关Go/前端契约、类型基线、生产构建及浏览器逐项验证。
+- [x] 更新报告逐项状态，再部署orbstack/pole-ui-review并验证实际产物与业务路径。
+
+### 已确认边界
+
+- 用户授权修复报告P1、验证并更新本地OrbStack；不提交、不推送。
+- 首次接入以健康实例可见为目标，日常授权优先已有内置角色；不按名称自动合并资源、不恢复旧配置API。
+- 起点大量dirty/untracked及既有三类修整保留，新增改动按文件归属隔离。
+- 不清空业务数据库或数据卷；历史审计读取脱敏，历史存储/备份清理不自动扩大范围。
+
+### 本轮验收与交付
+
+- 10项P1均完成修复与定向验证，报告v3保留v2基线与未实施P2/P3；无提交、推送。
+- 28项证据断言通过；10类治理编辑器×4宽度=40组合，普通控件无裁切，3处二维规则表局部滚动可达；5页×明暗主题对比度抽查零低于阈值文本。
+- 首次接入在部署前后均真实创建隔离测试环境/服务/实例，控制面TCP探测8090可见健康，已删除合成资源。角色入口直达3个内置角色，未自动赋权。
+- 系统草稿503/重试、拓扑保存修订、配置取消零写入及uint64 CAS、资源默认加载/重试、跨类别迟到和环境/领域ABA回调均通过浏览器复验；独立复核反馈两处迟到回调缺口已修后复核。
+- 审计相关包go test -race / go vet与补丁增量golangci-lint通过；真实新出口已有及新审计无凭据泄露且正常账户创建/读取/密码登录通过，4个尝试测试账户均确认清理。legacy出口成功但0条，HTTP整体inconclusive仅来自该数据缺口；其历史读取由包级回归覆盖。未清洗原始历史库、日志与备份。
+- 前端43专项40通过，既存environment-resources/error-toast/no-tdesign仍失败；TypeScript296→282，归一化无新增诊断，整体仍不通过。lint退出0有存量警告；release/Linux arm64镜像构建及Helm lint/预检通过。
+- OrbStack orbstack/pole-ui-review/pole Helm revision4，image pole-control-plane:ui-p1-20261104，4Pod Ready/0restart，3PVC UID不变。HTTP静态资源118/120匹配，favicon.ico/robots.txt为既存I16；首次重连窗口短暂请求错误，稳定后复验恢复。
+- 交付：web/console/output/playwright/ui-audit-2026-11-04/report.html；定向证据在相邻p1-fixes-2026-11-04目录。报告1440/390无页面溢出，20条问题及10条P1完成状态、筛选与脚本运行通过。
+
+## 2026-11-04：OrbStack Gateway 域名入口
+
+- [x] 检查现有 Gateway、端口和域名解析，保留原部署与工作区改动。
+- [x] 安装缺失的 Envoy Gateway；保存限定到 Console 的本地域名 Gateway/HTTPRoute 配置与部署说明。
+- [x] 应用配置，验证 Gateway/Route 状态、域名登录与接口、已有 Pod/PVC 保持；不提交或推送。
+
+### Review
+
+- 当前集群无Gateway API CRD/控制器，旧tidemind网关不存在；安装独立envoy-gateway-system/envoy-gateway release，固定Envoy Gateway v1.9.3，兼容当前Kubernetes1.36。
+- 新增orbstack-gateway.yaml，GatewayClass/lattice-hub-orbstack与pole-ui-review下Gateway、HTTPRoute绑定域名lattice-hub.localhost；仅路由同namespace的pole-console:8080。部署说明见README.orbstack.md，既有共享部署方式保留。
+- Gateway Accepted/Programmed=True；HTTPRoute Accepted/ResolvedRefs=True；Envoy控制器与数据面Ready/零重启。IPv4 HTTP200且index与当前构建一致，错误Host404。当前OrbStack无IPv6的80端口监听，强制IPv6失败，浏览器域名访问正常；未改hosts。
+- Chromium真实域名登录、namespace API200/code200000和角色深链通过，零页面异常及500响应。原4个应用Pod与3个PVC UID均未变，应用Helm保持revision4，无镜像重建、提交或推送。
+- 整合报告主入口已更新为域名，并保存gateway-checks.json与gateway-domain.png；保留18080用于排障，域名访问不依赖该转发。
+
+## 2026-11-04：重置本地环境至首次安装状态
+
+- [x] 验证 pole-ui-review 的三个 PVC 与初始化路径，保留当前镜像、Secret 和 Gateway 域名。
+- [x] 停止写入，清空三个应用数据卷并重建数据库与必要系统种子，不创建管理员。
+- [x] 验证域名自动进入初始化管理员页面、旧账户与会话失效，清理失效的本地测试凭据。
+
+用户已明确授权数据清理，本次只重置 orbstack/pole-ui-review 的应用数据；不卸载 Gateway、不修改源码、不提交或推送。
+
+### Review
+
+- 用户明确授权重置数据；停止control-plane/collector与两个数据库后，仅删除pole-ui-review的三个PVC。旧PV已回收，新PVC均Bound且UID不同；现有镜像、Helm release和Gateway/HTTPRoute保留。
+- MySQL初始化SQL重新执行，Greptime必要逻辑库通过既有安装hook重建；未创建管理员。4个应用Pod Ready/0restart，Gateway Programmed=True。
+- 用户、用户组、逻辑服务、业务服务、治理规则、系统动态设置均为0。内置角色当前也为0，将由首次管理员初始化流程建立；不是保留原用户授权。
+- 首次管理员检查HTTP200、业务码404202、data为空；浏览器打开根域名自动进入/init-admin，账号/密码为空，匿名session401，无页面异常。没有提交初始化表单。
+- 更新Console JWT签名密钥并重启控制面以失效旧会话，其他Runtime Secret字段未变；删除两个已失效的本地测试凭据文件。
+- 交付证据first-install-reset.json与first-install-reset.png；部署说明和当前整合报告已注明首次安装状态。CodeGraph sync complete，初始化调用链已核对；无产品源码改动、提交或推送。
+
+## 2026-11-04：环境资源汇总栏 audit / polish
+
+- [x] 按用户截图定位真实页面及实现，保留现有工作区和用户新建管理员/业务数据。
+- [x] 记录限定页面审计，修复Fluent按钮内容排列、无效品牌token和筛选选中状态。
+- [x] 复验宽/窄屏、明暗、键盘、过滤与配置入口，构建并更新OrbStack，保持当前数据。
+
+复用本会话已加载的Impeccable上下文（Fluent2 / Operate），不重复运行context。CodeGraph sync complete并定位EnvironmentResources；CSS变量与层叠超出图索引的符号覆盖，直接读取样式并用渲染量测验证。
+
+### Review
+
+- 两文件局部修改：EnvironmentResources.module.less显式列向Flex、局部字号/换行和正确品牌前景背景；EnvironmentResources.tsx补aria-pressed及文本值样式。保留已有dirty/untracked及所有资源合同。
+- 10个宽度/主题组合排版断言通过；最低文字对比度light5.62、dark7.53；Enter/Tab、过滤隐藏/恢复和带环境进入配置中心通过隔离夹具。
+- 用户Chrome真实default环境刷新后仍登录admin，三层排列/选中态正确；控制台0条消息。截图live-after.jpg已保存。
+- 目标oxlint与namespace-workspace、dark-theme通过；环境资源静态契约仍失败于旧describeConfigFileGroups断言；release/Linux arm64/镜像构建通过。detector1条提示为原有条件告警语义边框，人工保留，不重复跑机械扫描。
+- OrbStack pole-ui-review/pole revision5，image ui-environment-rail-20261104；4Pod Ready/0restart，PVC UID及Runtime Secret哈希均未变；域名index和目标CSS与构建一致。未清空数据、重置账号、提交或推送。
+- 报告在web/console/output/playwright/environment-rail-polish-2026-11-04/report.html；主整合报告补入口，前一轮证据保留。
+
+## 2026-11-04：创建服务抽屉 audit / polish
+
+- [x] 根据截图与CodeGraph定位ServiceEditor/ServiceForm及详情编辑复用；共享EditorDrawer正文由调用方负责留白。
+- [x] 在服务域修复创建抽屉正文留白、控件宽度、纵向表单提示/计数对齐与重复错误，不改变共享抽屉或创建合同。
+- [x] 复验固定/可选环境入口、连续输入与校验、标签编辑、明暗/窄屏/短窗及取消焦点；更新OrbStack并保留现有数据。
+
+复用本会话Impeccable上下文、audit/polish与Craft floor；不重复运行context，不新增设计体系。起点dirty/untracked及前轮汇总栏修复保留。
+
+### Review
+
+- 三产品文件局部修复：创建正文留白与全宽控件、纵向说明/计数对齐、FormItem重复间距、错误去重与ARIA、语义标题及固定环境readonly可读值。详情编辑复用表单，不改共享Drawer、LabelInput或接口合同。
+- 14宽度/主题/短窗组合量测通过；最终readonly字段另在390px暗色和真实Chrome复验。逐字输入、129字符单错误、可选环境、标签增删、固定环境payload及详情编辑通过隔离夹具。没有向真实后端创建服务。
+- 4相关契约、目标oxlint、release/镜像构建通过；全量TS280条存量诊断（基线282、无新增）；detector单次0条。
+- OrbStack revision6 / ui-service-drawer-20261104，4Pod Ready/0restart，PVC UID与Runtime Secret哈希不变；域名index/CSS与构建一致，真实admin登录仍有效。未提交、推送或清理数据。
+- 审计保留S05后续P2：共享抽屉关闭焦点落回BODY，需要建立统一的触发器恢复协议；本轮未扩大公共组件修改。
+- 交付web/console/output/playwright/service-drawer-polish-2026-11-04/report.html、audit-data.json与live-after.jpg；主报告新增后续入口，保留旧证据。
+
+## 2026-11-04—05：真实浏览器操作页 audit / polish
+
+- [x] 逐个打开环境、服务、AI、配置、治理与认证的可达操作页，保存真实渲染证据；用户后续明确改选独立受控浏览器并亲自登录。
+- [x] 根据真实问题分组修复正文留白、字段/提示对齐、内容宽度与共享关闭焦点；保留已有领域行为和数据。
+- [x] 运行相关检查与构建，部署 OrbStack；用独立受控浏览器复验原入口与相关操作页，更新整合报告。
+- [x] 按用户授权创建 ui-audit 临时资源，验证真实创建、编辑、别名、两向关联与清理；7项临时资源全部清理。
+
+沿用已加载Impeccable Fluent2 / Operate上下文，不重复运行context；浏览器实际展示为验收依据，夹具只补无法无副作用复现的状态；不读取或输出已保存密码，不清数据、不提交、不推送。
+
+### Review（2026-11-05 完成限定实测）
+
+- 已修Namespace纵向布局/留白、Auth三编辑器与Authorize留白/窄屏Transfer、三逻辑服务入口与Alias正文、两系统配置草稿正文；共享Switch选择当前状态label，EditorDrawer cleanup覆盖条件卸载/key重建关闭焦点。
+- 原生Chrome活动窗口和系统捕获受限，用户明确授权改用独立受控浏览器并亲自登录。后续证据来自真实 lattice-hub.localhost，覆盖7类工作区及9种治理创建工作面，71张截图、77条布局/焦点记录（含8条焦点记录），不把截图数视为独立页面数。
+- 真实实测新增并修复：A2A/MCP正文及窄屏栅格、暗色只读身份、实例只读加减按钮、AI/Skill可访问名称、Agent步骤文字、服务创建可见性确认和下一步、用户组Token状态不一致及用户/组新建状态残留。用户组普通更新保留存储Token状态，创建默认与专用启停接口保持原语义；Go回归与真实禁用→改备注→仍禁用通过。
+- 相关契约、目标lint、release/arm64镜像构建通过；最终TypeScript278→278、无新增但仍非全量通过。独立只读复核完成。OrbStack revision10、4Pod Ready/0restart、三个PVC UID与runtime Secret数据哈希不变；Gateway Accepted/Programmed、HTTPRoute Accepted/ResolvedRefs均True，域名首页与构建一致。
+- 未读取保存密码，未创建用户/角色/授权，未保存配置或发布规则，未改现有admin和系统资源。按授权创建并清理2个环境服务、1个实例、1个别名、1个逻辑服务及2个用户组；默认环境0资源，用户1、角色3。未清数据库、提交或推送。
+- 报告已更新real-operation-polish-2026-11-04/report.html并回链主整合报告；限定技术复评12/20，不与原整站10/20直接比较。保留新增后续P1（治理旧字段可访问名称）与3项P2（高级参数理解成本、通知遮挡、跨部署旧chunk恢复）。未做物理触屏、完整读屏、外部AI/SDK或配置/治理生效验收；缓存失败与竞态仅源码复核。
+
+## 2026-11-05：新增治理 P1 与三项 P2 修复
+
+- [x] 核对N01—N04的真实触发与当前实现，明确最小修改和验收合同，保存任务起点副本。
+- [x] N01：为治理规则基础字段、服务范围和动态接口/条件补可访问名称，保留业务模型与字段行为。
+- [x] N02：配置Definition及治理高级参数提供基于现有模型的可执行示例/就地说明和基础/高级分组，保留草稿与原文编辑。
+- [x] N03：修复通知叠层遮挡主要操作，手动关闭与自动关闭可用，保留错误详情/复制和键盘可达性。
+- [x] N04：加载旧chunk失败时展示可恢复界面和显式刷新入口，不自动刷新；明确手动刷新清除当前未保存内容、服务端已保存草稿保留。
+- [x] 相关契约、类型增量、lint、构建与只读复核完成；部署到OrbStack，真实浏览器逐项复验、清理临时资源、更新整合报告。
+
+验收范围：真实 lattice-hub.localhost；浅/暗色、1440与390布局、键盘名称/动态行、配置示例与原文切换、连续通知/关闭、跨版本旧资源加载失败与恢复。临时资源用ui-audit前缀并清理，不提交或推送；PVC/Secret及现有admin/业务数据保持。
+
+### Review
+
+- CodeGraph sync complete后定位，动态JSX/CSS覆盖不足限定console源码补查。治理九类创建工作面均实测；基础/高级字段有名称，嵌套包含子规则/策略/行号。多策略熔断56字段无空名/重名，限流与镜像嵌套的重复单选项由具名组区分；HTTP/GRPC、多值匹配、Tab焦点通过。
+- 配置正文优先，真实literal/text示例仅空状态可填；本地预览hello=world，草稿/发布修订仍0。非法JSON修复保留焦点/展开；未知字段保留、二进制原文可达、非空示例不可覆盖。治理说明按各类实际保存/发布合同，不声称所有保存都会下发。
+- 通知实测定位容器292px与正文420px不一致，后又发现Toaster内联style经Fluent流入子容器造成两次translateX。最终scoped CSS分开定位/单条容器：1440下均420px、left510/right930；390下均358px、left16/right374，关闭按钮right361。双通知、指针/Enter关闭及自动关闭通过，暗色已看实际像素。
+- 跨版本保留revision11旧标签页，revision12后打开配置页真实旧chunk失败，出现恢复界面；手动重新加载进入新版本。最终revision13仅修通知定位；不自动保存内存草稿或刷新页面，不将可恢复声明为永不失败。
+- 关联修复Mock响应头新增空白行被过滤；本地行与Record分离，逐字输入/删行/子规则隔离通过。重复x-a被拒绝后原X-B和焦点保留，预览仍有X-A:one与X-B:two。未保存任何规则。
+- 8项相关契约、目标lint和release/arm64镜像通过；类型278→271、无新增但非全量通过；独立只读复核完成。额外历史governance drawer布局脚本锁定旧Drawer/PublishForm，保留原脚本，未列为通过或扩大运行代码修复。
+- OrbStack revision13、4Pod Ready/0restart，三个PVC UID及runtime Secret哈希不变，Gateway/HTTPRoute条件True，域名首页与构建匹配。临时ui-audit-followup-logical已删除；未持久化配置/规则，未改admin，不提交推送。
+- 39条状态/量测记录、36张截图不是独立页面/自动用例数；报告followup-fixes-2026-11-05/report.html及JSON、台账、部署证据已回链整合报告，N01—N04全部关闭。未扩大为整站AA、完整读屏、物理触屏或真实规则发布生效验收。
+
+
+## 2026-11-05：配置中心交互 demo
+
+- [x] 核对现有 v1、共享模板目标与真实导航；明确目录/共享管理/多环境编排尚需新增协议。
+- [x] 独立 demo 对齐注册发现 Fluent2 视觉：配置中心 → 配置文件目录 → 详情编辑。
+- [x] 以正文优先组织共享模板、环境取值、标签预览、选定环境发布和历史操作。
+- [x] 真实浏览器验证核心路径、部分失败重试及窄屏；只读复核后交付预览。
+
+范围：仅新增独立原型及任务记录；全部示例数据驻内存，不接业务接口，不修改正式页面，不部署、提交或推送。复用既定跨环境归属决定，不重复讨论已确认语义。
+
+### Review（配置中心交互原型）
+
+- [x] 条件取值就地整合：默认值与条件列按变量同行展示，提供添加/编辑/移除条件，留空沿用默认值。真实浏览器验证新增zone=eu取8182、移除后只剩一列、条件留空回落8080、非法条件原文保留并报错；默认宽度与390px布局实看，表格横向滚动274px后条件输入可达，文档宽375px不溢出。TypeScript/oxlint/独立构建通过（仍有单chunk提示），浏览器error日志为空。新截图inline-condition-values.jpg及mobile；仅修改独立demo，未接真实配置或部署。
+
+后续反馈：用户指出正文和key同屏拥挤。本轮只调整独立demo，按任务拆为“配置内容”和“变量与取值”页签；正文全宽，声明/默认值/标签规则集中到取值页。真实浏览器确认正文与8181取值跨页签双向保留、未保存禁发布，默认宽度和390px四页签无横向溢出。目标TypeScript/oxlint通过；内容/取值页截图为content-tab.jpg、values-tab.jpg和content-tab-mobile.jpg，早期双栏截图保留为迭代证据。
+
+- 独立 React/Fluent 2 原型位于 `web/console/output/config-center-demo-2026-11-05/`，本地预览 `http://127.0.0.1:18084/`。复用正式品牌资产；目录、正文编辑、环境取值、按需变量/规则、预览、发布和历史有内存状态反馈。
+- 真实受控浏览器验证目录/搜索空状态、新建后直接编辑、环境切换保留取值、未保存禁发布、规则 AND 匹配、标签残缺报错、literal 原样发布、灰度与正式并存、dev/staging 部分失败与仅重试失败、未选 prod 保持 #3、历史对比/复制、正式回滚新版本及下线保留历史。刷新后临时内存资源全部重置，未创建真实业务资源。
+- 1440×1000、390×844 编辑布局和390×600发布弹层实际查看；短窗主要按钮可达，Escape关闭后焦点返回“发布”。修正模态内错误反馈不可达、变量重名覆盖各环境取值、版本编号小数及新建沿用历史Tab等原型问题。变量合法重命名同步正文引用和环境规则覆盖值。
+- 独立只读复核完成；literal 与严格标签问题已修，Mustache最终格式校验属于客户端渲染，保留与正式renderer一致的检查。目标TypeScript、oxlint和独立Vite构建通过；新预览页浏览器error日志为空。构建有约506kB单chunk提示，未将此demo扩展为正式包拆分优化。
+- 原型仅演示字符串变量；灰度回滚因缺少选择替换版本交互而禁用并说明。没有模拟权限/CAS并发、真实SDK或协议业务验收；目录/共享模板/多环境管理仍需补协议和后端。正式代码、OrbStack及既有dirty改动保留，未提交推送。
+
+## 2026-11-05：条件组与逐 key 可选取值设计修正
+
+- [x] 用户确认条件组是整组AND判断，例如region=cn且app=order，key直接关联该组取值。
+- [x] 只读复核缺失值与模板引用合同：当前每份定义只有一个winning规则；缺失map项与合法空字符串不同；required或正文引用无值会被静态检查拒绝，本地渲染也不能静默补空。
+- [x] 独立demo已删除旧全局winning/条件列，使用组定义+逐key有序关联+可选fallback；组引用保护、名称更改稳定ID、关联排序、缺项/空字符串分离，历史与发布候选统一新settings快照。当前环境内复用，组全局共享及正式协议/后端不在本轮范围。
+- [x] 12个真实模型场景、目标TypeScript/oxlint及独立构建通过，约511kB单chunk提示保留。真实浏览器验证不同key分别命中、关联排序、组新建/删除/重命名/引用保护、空串与缺项、缺值模板错误、环境隔离、缺值发布提示、新settings部分失败重试、历史9090与草稿9191分离/空串快照、复制还原9090且共享正文不变；390px与1440px布局和无文档溢出已看实际像素。独立只读复核后补全组/变量/行号可访问名称。示例刷新重置，未创建业务资源、部署、提交或推送。
+
+用户已明确：不配置兜底且没有匹配值时，该key没有对应value。新模型不继续复用旧的整份配置单winning语义。原型按key保留缺项，采用“关联顺序首个命中”的推荐冲突策略，支持上下移，未将该策略写成用户已确认的正式协议。当前正文引用key且无兜底时，发布保守阻止并解释可能缺值；未引用key不强制兜底。是否调整正式静态完整性合同仍待后续收敛。证据group-key-*.jpg及history.txt，ADR、功能页、README同步标注目标与现状。
+
+## 2026-11-05：配置取值页密度修整
+
+- [x] 用户指出表单占用与留白过多，量测旧3个key各171px、展开组和预览时工作区1574px。
+- [x] 默认展示紧凑取值清单，单key按需展开编辑；条件组摘要表按需展开单组，环境/变量/组管理合并工具栏，预览收紧为单行入口和结果两列。
+- [x] 真实浏览器验证单行展开/切换保留8188及无兜底状态、缺值预览、组摘要编辑/重命名、新建自动进入编辑、关闭/再开保留、删除无引用组。默认三个key行高均46px；1440×1000同时展示组摘要、取值清单和双列预览，工作区约719px；390×844表格宽313px与容器一致、文档宽375px无横溢出。键盘收起后焦点保留在该key编辑按钮。目标类型/lint/独立构建通过，约514kB单chunk提示保留；编辑时旧HMR失败记录已通过新标签页重新加载检查，新页error为空。示例重置，无后端/部署/提交推送。
+
+仅调整独立demo布局，不改逐key解析、完整性合同、正式页面或部署。
+
+证据：compact-values-overview.jpg、compact-values-inline-edit.jpg、compact-values-mobile.jpg。默认查看态各key由171px降至46px；旧1574px工作区包含所有组/取值编辑表单和预览，不与关闭全部编辑器的359px摘要态混作同条件性能比较。
+
+## 2026-11-05：配置预览独立弹窗
+
+- [x] 移除主页面常驻预览，文件操作区保留统一入口；独立预览环境、选组/标签及渲染快照，不切换编辑环境。
+- [x] 弹窗默认渲染结果、次级取值明细；输入改变后隐藏旧结果并要求重新渲染，保留缺项/空串、未保存草稿提示和literal空内容。
+- [x] 已有条件组可多选/清空并自动生成标签，自定义按需补充；冲突、坏CSV和失效组拒绝不覆盖。切预览环境清空组选项并要求重新渲染。
+- [x] 16模型场景、目标类型/lint/独立构建通过（约593kB chunk提示保留）；真实浏览器验证多组生成、dirty隐藏、冲突/非法补充、空选缺项、prod不改dev、未保存8188草稿、缺值明细/渲染错误、literal空正文0字符。390×600弹窗top14/bottom586、关闭按钮bottom561可达，Escape焦点返回取值预览；独立只读复核无阻断，主页面预览节点数0，未保存/发布真实配置。
+
+仅调整独立demo，不接真实API，不改取值模型、正式页面或部署。
+
+证据：preview-dialog-groups.jpg、preview-dialog-values.jpg、preview-dialog-mobile.jpg、main-with-preview-entry.jpg。当前预览弹窗保留在受控浏览器，前轮inline预览为迭代记录。
+
+## 2026-11-05：文件后缀推断与正文编辑器修整
+
+- [x] 删除手动格式选择及FileData重复format字段；file-format.ts按文件名唯一推断语言/预览格式/不可变快照格式。YAML/YML、JSON、Properties/INI、XML、文本支持相应高亮，未知/无后缀按纯文本。
+- [x] 使用已安装的本地Monaco ESM及本地editor/json workers，按需加载独立chunk，不走CDN；JSON未渲染模板的静态诊断关闭，保留渲染后检查。桌面flex填满剩余视口，窄/短窗自然滚动，紧凑模式/只读格式工具栏及底部状态栏。
+- [x] 12格式案例、目标TypeScript/oxlint、独立Vite构建通过；独立只读复核无阻断。真实浏览器验证YAML/JSON/Properties/XML多色token、真实键入及页签保留、预览读取未保存内容、JSON本地worker格式化、格式选择器0个。1440×900编辑器约542px/底栏883，1920×1080约722px/底栏1063，原1552×1344约986px/底栏1327，均仅余17px页边；390×844无横向溢出，1100×600编辑器320px且底部操作滚动可达。最终1280×720底栏703，文档高度720。新页error为空；临时Properties/XML文件和输入用刷新清除，未创建业务资源。
+
+编辑器资源按需分包：主chunk约583kB、Monaco编辑器chunk约3.24MB及本地worker/CSS；构建有大chunk提示，尚非正式打包优化验收。语法高亮不等于新增INI/XML格式校验。仅改独立demo与设计记录，未改正式页面/协议、部署、提交或推送。证据suffix-yaml-editor-desktop.jpg、suffix-json-editor.jpg、suffix-properties-editor.jpg、suffix-editor-mobile.jpg、suffix-editor-viewport-fill.jpg。
+
+## 2026-11-05：发布版本与客户端查看交互补齐
+
+- [x] 核对正式/多灰度选择合同与客户端记录的真实能力边界。
+- [x] 原型明确正式发布/新增灰度入口，展示并存版本、标签条件和优先级，补齐正文/变量取值的可读历史查看。
+- [x] 补回客户端订阅查看路径，示例记录与实际协议能力明确区分。
+- [x] 真实浏览器验证正式替换、多个灰度并存/停止、历史快照、客户端查看及窄屏；目标类型/lint/模型/构建检查，更新记录。
+
+范围仅独立demo，不改正式页面/API/OrbStack，不提交推送。
+
+### Review
+
+- 只读能力核对：配置管理无客户端枚举接口，原生Discover不是watch/push；灰度按priority升序、同级sequence降序，正式发布保留多个灰度。原型“客户端读取”与示例标记明确，不复用服务发现订阅字段。
+- 真实浏览器完成正式#6/灰度#7及staging#8失败重试、prod#3保持、灰度#4转正式#9保留9088、停止#7重读选#5/正式#9，原记录保留旧快照且详情显示当前状态；历史高亮正文、取值表格、草稿对比及候选审阅通过。窄屏表格行堆叠不需横向拖动操作，390×600发布弹层343×550，按钮可达、Escape返回入口，新页error为空。演示临时内存操作已重置，无真实资源增删。
+- 8选版、16取值、12后缀检查及目标类型/lint/独立构建通过；主chunk约596kB、Monaco约3.24MB提示保留。只读复核发现normal priority与历史状态误展示已修；另修Badge嵌套p的DOM警告。未做正式全仓/真实SDK验收，不部署/提交/推送。
+
+## 2026-11-05：灰度范围以客户端标签为准
+
+- [x] 按用户纠正明确灰度受众为客户端请求标签，标签组只作快捷填写来源，不能与变量取值组绑定混淆。
+- [x] 独立demo增加已知客户端标签勾选、自定义名/值、可选组带入及最终AND条件审阅，拒绝同名异值/空条件。
+- [x] 真实浏览器验证勾选、组带入后独立修改、自定义条件及实际选版；目标类型/lint/构建与记录同步，不部署/提交推送。
+
+### Review
+
+- 已知客户端标签直接勾选，自定义标签按名/值添加，最终AND范围明确展示；组快捷入口仅复制键值，不保留组关联。实际浏览器验证组带入后可取消app、不覆盖region冲突、自定义version添加/移除、空范围拒绝。按tier=canary发布#6并模拟重读，两个带tier的客户端选#6，无标签仍正式#1。
+- 13项选版/标签合并模型检查、目标类型/lint及独立构建通过（大chunk提示保留）。390×600灰度弹窗按钮可达、页面无横溢出；新页error为空。临时内存发布已刷新重置；当前演示停留在客户端标签选择窗口，没有确认发布。仅demo与知识记录，无正式源码/API/部署/提交推送。
+- 证据：gray-client-labels-desktop.jpg、gray-client-labels-mobile.jpg。
+
+## 2026-11-05：发布抽屉与环境Tab审阅
+
+- [x] 将正式/灰度发布统一改为右侧Fluent抽屉，固定标题和操作栏，正文独立滚动。
+- [x] 去除候选的多层details，按已选环境Tab切换，再查看正文/取值；取消当前环境后切到有效目标，冻结候选仍可审阅。
+- [x] 浏览器验证环境取值切换、移除目标/空目标、灰度标签、失败重试、窄屏与焦点恢复；类型/lint/构建及记录同步。仅demo，不部署提交推送。
+
+### Review
+
+- 正式/灰度均使用右侧Fluent OverlayDrawer；上方选范围，下方环境Tab与正文/变量子Tab，移除多层候选details；标题和操作栏固定，正文滚动。候选环境只来自targets，取消当前目标后使用有效环境；SnapshotView保留子Tab状态并区分待冻结/已冻结正文。
+- 浏览器实测dev/staging/prod取值隔离（staging8081、prod日志warn）、切环境保留取值页、取消当前环境/空目标、冻结候选后审阅与失败重试；Escape返回发布配置按钮。修正全局header样式影响DrawerHeader及100vw导致窄屏左裁切；390×600实际375×600、x=0，按钮底588可达，正文独立滚动，新页error为空。临时内存发布重置，当前审阅未确认。
+- 目标类型/lint/独立构建通过；约615kB主chunk与3.24MB编辑器提示保留。未改解析/正式API/OrbStack，不提交推送。证据publish-drawer-environment-tabs.jpg、publish-drawer-body.jpg、publish-drawer-mobile.jpg。
+
+## 2026-11-05：发布Step与原客户端标签条件交互
+
+- [x] 核对旧配置GrayRuleEditor/PublishForm和当前客户端标签与协议能力。
+- [x] 发布分环境→类型→灰度标签（仅灰度）→内容确认→结果；回退保留输入，最后才发布，冻结后禁止修改。
+- [x] 原标签编辑结构恢复为客户端IP/ID/语言、自定义键、匹配方式和值的条件行；当前仅精确AND，旧其他方式不冒充已支持。
+- [x] 浏览器验证正式跳过灰度步骤、灰度标签校验/回退、选版、环境审阅、部分失败重试和窄屏；检查与记录同步。不部署提交推送。
+
+### Review
+
+- CodeGraph sync complete（1402文件）；参考HEAD旧配置GrayRuleEditor/PublishForm和当前共享条件组件。当前v1仅map exact AND，不自动注入IP/ID/语言，旧正则/范围不冒充可用。
+- 浏览器实测空环境/空行/重复键阻止前进，正式跳过标签，增删自定义行及回退保留IP192.0.2.11/语言Go；审阅staging8081，最终确认才发布，失败只重试目标且冻结后不可改。模拟读取仅对应客户端命中新灰度#6，其余仍#5/正式#1。
+- 390×600条件行无横溢出，底栏按钮588可达；切步scrollTop归零并聚焦标题，新页error为空。14选版/标签模型、目标类型/lint/独立构建和只读复核通过，约630kB主包/3.24MB编辑器提示保留。
+- 临时内存发布已重置，当前停留第3步未确认。仅demo和记录，未部署提交推送。证据publish-steps-client-labels.jpg、publish-steps-labels-mobile.jpg、publish-steps-review-mobile.jpg。
+
+## 2026-11-05：灰度匹配能力回退核对
+
+- [x] 核实旧UI/共享匹配器有REGEX、NOT_EQUALS、IN、NOT_IN、RANGE；当前统一v1 Audience仅map且matches只相等比较，旧匹配能力没有迁入，不是本轮Demo单纯隐藏。
+- [x] 原因核对后另行恢复六种匹配；实现和证据见下方正式链路任务，原核对结论仅作历史。
+
+## 2026-11-05：正式链路恢复六种Audience匹配
+
+- [x] 固定协议合同：Audience保留labels=1精确旧数据，新增conditions=2结构化条件；两者互斥，条件key唯一且AND，支持EXACT/REGEX/NOT_EQUALS/IN/NOT_IN/RANGE，非法/未知拒绝。
+- [x] 协议源/生成产物/合同检查同步；新条件用于灰度及ValueRule，RenderSnapshot仍只返回有效values，不要求客户端重新选版。
+- [x] 后端共用匹配器用于Discover/Preview/兼容取值；恢复RE2搜索、集合、int64闭区间，缺标签始终不匹配；同priority值规则保持保守歧义拒绝，灰度保留确定性排序。
+- [x] 正式前端恢复结构化条件编辑、类型化匹配值、预览和历史可读显示，不只修改output Demo。
+- [x] 表驱动/服务与HTTP/gRPC/实际浏览器验证六种命中/未命中、非法输入、排序、缺项、回滚与旧精确兼容；类型/lint/构建及必要检查。
+- [x] 更新协议/ADR/功能页与review，保留既有dirty，不提交推送，不自动部署OrbStack。
+
+合同：REGEX为Go/RE2搜索语义；IN/NOT_IN按逗号分隔的字面字符串集合；RANGE为signed-int64的left~right含端点；缺失标签包括负条件均不匹配，空字符串为有效请求值；*不隐式代表通配。新条件type零/未知、空key、重复key、非法正则/范围、混用labels与conditions拒绝。范围/集合成员等复杂条件不把未知重叠当不重叠；ValueRule同优先级无法证明互斥时要求不同priority。
+
+
+### Review：正式六匹配闭环
+
+- 协议源、Go/Rust生成与合同测试同步；Node/Python本地生成检查通过。Go配置合同、Rust8项、Node类型及Pythonwire检查通过；Java/C#/C++未构建。
+- `go test ./...` 全部通过，`go test -race ./pkg/config/unified ./plugin/apiserver/httpserver/config ./plugin/apiserver/grpcserver/discover/v1` 通过。新 `TestSixMatchHTTPGRPC` 通过真实网络管理HTTP与gRPC流验证六种 hit/miss/missing 共18组选版/选值，非法正则不返回快照。
+- `TestUnifiedAudienceMySQLPersistence` 在隔离MySQL8.4.6通过：六类型快照持久化/重连、旧map、Preview/Discover、灰度替换/回滚。独立测试库自动清理，专用容器已停止移除，没有触碰OrbStack数据。
+- 正式页面直接导入当前src，经真实HTTP handlers/统一领域服务验证六种Preview命中/未命中、范围11~19编辑保存发布（draft3/releaseSet3）、空字符串value保存回读和命中、异常JSON可修正、非法RE2中文错误、合法空文件0字节反馈。浏览器身份与内存事务仓库为隔离替身，SQL证据独立提供，不混称完整业务E2E。
+- 390px视口修复历史UUID造成的横向溢出；回归body375px且无越界元素，已恢复默认视口。截图/逐项结果及可复现挂载器在 `web/console/output/six-match-formal-verification/`。
+- 目标oxlint、Audience边界脚本、12共享向量/9HTTP动作检查和生产构建通过。全量tsc仍有共享组件等既有错误，当前Unified/unified_config相关文件无错误；详见本地 `/tmp/pole-six-match-tsc.log`，不宣称全量类型检查通过。
+- 只读复核未见六匹配阻断；发现空预览反馈P2并已修复实测。临时浏览器窗口、Vite/live HTTP服务和隔离资源已清理，原18084 Demo保留。保留工作区既有改动，不暂存、不提交、不推送、不部署OrbStack。
+
+- KG全库lint因既有concept缺type/sources旧格式失败；本轮新增用例已按stable状态与来源mapping修正，无新增用例错误，不扩大整理无关存量文档。
+
+
+## 2026-11-05：灰度标签合并至发布类型
+
+- [x] 移除独立客户端标签步骤，选择灰度后在该选项下展示原条件编辑器和优先级。
+- [x] 在发布类型进入确认前校验灰度条件；正式发布不校验隐藏灰度条件，切换/返回保留输入。
+- [x] 浏览器检查桌面/窄屏、非法条件拦截和确认页；目标类型/lint/独立构建，更新原型和知识记录，不提交推送。
+
+### Review：灰度标签内联
+
+- 标注的18084原型已改固定4步，客户端标签/优先级放入发布类型步骤的灰度选项下，移除独立audience步骤。保留原条件编辑与灰度校验，正式不受隐藏条件影响。
+- 真实浏览器验证空条件拦截、正常直接进入确认、切换/返回保留标签和优先级；390×600无横向溢出、下一步bottom588，默认视口恢复，错误日志为空。目标类型（含vite/client）、oxlint和独立构建通过。
+- 未点击确认发布，保留示例未发布输入供查看；只改独立原型展示和记录，正式六匹配代码/OrbStack不变，未提交推送。
+
+
+## 2026-11-05：交互原型同步六种匹配
+
+- [x] 灰度条件改为结构化类型，兼容旧示例exact；发布/历史/回滚与模拟读取保留六种条件及AND、优先级语义。
+- [x] 原型Go/WASM运行时执行六种匹配与RE2/集合/int64校验，避免JS正则语义偏差。
+- [x] 内联灰度编辑器提供正则、集合成员、范围双边界交互和匹配测试，保留标签组快捷带入。
+- [x] 模型/Go语义与真实浏览器验证六种命中和未命中、非法输入、发布后读取；目标类型/lint/构建，清理临时示例发布，不提交推送。
+
+### Review：原型六匹配
+
+- 灰度条件由字符串改为key/type/value结构，发布历史保留完整conditions，旧labels转换exact；回滚克隆完整条件，转正式清空条件；复制到草稿保持仅恢复正文/取值的既有范围；按priority/新版本选版规则不变。
+- 本地Go/WASM执行真实regexp/strconv，支持六操作与请求标签校验，拒绝未知类型、重复键、非法RE2/range/int64/Unicode；JS仅桥接。无新增npm依赖，产物约4.8MiB且独立于正式console包。
+- 22项选版模型、同一WASM边界检查、目标tsc/oxlint和独立构建通过。真实浏览器19项六操作正反/缺键/端点加1项组合AND命中通过，正则lookahead和逆序范围被拦截。示例发布regex CLIENT_ID ^order-cn-[0-9]+$ priority0，历史#6正确显示type，重读#6/#5/#1符合预期。
+- 复核未见阻断；修复多成员/双边界重复id与可访问名称，当前无重复id。390×600输入不越界，下一步bottom588。生产构建冷启动成功、无error，临时18087服务已停止；#6发布与读取已重置，恢复预置#5/#4/#1，无业务数据操作。
+- 截图/结果在原型evidence，README含重建和验证命令。保留原18084入口与工作区既有修改，不提交推送、不部署OrbStack。
+
+## 2026-11-05：配置原型正式化与 OrbStack 发布
+
+- [x] 增补共享正文 CAS/环境目录及逐变量条件组协议、存储与真实选值；保留旧 winning 规则和发布快照。
+- [x] 正式配置文件目录、正文/变量页签、独立预览、发布历史及四步多环境发布抽屉接真实API，灰度六匹配内联，修复标签键高度。
+- [x] 验证真实权限、MySQL重连/CAS、协议/Go/前端构建及浏览器编辑、预览、normal、多gray/历史。
+- [x] 构建新本地镜像，升级 orbstack/pole-ui-review Helm pole，保持 lattice-hub.localhost Gateway；浏览器回归并清理临时资源。
+- [x] 更新ADR/验收/review/lessons/索引，不提交推送，保留既有dirty与数据。
+
+### 进行中 Review：正式化部署与登录交接
+
+- 协议/后端/真实MySQL/前端模块已实现。全量Go测试通过（更新生产容器旧files路由断言后复跑），相关race通过；13HTTP动作/12渲染向量、8项draft状态检查、目标lint/类型及生产构建/嵌入资源检查通过。Rust9项/Go/Node/Python合同检查通过，Java/C#/C++未构建。
+- 隔离MySQL真实并发补测发现首次草稿与共享正文竞争，已修为 namespace→clock→source/state 序列。模板与删除的两个交错、草稿先提交时正文冲突回滚通过；专用容器已清理，未更改现有业务数据。
+- 当前OrbStack release pole revision15，镜像 pole-control-plane:config-formal-20261105-b。基于现有arm64运行时仅替换新consoleassets二进制，sibling specification一并编译；Helm预演仅StatefulSet image变更。原13修订/镜像保留，14候选已被15替换。Gateway Accepted/Programmed、HTTPRoute Accepted/ResolvedRefs均True，HTTP200，Pod1/1且0重启；生产六张统一表存在。
+- 尚未完成真实账号浏览器编辑/预览/normal/multi-gray业务验收：独立IAB tab3 http://lattice-hub.localhost/login 已显示并标记交接，异步请求用户重新登录；没有读取/更改密码或伪造登录。当前没有本轮业务临时资源待清理。用户登录后继续，不把Ready/单元测试当浏览器验收通过。
+- 下一步：真实UI创建ui-audit前缀配置与必要环境，测跨env缓存/保存/预览/normal+多个gray/历史与对齐/390px；必要时修复重建，不提交推送。测试后按精确身份清理临时数据，不清空现有业务库。
+
+### Review：2026-11-06 真实登录配置验收进展
+
+- 已完成真实页面跨环境部分失败与修复保存、命中/未命中预览、两环境正式发布、两个灰度并存、normal 保留灰度、回滚、原子转正式与复制覆盖保护。完整环境、值与版本号见 [OrbStack 浏览器验收](../quality/testcases/console-orbstack-browser-acceptance.md)。
+- 六操作符真实 Preview 正反命中及缺键边界通过，详见 [六匹配验收](../quality/testcases/config-six-match.md)；390×600 无横向溢出且 footer 可见，console error 为空。
+- 前轮全量 Go、相关 race、隔离 SQL 已通过；最终前端构建与目标 lint 已通过。全仓 tsc 因其他模块既有错误未通过，ReleaseHistory 最新 optional time 修复待复测。
+- 真实操作发现的嵌套 `@type`、条件组折叠、原生确认、发布结果卸载、回滚空 ID 和复制覆盖问题已修复。最终镜像 f 尚构建，临时资源尚待清理，截图待在最终镜像重拍；不得将当前证据表述为最终部署或清理完成。
+
+### 最终 Review：正式配置真实链路（2026-11-06）
+
+- 最终镜像 `pole-control-plane:config-formal-20261106-f`，image ID `sha256:590b1c278bb34bd2b35b9157779359575caf8d721bb203ad88f71a79560f0a09`；Helm revision18 deployed，Pod Ready 1/1、重启0，Gateway Accepted/Programmed 和 HTTPRoute Accepted/ResolvedRefs 均 True，域名 HTTP200。只更新本地应用镜像，无推送。
+- 最终镜像再次通过浏览器发布集合 CLIENT_IP 条件灰度 #7，结果页保持“发布完成”；#7、regex #2 与正式 #6 同时生效，截图 `output/config-formal-20261106/multiple-gray-final.png`。最终标签键外框32px、只读，与select对齐；运行error日志为空。
+- 临时文件精确清理：模板1、绑定2、状态2、发布8、事件8 → 全0，不修改clock。随后通过UI删除空的 `ui-audit-config-20261106`；业务环境恢复仅default，默认配置文件目录为空，独立SQL复查state/template/event为0。保留产品正常审计与逻辑clock。
+- 最终前端release构建、目标oxlint、12渲染向量/13HTTP动作、模板读写roundtrip、发布动作行为和8项会话dirty检查通过。全仓tsc仍存在其他模块既有错误，本轮Unified/CodeEditor/service无报错。全仓KG lint既有格式问题保留。
+- 限制：没有客户端订阅/读取记录管理API；此轮真实控制台与SQL/Preview验收不等同于外部SDK消费验证。历史版本共享字段不同的复制会明确拒绝，须先审阅并更新共享模板。未提交、未推送。
+
+
+## 2026-11-06：两个仓库业务代码同步 develop
+
+- [x] 用户确认两个仓库当前全部业务代码改动，排除本地产物、缓存和临时文件；显式清单与隔离候选，不清理原工作区。
+- [x] specification 全部业务代码整合远端已有develop更新，推送 f1d3771e58700ebf38b7e05cfa103fea664fb926；Go/Rust/Node/Python合同验证通过，不发tag或Release。
+- [x] control-plane 固定远端协议伪版本，去除相邻目录依赖；统一配置渲染检查改为读取Go实际依赖的测试向量，支持独立检出。
+- [x] 候选Go全量、前端干净安装/构建及相关契约、Helm检查与暂存边界复查。
+- [ ] control-plane 提交推送develop并核对远端hash，保留本地产物及原工作区。
+
+### Review：develop提交候选
+
+- 控制面候选634个业务文件，排除621个本地输出/缓存/consoleassets变动；源码占位文件保留。环境资源检查同步统一目录API、Inspect授权及删除边界，配置向量从Go实际依赖获取。
+- 固定远端协议 `v0.1.0-ALPHA.48.0.20261105165333-f1d3771e5870`，独立候选 GOWORK=off Go全量测试、npm ci/release build、统一配置/读写roundtrip/发布动作/dirty、认证边界/编辑抽屉/环境资源检查通过；Helm lint通过。diff whitespace检查通过。
+- 全仓tsc仍有既有共享组件/治理类型错误，未以Vite构建通过替代类型检查；依赖审计既有问题保留。暂存秘密扫描唯一告警为测试用base64分页游标，人工确认不是凭据。无发版tag、Release、镜像推送或本轮再次部署。

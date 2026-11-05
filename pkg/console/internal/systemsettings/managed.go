@@ -16,7 +16,8 @@ import (
 	"github.com/pole-io/pole-server/pkg/systemconfig"
 )
 
-func (m *Manager) ManagedDomain(ctx context.Context, component, domain string) (*ManagedDomainView, error) {
+func (m *Manager) ManagedDomain(ctx context.Context, component, domain string,
+	effectiveSettings ...[]systemconfig.EffectiveSetting) (*ManagedDomainView, error) {
 	record, err := m.repo.GetSystemConfigDomain(ctx, component, domain)
 	if err != nil {
 		return nil, err
@@ -32,6 +33,9 @@ func (m *Manager) ManagedDomain(ctx context.Context, component, domain string) (
 		}
 		view.ApplyStatus = "pending_restart"
 		view.ApplyMessage = "目标版本已发布；当前实例仍使用启动配置，等待重启级配置适配器收敛"
+		if len(effectiveSettings) > 0 {
+			view.ApplyStatus, view.ApplyMessage = managedApplyState(view.Active, effectiveSettings[0])
+		}
 	}
 	if record.DraftRevision != nil {
 		view.Draft, err = managedRevisionView(record.DraftRevision)
@@ -40,6 +44,34 @@ func (m *Manager) ManagedDomain(ctx context.Context, component, domain string) (
 		}
 	}
 	return view, nil
+}
+
+func managedApplyState(active *ManagedRevisionView,
+	settings []systemconfig.EffectiveSetting) (string, string) {
+	if active == nil {
+		return "static", "当前使用启动配置"
+	}
+	guarded, drifted := false, false
+	for _, setting := range settings {
+		desired, ok := active.Values[setting.Key]
+		if !ok {
+			continue
+		}
+		if setting.ApplyStatus == "rejected" {
+			return "rejected", "目标版本校验失败；实例继续使用上一次有效配置"
+		}
+		if setting.ApplyMode == systemconfig.HotReload || setting.ApplyMode == systemconfig.GuardedHotReload {
+			guarded = true
+			drifted = drifted || !reflect.DeepEqual(normalizeComparable(setting.Value), normalizeComparable(desired))
+		}
+	}
+	if guarded && !drifted {
+		return "applied", "目标版本已在当前实例生效"
+	}
+	if guarded {
+		return "applying", "目标版本已发布，等待运行实例收敛"
+	}
+	return "pending_restart", "目标版本已发布；当前实例仍使用启动配置，等待重启级配置适配器收敛"
 }
 
 func (m *Manager) SaveManagedDraft(ctx context.Context, actor, component, domain string,
@@ -118,7 +150,18 @@ func (m *Manager) EnrichManagedDesired(ctx context.Context, settings []systemcon
 			settings[index].DesiredDisplayValue = displayManagedValue(value)
 			settings[index].DesiredRevision = view.Revision
 			settings[index].Drifted = !reflect.DeepEqual(normalizeComparable(settings[index].Value), normalizeComparable(value))
-			settings[index].ApplyStatus = "pending_restart"
+			switch settings[index].ApplyMode {
+			case systemconfig.HotReload, systemconfig.GuardedHotReload:
+				if settings[index].ApplyStatus != "rejected" {
+					if settings[index].Drifted {
+						settings[index].ApplyStatus = "applying"
+					} else {
+						settings[index].ApplyStatus = "applied"
+					}
+				}
+			default:
+				settings[index].ApplyStatus = "pending_restart"
+			}
 		}
 	}
 }

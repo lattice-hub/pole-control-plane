@@ -68,6 +68,7 @@ func normalizeMCPServerBackend(server *ai.MCPServer) {
 	case "address":
 		server.BackendServiceNamespace = ""
 		server.BackendServiceName = ""
+		server.Reference = ""
 	default:
 		if server.BackendServiceNamespace != "" || server.BackendServiceName != "" {
 			server.BackendType = "service"

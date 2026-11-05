@@ -26,6 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -182,6 +183,7 @@ func (b *BaseGrpcServer) Run(errCh chan error, protocol string, initServer InitS
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(b.unaryInterceptor),
 		grpc.StreamInterceptor(b.streamInterceptor),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	}
 	if creds != nil {
 		// 指定使用 TLS credentials
@@ -337,7 +339,18 @@ type PostProcessFunc func(stream *VirtualStream, m interface{})
 func (b *BaseGrpcServer) postprocess(stream *VirtualStream, m interface{}) {
 	var code int
 	var polarisCode uint32
-	if response, ok := m.(api.ResponseMessage); ok {
+	if stream.Method == "/v1.ConfigGRPC/Discover" {
+		// 配置使用公共 Response，但 Any 内含模板和值；仅记录错误码，不能打印消息正文。
+		if response, ok := m.(interface{ GetCode() uint32 }); ok {
+			polarisCode = response.GetCode()
+			code = int(polarisCode)
+			if polarisCode != uint32(api.ExecuteSuccess) {
+				b.log.Error("[API-Server][GRPC] send configuration response",
+					zap.String("method", stream.Method), zap.Uint32("code", polarisCode),
+					utils.ZapRequestID(stream.RequestID))
+			}
+		}
+	} else if response, ok := m.(api.ResponseMessage); ok {
 		polarisCode = response.GetCode()
 		code = api.CalcCode(response)
 
@@ -364,7 +377,7 @@ func (b *BaseGrpcServer) postprocess(stream *VirtualStream, m interface{}) {
 				zap.String("user-agent", stream.UserAgent),
 				utils.ZapRequestID(stream.RequestID),
 				zap.String("method", stream.Method),
-				zap.String("response", response.String()),
+				zap.Int("transport-code", stream.Code),
 			)
 		}
 	}

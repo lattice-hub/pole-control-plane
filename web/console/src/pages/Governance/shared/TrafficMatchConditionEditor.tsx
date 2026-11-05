@@ -22,6 +22,7 @@ interface OptionItem {
 
 interface TrafficMatchConditionEditorProps {
     rows: TrafficMatchConditionRow[];
+    contextLabel?: string;
     paramTypeOptions: OptionItem[];
     editable: boolean;
     showParamKey?: boolean;
@@ -50,6 +51,7 @@ const renderReadonlyValue = (value?: string) => (
 
 const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = ({
     rows,
+    contextLabel = '匹配条件',
     paramTypeOptions,
     editable,
     showParamKey = true,
@@ -92,7 +94,7 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
                         <div className={styles.relationControl}>
                             <span className={styles.relationLabel}>条件关系</span>
                             <RadioGroup
-                                aria-label="条件关系"
+                                aria-label={`${contextLabel}条件关系`}
                                 layout="horizontal"
                                 value={relation}
                                 onChange={(value) => onRelationChange?.(value as string)}
@@ -108,7 +110,7 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
             </div>
 
             <div className={styles.conditionSurface}>
-                <div className={`${styles.conditionTable} ${showParamKey ? '' : styles.conditionTableNoKey}`} role="table" aria-label="匹配条件">
+                <div className={`${styles.conditionTable} ${showParamKey ? '' : styles.conditionTableNoKey}`} role="table" aria-label={`${contextLabel}匹配条件`}>
                     <div className={styles.tableHeaderRow} role="row">
                         <div className={styles.tableHeader} role="columnheader">参数类型</div>
                         {showParamKey && <div className={styles.tableHeader} role="columnheader">参数键</div>}
@@ -125,14 +127,14 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
                             <div
                                 className={styles.conditionRow}
                                 role="row"
-                                aria-label={`匹配条件 ${index + 1}`}
+                                aria-label={`${contextLabel}第 ${index + 1} 条匹配条件`}
                                 key={`condition-${index}`}
                             >
                             <div className={styles.tableField} role="cell">
                                 <span className={styles.fieldLabel}>参数类型</span>
                                 {editable ? (
                                     <Select
-                                        aria-label={`第 ${index + 1} 条：参数类型`}
+                                        aria-label={`${contextLabel}第 ${index + 1} 条匹配条件：参数类型`}
                                         options={paramTypeOptions}
                                         value={row.paramType}
                                         onChange={(value) => updateRow(index, { paramType: value as string })}
@@ -144,7 +146,7 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
                                     <span className={styles.fieldLabel}>参数键</span>
                                     {editable ? (
                                         <Input
-                                            aria-label={`第 ${index + 1} 条：参数键`}
+                                            aria-label={`${contextLabel}第 ${index + 1} 条匹配条件：参数键`}
                                             value={row.paramKey || ''}
                                             placeholder="请输入参数键"
                                             onChange={(value) => updateRow(index, { paramKey: value })}
@@ -158,7 +160,7 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
                                     <span className={styles.captureHint}>采集参数</span>
                                 ) : editable ? (
                                     <Select
-                                        aria-label={`第 ${index + 1} 条：匹配类型`}
+                                        aria-label={`${contextLabel}第 ${index + 1} 条匹配条件：匹配类型`}
                                         options={MatchTypeOption}
                                         value={matchType}
                                         onChange={(value) => updateRow(index, { matchType: value as string })}
@@ -169,7 +171,7 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
                                 <span className={styles.fieldLabel}>值来源</span>
                                 {editable ? (
                                     <Select
-                                        aria-label={`第 ${index + 1} 条：值来源`}
+                                        aria-label={`${contextLabel}第 ${index + 1} 条匹配条件：值来源`}
                                         options={MatchValueTypeOption}
                                         value={valueType}
                                         onChange={(value) => {
@@ -190,13 +192,14 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
                                 ) : editable ? (
                                     isTagInputMatchType(matchType) ? (
                                         <TagInput
+                                            aria-label={`${contextLabel}第 ${index + 1} 条匹配条件：匹配值`}
                                             value={commaStringToTags(row.matchValue)}
                                             placeholder="请输入匹配值，回车分隔"
                                             onChange={(value) => updateRow(index, { matchValue: tagsToCommaString(value as Array<string | number>) })}
                                         />
                                     ) : (
                                         <Input
-                                            aria-label={`第 ${index + 1} 条：匹配值`}
+                                            aria-label={`${contextLabel}第 ${index + 1} 条匹配条件：匹配值`}
                                             value={row.matchValue || ''}
                                             placeholder="请输入匹配值"
                                             onChange={(value) => updateRow(index, { matchValue: value })}
@@ -209,7 +212,7 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
                                     <Tooltip content={currentRows.length <= minRows ? `至少保留 ${minRows} 条条件` : '删除匹配条件'} placement="top">
                                         <span>
                                             <Button
-                                                aria-label={`删除第 ${index + 1} 条匹配条件`}
+                                                aria-label={`${contextLabel}删除第 ${index + 1} 条匹配条件`}
                                                 shape="circle"
                                                 variant="text"
                                                 disabled={currentRows.length <= minRows}
@@ -228,7 +231,7 @@ const TrafficMatchConditionEditor: React.FC<TrafficMatchConditionEditorProps> = 
 
                 {editable && (
                     <div className={styles.addBar}>
-                        <Button aria-label={addText} variant="text" icon={<AddIcon />} onClick={onAdd}>
+                        <Button aria-label={`${contextLabel}${addText}`} variant="text" icon={<AddIcon />} onClick={onAdd}>
                             {addText}
                         </Button>
                     </div>

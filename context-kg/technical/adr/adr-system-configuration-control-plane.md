@@ -2,7 +2,7 @@
 title: ADR：统一系统配置与动态生效
 tags: [adr, config, runtime, console, operations]
 links: [configuration, architecture, config-center, adr-console-agent-resource-workbench, auth-system, storage, adr-pole-self-management-control-loop]
-updated: 2026-07-29
+updated: 2026-08-10
 sources: 47
 ---
 
@@ -10,7 +10,7 @@ sources: 47
 
 ## 状态
 
-Accepted，分阶段实施中。Phase 1 已落地 Pole Server/Console 的 63 项显式配置目录；Phase 2 已落地全领域字段级编辑策略、通用草稿/发布和 Agent 受控热更新。重启级字段目前保存 desired revision 并回执 `pending_restart`；启动期 overlay 与多实例 apply receipt 仍按 Phase 4 推进。
+Accepted，分阶段实施中。Phase 1 已落地 Pole Server/Console 的 64 项显式配置目录；Phase 2 已落地全领域字段级编辑策略、通用草稿/发布和 Agent 受控热更新。Phase 3 首个 Server `GuardedHotReload` 切片已覆盖 Nacos/Eureka 默认环境映射；其它重启级字段仍保存 desired revision 并回执 `pending_restart`。
 
 ## 背景
 
@@ -200,7 +200,7 @@ Pole Agent 不获得任何 System Configuration 写工具，也不能读取 Secr
 - 页面只读展示 effective value 和 source，不改变加载行为。
 - 页面必须区分“合法空筛选结果”和“目录请求失败”：首次请求失败显示明确错误与重试，不渲染全零统计；刷新失败保留 last-known-good 快照并提示当前数据可能过期。
 
-当前实现通过 `pkg/systemconfig` 提供 registry、source index 与 effective snapshot interface。Pole Server 在 `/admin/v1/system/configuration` 输出本组件快照，并通过 `MaintainModule + Read + DescribeSystemConfiguration` 执行凭证及策略授权；Console 在 `/system-config/v1/settings` 聚合本地 Console 与远端 Server 快照。移除外部 `webPath` 后首批目录共 62 项，其中 Pole Server 29 项、Console 33 项；Console Agent 领域已从提案参数扩展为 13 项完整元信息。页面已按组件和领域组织单领域配置表，新增字段必须显式注册并声明领域、敏感级别与 apply mode。
+当前实现通过 `pkg/systemconfig` 提供 registry、source index 与 effective snapshot interface。Pole Server 在 `/admin/v1/system/configuration` 输出本组件快照，并通过 `MaintainModule + Read + DescribeSystemConfiguration` 执行凭证及策略授权；Console 在 `/system-config/v1/settings` 聚合本地 Console 与远端 Server 快照。目录共 64 项，其中 Pole Server 31 项、Console 33 项；页面已按组件和领域组织单领域配置表，新增字段必须显式注册并声明领域、敏感级别与 apply mode。
 
 Phase 1 的来源限定为 `compiled_default`、`static_file`、`environment` 和 `command_line`。默认值归一化后必须同步回落为 `compiled_default`，复合环境模板记录全部变量引用；列表设置聚合其 YAML 子项来源，避免被误报为编译默认值。Secret 在服务端删除原值后只返回“已配置/未配置”状态和引用。
 
@@ -215,6 +215,15 @@ Phase 1 的来源限定为 `compiled_default`、`static_file`、`environment` �
 
 - 每个字段先实现 applier、并发测试、回滚和失效测试，再开放页面编辑。
 - 优先维护任务开关/周期和普通运行阈值；鉴权、健康检查、OTel 单独评审。
+- 首个落地切片是 `pole-server/compatibility`：
+  - `server.compatibility.nacos.public_namespace_target` 与
+    `server.compatibility.eureka.default_namespace_target` 独立发布，静态初值均为 `dev`。
+  - Nacos 空 `namespaceId`/`public` 和 Eureka 缺少 `x-namespace` 时按当前 effective snapshot 解析；显式环境原样优先。
+  - Pole Server 各实例从共享 active revision 读取、验证目标存在且为 BUSINESS、原子替换并写
+    `system_config_apply_receipt`；失败保留 last-known-good 并回执 `rejected`。
+  - 被 effective 映射引用的环境禁止删除；兼容别名不是 Namespace，不显示在环境列表，也不进入晋升拓扑。
+  - Nacos 持久订阅固定创建时的内部环境与 wire alias；切换只影响新请求和新订阅。Eureka peer replication
+    继续使用静态显式拓扑，不因缺省请求映射变化而迁移。
 
 ### Phase 4：重启配置与实例回执
 

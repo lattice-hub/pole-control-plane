@@ -16,7 +16,7 @@ import {
 import EnvironmentResourceSwitcher from 'components/EnvironmentResourceSwitcher';
 import { copyToClipboard } from 'utils/sys';
 import { openErrNotification, openInfoNotification } from 'utils/notifition';
-import ServiceForm from '../ServiceForm';
+import ServiceForm, { ServiceFormHandle } from '../ServiceForm';
 import style from './index.module.less';
 
 interface IServiceDetailProps {
@@ -49,6 +49,14 @@ const ServiceDetail: React.FC<IServiceDetailProps> = ({
     const [loading, setLoading] = React.useState(false);
     const [aliasCount, setAliasCount] = React.useState<number | null>(null);
     const [editing, setEditing] = React.useState(initialEdit);
+    const previousEditing = React.useRef(editing);
+    const editButtonRef = React.useRef<HTMLButtonElement>(null);
+    React.useEffect(() => {
+        if (previousEditing.current && !editing) editButtonRef.current?.focus();
+        previousEditing.current = editing;
+    }, [editing]);
+    const [serviceSubmitting, setServiceSubmitting] = React.useState(false);
+    const serviceFormRef = React.useRef<ServiceFormHandle>(null);
     const [environmentServices, setEnvironmentServices] = React.useState<ServiceEnvironmentBindingView[]>([]);
     const [resolvedLogicalId, setResolvedLogicalId] = React.useState(logicalServiceId);
 
@@ -111,12 +119,18 @@ const ServiceDetail: React.FC<IServiceDetailProps> = ({
         let active = true;
         const loadBindings = async () => {
             if (!service?.id) {
-                setResolvedLogicalId('');
+                setResolvedLogicalId(logicalServiceId);
                 setEnvironmentServices([]);
                 return;
             }
-            const binding = await resolveServiceEnvironmentBinding(service.id);
-            const nextLogicalId = 'logical_service_id' in binding ? binding.logical_service_id : '';
+            // 从逻辑服务详情进入时，URL 已携带权威 logicalServiceId。
+            // 服务查询的兼容响应可能暂时没有数据库 ID，不能再用 namespace/name
+            // 组合值查询绑定并把已知逻辑服务上下文覆盖为空。
+            let nextLogicalId = logicalServiceId;
+            if (!nextLogicalId) {
+                const binding = await resolveServiceEnvironmentBinding(service.id);
+                nextLogicalId = 'logical_service_id' in binding ? binding.logical_service_id : '';
+            }
             if (!active) return;
             setResolvedLogicalId(nextLogicalId);
             if (!nextLogicalId) {
@@ -133,7 +147,7 @@ const ServiceDetail: React.FC<IServiceDetailProps> = ({
             }
         });
         return () => { active = false; };
-    }, [service?.id]);
+    }, [logicalServiceId, service?.id]);
     const metadata = Object.entries(service?.metadata || {});
     const totalInstances = parseCount(service?.total_instance_count);
     const healthyInstances = parseCount(service?.healthy_instance_count);
@@ -277,17 +291,28 @@ const ServiceDetail: React.FC<IServiceDetailProps> = ({
                             <h3>{editing ? '编辑服务信息' : '服务信息'}</h3>
                             <span>{editing ? '在当前详情页修改服务描述、归属和标签' : '注册发现服务元数据'}</span>
                         </div>
-                        {!editing && (
+                        {!editing ? (
                             <Button
+                                ref={editButtonRef}
                                 theme="primary"
                                 disabled={service.editable === false}
                                 onClick={() => setEditing(true)}
                             >
                                 编辑服务
                             </Button>
+                        ) : (
+                            <div className={style.detailActions}>
+                                <Button variant="outline" disabled={serviceSubmitting} onClick={() => setEditing(false)}>
+                                    取消
+                                </Button>
+                                <Button theme="primary" loading={serviceSubmitting} onClick={() => serviceFormRef.current?.submit()}>
+                                    保存修改
+                                </Button>
+                            </div>
                         )}
                     </header>
                     <ServiceForm
+                        ref={serviceFormRef}
                         mode={editing ? 'edit' : 'view'}
                         service={service}
                         onSubmitted={() => {
@@ -295,6 +320,7 @@ const ServiceDetail: React.FC<IServiceDetailProps> = ({
                             reloadService();
                         }}
                         onCancel={() => setEditing(false)}
+                        onSubmittingChange={setServiceSubmitting}
                     />
                 </section>
             </section>

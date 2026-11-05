@@ -48,11 +48,12 @@ const columns = (handleOpRule: (row: TableRowData, op: Op) => void, redirect: (r
     },
     {
         colKey: 'namespace',
-        title: '命名空间',
+        title: '归属环境',
     },
     {
-        colKey: 'service',
-        title: '服务名称',
+        colKey: 'callee',
+        title: '目标服务',
+        cell: ({ row }) => `${(row as RateLimitView).callee?.namespace || '-'}/${(row as RateLimitView).callee?.service || '-'}`,
     },
     {
         colKey: 'rulesCount',

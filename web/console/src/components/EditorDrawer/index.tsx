@@ -63,8 +63,21 @@ const EditorDrawer: React.FC<EditorDrawerProps> = ({
     closeOnOverlayClick = false,
     closeOnEscKeydown = true,
     destroyOnClose = true,
-}) => (
-    <Drawer
+}) => {
+    React.useLayoutEffect(() => {
+        if (!visible) return;
+        const opener = document.activeElement;
+        // Callers may close by unmounting the editor, so restore from cleanup too.
+        return () => {
+            requestAnimationFrame(() => {
+                if (opener instanceof HTMLElement && opener.isConnected && document.activeElement === document.body) {
+                    opener.focus({ preventScroll: true });
+                }
+            });
+        };
+    }, [visible]);
+
+    return (<Drawer
         visible={visible}
         onClose={onClose}
         size={width}
@@ -85,7 +98,7 @@ const EditorDrawer: React.FC<EditorDrawerProps> = ({
         destroyOnClose={destroyOnClose}
     >
         {children}
-    </Drawer>
-);
+    </Drawer>);
+};
 
 export default EditorDrawer;

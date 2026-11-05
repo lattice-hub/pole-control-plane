@@ -31,6 +31,7 @@ import (
 	"github.com/pole-io/pole-server/apis/pkg/types"
 	storeapi "github.com/pole-io/pole-server/apis/store"
 	api "github.com/pole-io/pole-server/pkg/common/api/v1"
+	commonotel "github.com/pole-io/pole-server/pkg/common/otel"
 	"github.com/pole-io/pole-server/pkg/common/utils"
 	commontime "github.com/pole-io/pole-server/pkg/common/utils/time"
 	"github.com/pole-io/pole-server/pkg/common/utils/valid"
@@ -176,7 +177,7 @@ func (s *Server) DeleteNamespace(ctx context.Context, req *apimodel.Namespace) *
 	if checkError := checkReviseNamespace(ctx, req); checkError != nil {
 		return checkError
 	}
-	if isProtectedNamespace(req.GetName()) {
+	if s.isProtectedNamespace(req.GetName()) {
 		response := api.NewNamespaceResponse(apimodel.Code_InvalidParameter, req)
 		response.Info += ": built-in namespace cannot be deleted"
 		return response
@@ -229,14 +230,14 @@ func (s *Server) DeleteNamespace(ctx context.Context, req *apimodel.Namespace) *
 		return response
 	}
 
-	// 判断属于该命名空间的配置分组是否都已经被删除
-	total, err = s.getConfigGroupCountWithNamespace(namespace.Name)
+	// 统一配置保留草稿及历史，任何聚合仍归属该环境时都不能删除环境。
+	configurationCount, err := s.storage.CountUnifiedConfigs(ctx, namespace.Name)
 	if err != nil {
-		log.Error("get config group count with namespace err", utils.RequestID(ctx), zap.Error(err))
+		log.Error("count unified configurations in environment failed", utils.RequestID(ctx), zap.Error(err))
 		return api.NewNamespaceResponse(storeapi.StoreCode2APICode(err), req)
 	}
-	if total != 0 {
-		log.Error("the removed namespace has remain config-group", utils.RequestID(ctx))
+	if configurationCount != 0 {
+		log.Error("the removed namespace still contains configurations", utils.RequestID(ctx))
 		return api.NewNamespaceResponse(apimodel.Code_NamespaceExistedConfigGroups, req)
 	}
 
@@ -318,6 +319,9 @@ func (s *Server) updateNamespaceAttribute(req *apimodel.Namespace, namespace *ty
 
 // GetNamespaces 查询命名空间
 func (s *Server) GetNamespaces(ctx context.Context, query map[string][]string) *apimodel.BatchQueryResponse {
+	ctx, endServiceSpan := commonotel.StartSpan(ctx, "service.namespace.get", "service")
+	defer endServiceSpan(nil)
+
 	filter, offset, limit, checkError := checkGetNamespace(query)
 	if checkError != nil {
 		return checkError
@@ -336,12 +340,14 @@ func (s *Server) GetNamespaces(ctx context.Context, query map[string][]string) *
 	// 注释：响应字段改动 - Amount和Size从*wrapperspb.UInt32Value改为uint32，直接赋值
 	out.Amount = uint32(amount)
 	out.Size = uint32(len(namespaces))
-	configFilesByNamespace, err := s.storage.CountConfigFileEachGroup()
+	_, endStoreSpan := commonotel.StartSpan(ctx, "store.config.count_by_namespace", "store")
+	configFilesByNamespace, err := s.storage.CountUnifiedConfigsByEnvironment(ctx)
+	endStoreSpan(err)
 	if err != nil {
 		log.Error("count config files by namespace failed", utils.RequestID(ctx), zap.Error(err))
 		return api.NewBatchQueryResponse(storeapi.StoreCode2APICode(err))
 	}
-	configFileCounts := sumConfigFileCounts(configFilesByNamespace)
+	configFileCounts := configFilesByNamespace
 	for _, namespace := range namespaces {
 		nsCntInfo := s.caches.Service().GetNamespaceCntInfo(namespace.Name)
 		// 注释：命名空间数据构造改动 - 所有字段从wrapper类型改为基础类型，数据处理逻辑保持不变
@@ -355,9 +361,9 @@ func (s *Server) GetNamespaces(ctx context.Context, query map[string][]string) *
 			TotalServiceCount:        uint32(nsCntInfo.ServiceCount),
 			TotalInstanceCount:       uint32(nsCntInfo.InstanceCnt.TotalInstanceCount),
 			TotalHealthInstanceCount: uint32(nsCntInfo.InstanceCnt.HealthyInstanceCount),
-			TotalConfigFileCount:     configFileCounts[namespace.Name],
+			TotalConfigFileCount:     uint32(min(configFileCounts[namespace.Name], uint64(1<<32-1))),
 			Editable:                 true,
-			Deleteable:               !isProtectedNamespace(namespace.Name) && !isSystemNamespace(namespace),
+			Deleteable:               !s.isProtectedNamespace(namespace.Name) && !isSystemNamespace(namespace),
 			Kind:                     namespace.Kind,
 			Metadata:                 namespace.Metadata,
 		}); err != nil {
@@ -368,18 +374,6 @@ func (s *Server) GetNamespaces(ctx context.Context, query map[string][]string) *
 	return out
 }
 
-func sumConfigFileCounts(configFilesByNamespace map[string]map[string]int64) map[string]uint32 {
-	configFileCounts := make(map[string]uint32, len(configFilesByNamespace))
-	for namespace, groups := range configFilesByNamespace {
-		for _, count := range groups {
-			if count > 0 {
-				configFileCounts[namespace] += uint32(count)
-			}
-		}
-	}
-	return configFileCounts
-}
-
 // 根据命名空间查询服务总数
 func (s *Server) getServicesCountWithNamespace(namespace string) (uint32, error) {
 	filter := map[string]string{"namespace": namespace}
@@ -388,15 +382,6 @@ func (s *Server) getServicesCountWithNamespace(namespace string) (uint32, error)
 		return 0, err
 	}
 	return total, nil
-}
-
-// 根据命名空间查询配置分组总数
-func (s *Server) getConfigGroupCountWithNamespace(namespace string) (uint32, error) {
-	total, err := s.storage.CountConfigGroups(namespace)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(total), nil
 }
 
 // loadNamespace

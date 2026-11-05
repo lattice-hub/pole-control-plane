@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Drawer, Form, Input, Space, Button, Radio, Steps, Tree, Transfer, RadioGroup, Row, SelectInput, Select, Textarea } from 'components/Fluent';
+import React from 'react';
+import { Form, Input, Space, Button, Radio, Steps, Tree, Transfer, RadioGroup, Row, Select, Textarea } from 'components/Fluent';
 import type { FormProps } from 'components/Fluent';
+import EditorDrawer from 'components/EditorDrawer';
 
 import style from './index.module.less';
 import { useAppDispatch, useAppSelector } from 'modules/store';
@@ -13,7 +14,6 @@ import { describeAllRoles } from 'services/role';
 import { describeAllAuthPolicies, describeAuthPolicyDetail, describeServerFunctions, getServerFunctionDesc, ServerFunction, ServerFunctionGroup } from 'services/auth_policy';
 import { describeAllNamespaces } from 'services/namespace';
 import { describeAllServices } from 'services/service';
-import { describeAllConfigGroups } from 'services/config_group';
 import { describeAllMCPServers } from 'services/mcp';
 import { describeAllA2AAgents } from 'services/a2a';
 import PolicyDetailView from './PolicyDetailView';
@@ -74,7 +74,6 @@ const defaultStepNext: StepInfo = {
 const resourceTree = [
     { label: '命名空间', value: 'Namespace' },
     { label: '服务', value: 'Service' },
-    { label: '配置组', value: 'ConfigGroup' },
     { label: '路由规则', value: 'RouteRule' },
     { label: '限流规则', value: 'RateLimitRule' },
     { label: '熔断规则', value: 'CircuitBreakerRule' },
@@ -99,8 +98,6 @@ const serverFunctionTree = [
     { label: "服务", value: 'Service|ServiceContract' },
     { label: "实例", value: 'Instance' },
     { label: "治理规则", value: 'RouteRule|RateLimitRule|CircuitBreakerRule|FaultDetectRule' },
-    { label: "配置分组", value: 'ConfigGroup' },
-    { label: "配置文件", value: 'ConfigFile|ConfigRelease' },
     { label: "AI 工具", value: 'AINative' },
     { label: "用户", value: 'User' },
     { label: "用户组", value: 'UserGroup' },
@@ -160,6 +157,17 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
         formValues: {}, // 新增字段
     });
 
+    const [resourceStatus, setResourceStatus] = React.useState<Record<string, 'loading' | 'error' | 'ready'>>({});
+    const resourceSession = React.useRef(0);
+    const resourceRequests = React.useRef<Record<string, number>>({});
+    React.useEffect(() => {
+        resourceSession.current += 1;
+        resourceRequests.current = {};
+        setResourceStatus({});
+        setState(prev => ({ ...prev, resourceOptions: {} }));
+        return () => { resourceSession.current += 1; };
+    }, [visible, currentPolicy, op]);
+
     // Helper functions to update individual state properties
     const setLoading = (loading: boolean) => setState(prev => ({ ...prev, loading }));
     // Destructure state for easier access in the component
@@ -217,10 +225,6 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                         if (groupKey === 'RouteRule' || groupKey === 'RateLimitRule' || groupKey === 'CircuitBreakerRule' || groupKey === 'FaultDetectRule') {
                             groupKey = 'RouteRule|RateLimitRule|CircuitBreakerRule|FaultDetectRule';
                         }
-                        if (groupKey === 'ConfigFile' || groupKey === 'ConfigRelease') {
-                            groupKey = 'ConfigFile|ConfigRelease';
-                        }
-
                         // Initialize the group if it doesn't exist
                         if (!result[groupKey]) {
                             result[groupKey] = {
@@ -275,10 +279,6 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                         Service: {
                             all: resources?.services?.length === 1 && resources?.services?.[0].id === '*',
                             ids: resources?.services?.map((item: any) => item.id) || []
-                        },
-                        ConfigGroup: {
-                            all: resources?.config_groups?.length === 1 && resources?.config_groups?.[0].id === '*',
-                            ids: resources?.config_groups?.map((item: any) => item.id) || []
                         },
                         User: {
                             all: resources?.users?.length === 1 && resources?.users?.[0].id === '*',
@@ -386,15 +386,12 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                 }));
                 break;
             case 'resource':
-                if (state.resourceOptions[value]) {
-                    setState(prev => ({
-                        ...prev,
-                        activeResNode: value,
-                    }));
-                    return;
-                }
-
-                console.log("load resource", value);
+                setState(prev => ({ ...prev, activeResNode: value }));
+                if (state.resourceOptions[value] || resourceStatus[value] === 'loading') return;
+                const session = resourceSession.current;
+                const request = (resourceRequests.current[value] || 0) + 1;
+                resourceRequests.current[value] = request;
+                setResourceStatus(prev => ({ ...prev, [value]: 'loading' }));
                 let resources: { value: string; label: string }[] = [];
                 try {
                     let data;
@@ -406,10 +403,6 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                         case 'Service':
                             data = await describeAllServices();
                             resources = data?.map((item: any) => ({ value: item.id, label: item.name })) || [];
-                            break;
-                        case 'ConfigGroup':
-                            data = await describeAllConfigGroups();
-                            resources = data?.list?.map((item: any) => ({ value: item.id, label: item.name })) || [];
                             break;
                         case 'User':
                             data = await describeAllUsers();
@@ -449,12 +442,12 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                             break;
                     }
 
-                    setState(prev => ({
-                        ...prev,
-                        activeResNode: value,
-                        resourceOptions: { ...prev.resourceOptions, [value]: resources },
-                    }));
+                    if (resourceSession.current !== session || resourceRequests.current[value] !== request) return;
+                    setState(prev => ({ ...prev, resourceOptions: { ...prev.resourceOptions, [value]: resources } }));
+                    setResourceStatus(prev => ({ ...prev, [value]: 'ready' }));
                 } catch (error) {
+                    if (resourceSession.current !== session || resourceRequests.current[value] !== request) return;
+                    setResourceStatus(prev => ({ ...prev, [value]: 'error' }));
                     openErrNotification('获取资源列表失败', String(error));
                 }
                 break;
@@ -500,7 +493,6 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
             resources: {
                 namespaces: state.selectResources['Namespace']?.all ? [{ id: "*" }] : state.selectResources['Namespace']?.ids.map((id) => ({ id })) || [],
                 services: state.selectResources['Service']?.all ? [{ id: "*" }] : state.selectResources['Service']?.ids.map((id) => ({ id })) || [],
-                config_groups: state.selectResources['ConfigGroup']?.all ? [{ id: "*" }] : state.selectResources['ConfigGroup']?.ids.map((id) => ({ id })) || [],
                 users: state.selectResources['User']?.all ? [{ id: "*" }] : state.selectResources['User']?.ids.map((id) => ({ id })) || [],
                 user_groups: state.selectResources['UserGroup']?.all ? [{ id: "*" }] : state.selectResources['UserGroup']?.ids.map((id) => ({ id })) || [],
                 roles: state.selectResources['Role']?.all ? [{ id: "*" }] : state.selectResources['Role']?.ids.map((id) => ({ id })) || [],
@@ -539,6 +531,13 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
 
     const maxStep = currentPolicy.default_strategy ? 3 : 4;
     const stepInfo = currentPolicy.default_strategy ? defaultStepNext : customStepNext;
+    React.useEffect(() => {
+        if (visible && stepInfo[state.step]?.Cur === 'resource' && !resourceStatus[state.activeResNode]) {
+            void handleTreeNodeClick('resource', state.activeResNode);
+        }
+    // Load the active category on entry; retries are explicit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible, state.step, state.activeResNode, resourceStatus]);
     const policyViewMode = op === 'view' && !editable;
     const drawerFooter = (
         <Space>
@@ -565,14 +564,15 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
     );
 
     return (
-        <Drawer
+        <EditorDrawer
             visible={visible}
             onClose={() => {
                 form.reset();
                 closeDrawer();
             }}
-            header={op === 'create' ? '新建策略规则' : editable ? '编辑策略规则' : '策略详情'}
-            size={policyViewMode ? 'min(980px, 94vw)' : '60%'}
+            title={op === 'create' ? '新建策略规则' : editable ? '编辑策略规则' : '策略详情'}
+            description={op === 'create' ? '按主体、资源和接口范围逐步定义访问策略。' : undefined}
+            width="wide"
             footer={policyViewMode ? false : drawerFooter}
             className={policyViewMode ? style.policyDetailDrawer : undefined}
         >
@@ -657,7 +657,7 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                     valueMode={"onlyLeaf"}
                                     defaultActived={[state.activePrincipalNode]}
                                     actived={[state.activePrincipalNode]}
-                                    onClick={({ node }) => handleTreeNodeClick('principal', node.value as string)}
+                                    onClick={({ node }: { node: { value: string } }) => handleTreeNodeClick('principal', node.value as string)}
                                 />
                             </div>
                             <Space className={style.policySelectionMain} direction='vertical'>
@@ -666,7 +666,7 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                     variant='primary-filled'
                                     disabled={!editable}
                                     value={state.selectPrincipals[state.activePrincipalNode]?.all ? 'all' : 'custom'}
-                                    onChange={(value) => {
+                                    onChange={(value: string) => {
                                         setState(prev => ({
                                             ...prev,
                                             selectPrincipals: {
@@ -685,33 +685,17 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                 {!state.selectPrincipals[state.activePrincipalNode]?.all && (
                                     <Transfer
                                         key={state.activePrincipalNode}
+                                        title={['可选主体', '已选主体']}
                                         search={true}
                                         data={state.principalOptions[state.activePrincipalNode]}
                                         value={state.selectPrincipals[state.activePrincipalNode]?.ids}
                                         disabled={!editable}
-                                        onChange={(target, ctx) => {
-                                            const newSelectPrincipals = { ...state.selectPrincipals };
-                                            if (!newSelectPrincipals[state.activePrincipalNode]) {
-                                                newSelectPrincipals[state.activePrincipalNode] = { all: false, ids: [] };
-                                            }
-                                            switch (ctx.type) {
-                                                case 'source':
-                                                    const newIds = target as string[];
-                                                    const addedIds = newIds.filter(id => !newSelectPrincipals[state.activePrincipalNode].ids.includes(id));
-                                                    if (addedIds.length > 0) {
-                                                        newSelectPrincipals[state.activePrincipalNode].ids.push(...addedIds);
-                                                    }
-                                                    setState(prev => ({ ...prev, selectPrincipals: newSelectPrincipals }));
-                                                    break;
-                                                case 'target':
-                                                    const removedIds = target as string[];
-                                                    const finalIds = newSelectPrincipals[state.activePrincipalNode].ids.filter(id => !removedIds.includes(id));
-                                                    if (removedIds.length > 0) {
-                                                        newSelectPrincipals[state.activePrincipalNode].ids = finalIds;
-                                                    }
-                                                    setState(prev => ({ ...prev, selectPrincipals: newSelectPrincipals }));
-                                                    break;
-                                            }
+                                        onChange={(target: string[]) => {
+                                            const category = state.activePrincipalNode;
+                                            setState(prev => ({ ...prev, selectPrincipals: {
+                                                ...prev.selectPrincipals,
+                                                [category]: { all: false, ids: target },
+                                            } }));
                                         }}
                                     />
                                 )}
@@ -733,7 +717,7 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                     valueMode={"onlyLeaf"}
                                     defaultActived={[state.activeResNode]}
                                     actived={[state.activeResNode]}
-                                    onClick={({ node }) => handleTreeNodeClick('resource', node.value as string)}
+                                    onClick={({ node }: { node: { value: string } }) => handleTreeNodeClick('resource', node.value as string)}
                                 />
                             </div>
                             <Space className={style.policySelectionMain} direction='vertical'>
@@ -742,7 +726,7 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                     variant='primary-filled'
                                     disabled={!editable}
                                     value={state.selectResources[state.activeResNode]?.all ? 'all' : 'custom'}
-                                    onChange={(value) => {
+                                    onChange={(value: string) => {
                                         setState(prev => ({
                                             ...prev,
                                             selectResources: {
@@ -758,41 +742,22 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                     <Radio.Button value="custom">部分（自定义）</Radio.Button>
                                     <Radio.Button value="all">全部（包括新增）</Radio.Button>
                                 </RadioGroup>
-                                {!state.selectResources[state.activeResNode]?.all && (
+                                {resourceStatus[state.activeResNode] === 'error' && <p role="alert">资源加载失败。<Button variant="text" onClick={() => { setResourceStatus(prev => { const next = { ...prev }; delete next[state.activeResNode]; return next; }); }}>重试</Button></p>}
+                                {!state.selectResources[state.activeResNode]?.all && resourceStatus[state.activeResNode] !== 'error' && (
                                     <Transfer
                                         key={state.activeResNode}
+                                        title={['可选资源', '已选资源']}
+                                        loading={!resourceStatus[state.activeResNode] || resourceStatus[state.activeResNode] === 'loading'}
                                         search={true}
                                         data={state.resourceOptions[state.activeResNode]}
                                         value={state.selectResources[state.activeResNode]?.ids}
                                         disabled={!editable}
-                                        onChange={(target, ctx) => {
-                                            const newSelectResources = { ...state.selectResources };
-                                            if (!newSelectResources[state.activeResNode]) {
-                                                newSelectResources[state.activeResNode] = { all: false, ids: [] };
-                                            }
-                                            const oldIds = newSelectResources[state.activeResNode].ids;
-                                            switch (ctx.type) {
-                                                case 'source':
-                                                    setState(prev => {
-                                                        const newIds = target as string[];
-                                                        const addedIds = newIds.filter(id => !oldIds.includes(id));
-                                                        if (addedIds.length > 0) {
-                                                            newSelectResources[prev.activeResNode].ids.push(...addedIds);
-                                                        }
-                                                        return { ...prev, selectResources: newSelectResources };
-                                                    })
-                                                    break;
-                                                case 'target':
-                                                    setState(prev => {
-                                                        const removedIds = target as string[];
-                                                        const finalIds = oldIds.filter(id => !removedIds.includes(id));
-                                                        if (removedIds.length > 0) {
-                                                            newSelectResources[prev.activeResNode].ids = finalIds;
-                                                        }
-                                                        return { ...prev, selectResources: newSelectResources };
-                                                    })
-                                                    break;
-                                            }
+                                        onChange={(target: string[]) => {
+                                            const category = state.activeResNode;
+                                            setState(prev => ({ ...prev, selectResources: {
+                                                ...prev.selectResources,
+                                                [category]: { all: false, ids: target },
+                                            } }));
                                         }}
                                     />
                                 )}
@@ -811,7 +776,7 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                         variant='primary-filled'
                                         disabled={!editable}
                                         value={state.useAllFunc ? 'all' : 'custom'}
-                                        onChange={(value) => {
+                                        onChange={(value: string) => {
                                             setState(prev => ({
                                                 ...prev,
                                                 useAllFunc: value === 'all',
@@ -828,7 +793,7 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                     layout="horizontal"
                                     value={state.swithCustomFunc ? 'text' : 'visual'}
                                     disabled={!editable}
-                                    onChange={(value) => {
+                                    onChange={(value: string) => {
                                         setState(prev => ({
                                             ...prev,
                                             swithCustomFunc: value === 'text',
@@ -854,10 +819,10 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                         })));
                                         return acc;
                                     }, [])}
-                                    onChange={(value) => {
+                                    onChange={(value: string[]) => {
                                         setState(prev => ({
                                             ...prev,
-                                            customFunctions: value as string[],
+                                            customFunctions: value,
                                         }));
                                     }}
                                 />
@@ -884,44 +849,23 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                                                     valueMode={"onlyLeaf"}
                                                     defaultActived={[state.activeFuncNode]}
                                                     actived={[state.activeFuncNode]}
-                                                    onClick={({ node }) => handleTreeNodeClick("function", node.value as string)}
+                                                    onClick={({ node }: { node: { value: string } }) => handleTreeNodeClick("function", node.value as string)}
                                                 />
                                             </div>
                                             <div className={style.policySelectionMain}>
                                                 <Transfer
                                                     key={state.activeFuncNode}
+                                                    title={['可选接口', '已选接口']}
                                                     search={true}
                                                     data={state.viewFunctionOptions}
                                                     value={state.selectFunctions[state.activeFuncNode]?.functions}
                                                     disabled={!editable}
-                                                    onChange={(target, ctx) => {
-                                                    const newSelectFunctions = { ...state.selectFunctions };
-                                                    if (!newSelectFunctions[state.activeFuncNode]) {
-                                                        newSelectFunctions[state.activeFuncNode] = { group: state.activeFuncNode, functions: [] };
-                                                    }
-                                                    const oldFunctions = newSelectFunctions[state.activeFuncNode].functions;
-                                                    switch (ctx.type) {
-                                                        case 'source':
-                                                            setState(prev => {
-                                                                const newFunctions = target as string[];
-                                                                const addedFunctions = newFunctions.filter(fn => !oldFunctions.includes(fn));
-                                                                if (addedFunctions.length > 0) {
-                                                                    newSelectFunctions[prev.activeFuncNode].functions.push(...addedFunctions);
-                                                                }
-                                                                return { ...prev, selectFunctions: newSelectFunctions };
-                                                            })
-                                                            break;
-                                                        case 'target':
-                                                            setState(prev => {
-                                                                const removedFunctions = target as string[];
-                                                                const finalFunctions = oldFunctions.filter(fn => !removedFunctions.includes(fn));
-                                                                if (removedFunctions.length > 0) {
-                                                                    newSelectFunctions[prev.activeFuncNode].functions = finalFunctions;
-                                                                }
-                                                                return { ...prev, selectFunctions: newSelectFunctions };
-                                                            })
-                                                            break;
-                                                    }
+                                                    onChange={(target: string[]) => {
+                                                        const category = state.activeFuncNode;
+                                                        setState(prev => ({ ...prev, selectFunctions: {
+                                                            ...prev.selectFunctions,
+                                                            [category]: { group: category, functions: target },
+                                                        } }));
                                                     }}
                                                 />
                                             </div>
@@ -935,7 +879,7 @@ const PolicyEditor: React.FC<IPolicyEditorProps> = ({ visible, op, closeDrawer }
                     </Form>
                 </>
             )}
-        </Drawer>
+        </EditorDrawer>
     );
 };
 

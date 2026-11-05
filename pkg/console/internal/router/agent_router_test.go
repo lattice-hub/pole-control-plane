@@ -14,6 +14,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
+
+	configv1 "github.com/pole-io/specification/source/go/api/v1/config"
+	apimodel "github.com/pole-io/specification/source/go/api/v1/model"
 
 	bootstrap "github.com/pole-io/pole-server/pkg/console/config"
 )
@@ -34,18 +39,21 @@ func TestAgentRouterPreviewsAndStagesConfigDraftWithoutPublishing(t *testing.T) 
 		defer mu.Unlock()
 		upstreamPaths = append(upstreamPaths, r.Method+" "+r.URL.Path)
 		assert.Equal(t, token, r.Header.Get("Authorization"))
-		assert.Equal(t, userID, r.Header.Get("X-Pole-User"))
+		assert.Empty(t, r.Header.Get("X-Pole-User"))
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Request-Id", "upstream-request")
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/config/v1/files/detail":
-			_, _ = w.Write([]byte(`{"code":200000,"info":"execute success","data":{"@type":"type.googleapis.com/v1.ConfigFile","id":"10","name":"application.yaml","namespace":"default","group":"orders","content":` + mustJSON(t, content) + `,"format":"yaml","comment":"current","labels":{},"encrypted":false}}`))
-		case r.Method == http.MethodPut && r.URL.Path == "/config/v1/files":
-			var payload []map[string]any
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
-			content = payload[0]["content"].(string)
+		case r.Method == http.MethodPost && r.URL.Path == "/config/v1/state":
+			writeAgentConfigState(t, w, "application.yaml", content, uint64(putCalls)+1)
+		case r.Method == http.MethodPost && r.URL.Path == "/config/v1/draft":
+			payload, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			request := &configv1.SaveDraftRequest{}
+			require.NoError(t, protojson.Unmarshal(payload, request))
+			require.Equal(t, uint64(putCalls)+1, request.ExpectedDraftRevision)
+			content = string(request.Definition.Content)
 			putCalls++
-			_, _ = w.Write([]byte(`{"code":200000,"info":"execute success","responses":[{"code":200000,"info":"execute success"}]}`))
+			writeAgentConfigState(t, w, "application.yaml", content, uint64(putCalls)+1)
 		default:
 			t.Fatalf("unexpected upstream request: %s %s", r.Method, r.URL.Path)
 		}
@@ -56,7 +64,7 @@ func TestAgentRouterPreviewsAndStagesConfigDraftWithoutPublishing(t *testing.T) 
 	console := httptest.NewServer(router)
 	defer console.Close()
 
-	prepareBody := `{"namespace":"default","group":"orders","name":"application.yaml","desiredContent":"timeout: 5s\n","comment":"agent draft"}`
+	prepareBody := `{"namespace":"default","group":"orders","name":"application.yaml","desiredContent":"timeout: 5s\n"}`
 	prepareReq, err := http.NewRequest(http.MethodPost, console.URL+"/ai/agent/v1/proposals/config-file", strings.NewReader(prepareBody))
 	require.NoError(t, err)
 	prepareReq.Header.Set("Content-Type", "application/json")
@@ -91,7 +99,7 @@ func TestAgentRouterPreviewsAndStagesConfigDraftWithoutPublishing(t *testing.T) 
 	secondReceipt := confirmAgentProposal(t, confirmURL, userID, token, secret, confirmBody)
 	require.Equal(t, firstReceipt, secondReceipt)
 	require.Equal(t, "waiting_for_publish", firstReceipt.Status)
-	require.Equal(t, "/configuration/group/files?namespace=default&group=orders", firstReceipt.DetailURL)
+	require.Equal(t, "/configuration?environment=default&group=orders&name=application.yaml", firstReceipt.DetailURL)
 	require.Equal(t, "upstream-request", firstReceipt.RequestID)
 	require.Equal(t, 1, putCalls)
 	require.Equal(t, "timeout: 5s\n", content)
@@ -116,10 +124,10 @@ func TestAgentUnknownAPIRouteReturnsJSON404(t *testing.T) {
 func TestAgentRouterAcceptsValidatedHeaderCredentialsForAPIClients(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "api-user", r.Header.Get("X-Pole-User"))
+		require.Empty(t, r.Header.Get("X-Pole-User"))
 		require.Equal(t, "api-token", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":200000,"info":"execute success","data":{"name":"app.yaml","namespace":"default","group":"orders","content":"before","encrypted":false}}`))
+		writeAgentConfigState(t, w, "app.yaml", "before", 1)
 	}))
 	defer backend.Close()
 
@@ -260,4 +268,15 @@ func mustJSON(t *testing.T, value string) string {
 	content, err := json.Marshal(value)
 	require.NoError(t, err)
 	return string(content)
+}
+
+// writeAgentConfigState 使用真实 protobuf JSON/Any 模拟新的统一草稿读取和保存响应。
+func writeAgentConfigState(t *testing.T, w http.ResponseWriter, name, content string, revision uint64) {
+	t.Helper()
+	key := &configv1.ConfigKey{Environment: "default", Group: "orders", Name: name}
+	data, err := anypb.New(&configv1.ConfigState{Key: key, Draft: &configv1.ConfigDraft{Key: key, Revision: revision, Definition: &configv1.ConfigDefinition{Engine: "literal", Content: []byte(content), Format: "yaml"}}})
+	require.NoError(t, err)
+	payload, err := protojson.Marshal(&apimodel.Response{Code: uint32(apimodel.Code_ExecuteSuccess), Data: data})
+	require.NoError(t, err)
+	_, _ = w.Write(payload)
 }

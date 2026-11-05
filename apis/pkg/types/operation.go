@@ -63,9 +63,6 @@ const (
 	RUserGroupRelation   Resource = "UserGroupRelation"
 	RAuthStrategy        Resource = "AuthStrategy"
 	RAuthRole            Resource = "Role"
-	RConfigGroup         Resource = "ConfigGroup"
-	RConfigFile          Resource = "ConfigFile"
-	RConfigFileRelease   Resource = "ConfigFileRelease"
 	RCircuitBreakerRule  Resource = "CircuitBreakerRule"
 	RFaultDetectRule     Resource = "FaultDetectRule"
 	RServiceContract     Resource = "ServiceContract"
@@ -101,7 +98,7 @@ func (r *RecordEntry) String() string {
 		r.Namespace,
 		r.OperationType,
 		r.Operator,
-		r.Detail,
+		SanitizeOperationDetail(r.ResourceType, r.Detail),
 		r.Server,
 	)
 }

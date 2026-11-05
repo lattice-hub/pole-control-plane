@@ -1,4 +1,4 @@
-import React, { Suspense, memo, useEffect } from 'react';
+import React, { Suspense, memo } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'components/Router';
 import { Layout, Loading } from 'components/Fluent';
 import routers, { IRouter } from 'router';
@@ -6,6 +6,7 @@ import { useAppSelector } from 'modules/store';
 import { resolve } from 'utils/path';
 import Page from './Page';
 import Style from './AppRouter.module.less';
+import RouteLoadBoundary from './RouteLoadBoundary';
 
 const { Content } = Layout;
 
@@ -94,8 +95,11 @@ const renderRoutes: TRenderRoutes = (routes, parentPath = '', breadcrumb = []) =
     return children ? renderRoutes(children, currentPath, currentBreadcrumb) : null;
   });
 
-const AppRouter = () => (
+const AppRouter = () => {
+  const location = useLocation();
+  return (
   <Content>
+    <RouteLoadBoundary resetKey={location.pathname}>
     <Suspense
       fallback={
         <div className={Style.loading}>
@@ -106,7 +110,9 @@ const AppRouter = () => (
 
       <Routes>{renderRoutes(routers)}</Routes>
     </Suspense>
+    </RouteLoadBoundary>
   </Content>
-);
+  );
+};
 
 export default memo(AppRouter);

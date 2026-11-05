@@ -78,6 +78,7 @@ import {
 } from "./rateLimitEditorUtils";
 import { commaStringToTags, isTagInputMatchType, tagsToCommaString } from "../Router/routeEditorUtils";
 import styles from './RateLimitEditor.module.less';
+import QuotaLeaseRuntime from './QuotaLeaseRuntime';
 
 const { FormItem } = Form;
 const { StickyItem } = StickyTool;
@@ -92,11 +93,26 @@ const defaultMatchArgs: () => LimitArgumentsConfig = () => ({
     }
 });
 
+type QuotaScenario = 'QPS' | 'TPM' | 'CONCURRENCY';
+
+const quotaScenarios: Array<{ value: QuotaScenario; title: string; description: string }> = [
+    { value: 'QPS', title: 'QPS', description: '请求数 · 默认 1 秒' },
+    { value: 'TPM', title: 'TPM', description: 'Token 数 · 默认 60 秒' },
+    { value: 'CONCURRENCY', title: '并发', description: '同时占用槽位' },
+];
+
+const detectQuotaScenario = (trigger: RateLimitView['rules'][number]): QuotaScenario | '' => {
+    if (trigger.resource === RateLimitResource.Concurrency) return 'CONCURRENCY';
+    if (trigger.resource === RateLimitResource.Token) return 'TPM';
+    if (trigger.resource === RateLimitResource.QPS) return 'QPS';
+    return '';
+};
+
 export const defaultRateLimitView = (): RateLimitView => ({
     id: '',
     name: '',
     namespace: '',
-    service: '',
+    callee: { namespace: '', service: '' },
     type: LimitType.LOCAL,
     priority: 0,
     disable: false,
@@ -179,8 +195,11 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
         if (op !== 'create' || !visible) return;
         setRateLimit((prev) => ({
             ...prev,
-            namespace: serviceContext?.namespace || ruleNamespace || prev.namespace,
-            service: serviceContext?.service || prev.service,
+            namespace: ruleNamespace || prev.namespace,
+            callee: {
+                namespace: serviceContext?.namespace || prev.callee.namespace,
+                service: serviceContext?.service || prev.callee.service,
+            },
         }));
     }, [op, visible, ruleNamespace, serviceContext?.namespace, serviceContext?.service]);
 
@@ -203,8 +222,8 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
         setRateLimit({
             ...cloneRule,
             name: cloneRule.name || '',
-            service: cloneRule.service || '',
             namespace: cloneRule.namespace || '',
+            callee: cloneRule.callee || { namespace: '', service: '' },
             type,
             priority: cloneRule.priority ?? 0,
             disable: cloneRule.disable ?? false,
@@ -214,7 +233,7 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
 
     const namespaceSelectOptions = namespaceDatas.map((ns: NamespaceView) => ({ label: ns.name, value: ns.name }));
     const serviceSelectOptions = serviceDatas
-        .filter((opt: ServiceView) => !rateLimit.namespace || rateLimit.namespace === '*' || opt.namespace === rateLimit.namespace)
+        .filter((opt: ServiceView) => !rateLimit.callee.namespace || rateLimit.callee.namespace === '*' || opt.namespace === rateLimit.callee.namespace)
         .map((s: ServiceView) => ({ label: s.name, value: s.name }));
 
     const editable = editorState.editable;
@@ -343,13 +362,13 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>规则名称</div>
                         {editable
-                            ? <Input maxlength={64} value={rateLimit.name} onChange={(value) => setRateLimit(prev => ({ ...prev, name: value }))} />
+                            ? <Input aria-label="限流规则名称" maxLength={64} value={rateLimit.name} onChange={(value) => setRateLimit(prev => ({ ...prev, name: value }))} />
                             : <div className={shared.fieldValue}>{rateLimit.name || '-'}</div>}
                     </div>
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>优先级</div>
                         {editable
-                            ? <InputNumber theme="normal" className={styles.fullControl} min={0} value={rateLimit.priority ?? 0} onChange={(value) => setRateLimit(prev => ({ ...prev, priority: (value as number) ?? 0 }))} />
+                            ? <InputNumber aria-label="限流规则优先级" theme="normal" className={styles.fullControl} min={0} value={rateLimit.priority ?? 0} onChange={(value) => setRateLimit(prev => ({ ...prev, priority: (value as number) ?? 0 }))} />
                             : <div className={shared.fieldValue}>{rateLimit.priority ?? 0}</div>}
                     </div>
                     <div className={shared.field}>
@@ -376,21 +395,21 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
             <div className={shared.sectionBody}>
                 <div className={shared.infoGrid}>
                     <div className={shared.field}>
-                        <div className={shared.fieldLabel}>命名空间</div>
+                        <div className={shared.fieldLabel}>目标命名空间</div>
                         {editable && !(op === 'create' && serviceContext)
-                            ? <Select filterable creatable options={namespaceSelectOptions} value={rateLimit.namespace} onChange={(value) => setRateLimit(prev => ({ ...prev, namespace: value as string, service: '' }))} />
-                            : <div className={shared.fieldValue}>{rateLimit.namespace || '-'}</div>}
+                            ? <Select aria-label="限流目标命名空间" filterable creatable options={namespaceSelectOptions} value={rateLimit.callee.namespace} onChange={(value) => setRateLimit(prev => ({ ...prev, callee: { namespace: value as string, service: '' } }))} />
+                            : <div className={shared.fieldValue}>{rateLimit.callee.namespace || '-'}</div>}
                     </div>
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>服务名称</div>
                         {editable && !(op === 'create' && serviceContext)
-                            ? <Select filterable creatable options={serviceSelectOptions} value={rateLimit.service} onChange={(value) => setRateLimit(prev => ({ ...prev, service: value as string }))} />
-                            : <div className={shared.fieldValue}>{rateLimit.service || '-'}</div>}
+                            ? <Select aria-label="限流目标服务" filterable creatable options={serviceSelectOptions} value={rateLimit.callee.service} onChange={(value) => setRateLimit(prev => ({ ...prev, callee: { ...prev.callee, service: value as string } }))} />
+                            : <div className={shared.fieldValue}>{rateLimit.callee.service || '-'}</div>}
                     </div>
                     <div className={shared.field}>
                         <div className={shared.fieldLabel}>限流模式</div>
                         {editable ? (
-                            <RadioGroup theme="button" variant="primary-filled" value={rateLimit.type} onChange={(value) => updateMode(value as LimitType)}>
+                            <RadioGroup aria-label="限流模式" theme="button" variant="primary-filled" value={rateLimit.type} onChange={(value) => updateMode(value as LimitType)}>
                                 <Radio.Button value={LimitType.LOCAL}>{LimitTypeMap[LimitType.LOCAL]}</Radio.Button>
                                 <Radio.Button value={LimitType.GLOBAL}>集群限流</Radio.Button>
                             </RadioGroup>
@@ -461,6 +480,7 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                         <React.Fragment key={`${ruleIdx}-api-${apiIdx}`}>
                                             <div className={styles.gridCell}>
                                                 <Select
+                                                    aria-label={`第 ${ruleIdx + 1} 条限流子规则第 ${apiIdx + 1} 个接口协议`}
                                                     options={RATE_LIMIT_PROTOCOL_OPTIONS}
                                                     value={api.protocol || 'HTTP'}
                                                     onChange={(value) => updateApi(apiIdx, { protocol: value as string })}
@@ -468,6 +488,7 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                             </div>
                                             <div className={styles.gridCell}>
                                                 <Select
+                                                    aria-label={`第 ${ruleIdx + 1} 条限流子规则第 ${apiIdx + 1} 个接口方法`}
                                                     options={RATE_LIMIT_HTTP_METHOD_OPTIONS}
                                                     value={api.method || '*'}
                                                     onChange={(value) => updateApi(apiIdx, { method: value as string })}
@@ -475,6 +496,7 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                             </div>
                                             <div className={styles.gridCell}>
                                                 <Select
+                                                    aria-label={`第 ${ruleIdx + 1} 条限流子规则第 ${apiIdx + 1} 个接口路径匹配类型`}
                                                     options={MatchTypeOption}
                                                     value={apiMatchType}
                                                     onChange={(value) => updateApi(apiIdx, { path: { ...api.path, type: value as MatchType } })}
@@ -483,6 +505,7 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                             <div className={styles.gridCell}>
                                                 {isTagInputMatchType(apiMatchType) ? (
                                                     <TagInput
+                                                        aria-label={`第 ${ruleIdx + 1} 条限流子规则第 ${apiIdx + 1} 个接口路径`}
                                                         className={styles.monoInput}
                                                         value={commaStringToTags(api.path?.value || '')}
                                                         placeholder="输入后回车添加"
@@ -491,6 +514,7 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                                     />
                                                 ) : (
                                                     <Input
+                                                        aria-label={`第 ${ruleIdx + 1} 条限流子规则第 ${apiIdx + 1} 个接口路径`}
                                                         className={styles.monoInput}
                                                         value={api.path?.value || ''}
                                                         onChange={(value) => updateApi(apiIdx, { path: { ...api.path, value: value as string, value_type: MatchValueType.TEXT } })}
@@ -499,14 +523,14 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                             </div>
                                             <div className={`${styles.gridCell} ${styles.actionCell}`}>
                                                 <Popup trigger="hover" content="删除接口">
-                                                    <Button shape="circle" variant="text" aria-label={`删除接口 ${apiIdx + 1}`} disabled={apis.length <= 1} onClick={() => removeInterface(apiIdx)}><CloseIcon /></Button>
+                                                    <Button shape="circle" variant="text" aria-label={`删除第 ${ruleIdx + 1} 条限流子规则第 ${apiIdx + 1} 个接口`} disabled={apis.length <= 1} onClick={() => removeInterface(apiIdx)}><CloseIcon /></Button>
                                                 </Popup>
                                             </div>
                                         </React.Fragment>
                                     );
                                 })}
                             </div>
-                            <Button className={styles.inlineAdd} variant="text" onClick={addInterface} icon={<AddIcon />}>新增接口</Button>
+                            <Button aria-label={`第 ${ruleIdx + 1} 条限流子规则新增接口`} className={styles.inlineAdd} variant="text" onClick={addInterface} icon={<AddIcon />}>新增接口</Button>
                         </>
                     ) : readonlyInterface(ruleIdx)}
                 </div>
@@ -535,6 +559,7 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                 </div>
                 <div className={shared.stepContent}>
                     <TrafficMatchConditionEditor
+                        contextLabel={`第 ${ruleIdx + 1} 条限流子规则`}
                         rows={rows}
                         editable={editable}
                         relation={relation}
@@ -565,26 +590,56 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
 
     const rateLimitBlock = (ruleIdx: number) => {
         const trigger = rateLimit.rules[ruleIdx];
+        const scenario = detectQuotaScenario(trigger);
+        const applyScenario = (next: QuotaScenario) => {
+            const maxAmount = trigger.amounts?.[0]?.maxAmount || trigger.concurrencyAmount?.maxAmount || 1;
+            if (next === 'CONCURRENCY') {
+                updateRule(ruleIdx, { resource: RateLimitResource.Concurrency, concurrencyAmount: { maxAmount } });
+                return;
+            }
+            updateRule(ruleIdx, {
+                resource: next === 'TPM' ? RateLimitResource.Token : RateLimitResource.QPS,
+                amounts: [{
+                    validDuration: next === 'QPS' ? 1 : 60,
+                    validDurationUnit: LimitAmountsValidationUnit.s,
+                    maxAmount,
+                }],
+            });
+        };
         return (
             <div className={shared.step} data-step="3">
                 <div className={shared.stepTitle}>限流方式<span className={shared.stepHint}>设置统计指标、阈值窗口和阈值计算方式</span></div>
                 <div className={shared.stepContent}>
-                    <div className={styles.resourceSwitch}>
-                        {editable ? (
-                            <RadioGroup theme="button" variant="primary-filled" value={trigger.resource} onChange={(value) => updateRule(ruleIdx, { resource: value as RateLimitResource })}>
-                                <Radio.Button value={RateLimitResource.QPS}>{RateLimitResourceMap[RateLimitResource.QPS]}</Radio.Button>
-                                <Radio.Button value={RateLimitResource.Token}>{RateLimitResourceMap[RateLimitResource.Token]}</Radio.Button>
-                                <Radio.Button value={RateLimitResource.Concurrency}>{RateLimitResourceMap[RateLimitResource.Concurrency]}</Radio.Button>
-                            </RadioGroup>
-                        ) : (
-                            <Tag variant="light">{RateLimitResourceMap[trigger.resource] || trigger.resource}</Tag>
-                        )}
+                    <div className={styles.scenarioLabel}>计量场景</div>
+                    <div className={styles.scenarioGrid}>
+                        {quotaScenarios.map((item) => (
+                            <Button
+                                variant="text"
+                                className={scenario === item.value ? styles.scenarioCardActive : styles.scenarioCard}
+                                disabled={!editable}
+                                key={item.value}
+                                onClick={() => applyScenario(item.value)}
+                                type="button"
+                            >
+                                <strong>{item.title}</strong>
+                                <span>{item.description}</span>
+                            </Button>
+                        ))}
+                    </div>
+                    {trigger.resource === RateLimitResource.Token && (
+                        <div className={styles.leaseExplanation}>
+                            <strong>流式 TPM 使用 Quota Lease</strong>
+                            <span>SDK 在模型请求前预留输入 Token + 最大输出 Token，流中只上报累计实际用量，结束时自动归还未生成部分；预留成功后不会在响应流中再次触发配额 429。</span>
+                        </div>
+                    )}
+                    <div className={styles.scenarioLabel}>
+                        {trigger.resource === RateLimitResource.Concurrency ? '并发上限' : '阈值窗口'}
                     </div>
                     {trigger.resource === RateLimitResource.Concurrency ? (
                         <div className={styles.singleMetricRow}>
                             <div className={styles.metricLabel}>最大并发数</div>
                             {editable
-                                ? <InputNumber theme="normal" min={1} value={trigger.concurrencyAmount?.maxAmount ?? trigger.amounts?.[0]?.maxAmount ?? 1} onChange={(value) => updateRule(ruleIdx, { concurrencyAmount: { maxAmount: (value as number) ?? 1 } })} />
+                                ? <InputNumber aria-label={`第 ${ruleIdx + 1} 条限流子规则最大并发数`} theme="normal" min={1} value={trigger.concurrencyAmount?.maxAmount ?? trigger.amounts?.[0]?.maxAmount ?? 1} onChange={(value) => updateRule(ruleIdx, { concurrencyAmount: { maxAmount: (value as number) ?? 1 } })} />
                                 : <div className={shared.fieldValue}>{trigger.concurrencyAmount?.maxAmount ?? '-'}</div>}
                         </div>
                     ) : (
@@ -596,18 +651,18 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                 <React.Fragment key={`${ruleIdx}-amount-${index}`}>
                                     <div className={styles.gridCell}>
                                         {editable
-                                            ? <InputNumber theme="normal" min={1} suffix="秒" value={amount.validDuration} onChange={(value) => updateLimit(ruleIdx, index, { validDuration: (value as number) ?? 1, validDurationUnit: LimitAmountsValidationUnit.s })} />
+                                            ? <InputNumber aria-label={`第 ${ruleIdx + 1} 条限流子规则第 ${index + 1} 个窗口时长`} theme="normal" min={1} suffix="秒" value={amount.validDuration} onChange={(value) => updateLimit(ruleIdx, index, { validDuration: (value as number) ?? 1, validDurationUnit: LimitAmountsValidationUnit.s })} />
                                             : <span>{amount.validDuration}{amount.validDurationUnit}</span>}
                                     </div>
                                     <div className={styles.gridCell}>
                                         {editable
-                                            ? <InputNumber theme="normal" min={1} suffix={trigger.resource === RateLimitResource.Token ? 'Token' : '次'} value={amount.maxAmount} onChange={(value) => updateLimit(ruleIdx, index, { maxAmount: (value as number) ?? 1 })} />
+                                            ? <InputNumber aria-label={`第 ${ruleIdx + 1} 条限流子规则第 ${index + 1} 个窗口${trigger.resource === RateLimitResource.Token ? "最大 Token 数" : "最大请求数"}`} theme="normal" min={1} suffix={trigger.resource === RateLimitResource.Token ? 'Token' : '次'} value={amount.maxAmount} onChange={(value) => updateLimit(ruleIdx, index, { maxAmount: (value as number) ?? 1 })} />
                                             : <span>{amount.maxAmount}</span>}
                                     </div>
                                     <div className={`${styles.gridCell} ${styles.actionCell}`}>
                                         {editable && (
                                             <Popup trigger="hover" content="删除窗口">
-                                                <Button shape="circle" variant="text" aria-label={`删除窗口 ${index + 1}`} disabled={(trigger.amounts || []).length <= 1} onClick={() => removeLimit(ruleIdx, index)}><CloseIcon /></Button>
+                                                <Button shape="circle" variant="text" aria-label={`删除第 ${ruleIdx + 1} 条限流子规则第 ${index + 1} 个窗口`} disabled={(trigger.amounts || []).length <= 1} onClick={() => removeLimit(ruleIdx, index)}><CloseIcon /></Button>
                                             </Popup>
                                         )}
                                     </div>
@@ -615,10 +670,10 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                             ))}
                         </div>
                     )}
-                    {editable && trigger.resource !== RateLimitResource.Concurrency && <Button className={styles.inlineAdd} variant="text" onClick={() => addLimit(ruleIdx)} icon={<AddIcon />}>添加窗口</Button>}
+                    {editable && trigger.resource !== RateLimitResource.Concurrency && <Button aria-label={`第 ${ruleIdx + 1} 条限流子规则添加窗口`} className={styles.inlineAdd} variant="text" onClick={() => addLimit(ruleIdx)} icon={<AddIcon />}>添加窗口</Button>}
                     <div className={styles.inlineConfig}>
                         <span className={styles.metricLabel}>阈值计算合并</span>
-                        <Switch value={trigger.regex_combine} disabled={!editable} onChange={(value) => updateRule(ruleIdx, { regex_combine: value as boolean })} />
+                        <Switch aria-label={`第 ${ruleIdx + 1} 条限流子规则阈值计算合并`} value={trigger.regex_combine} disabled={!editable} onChange={(value) => updateRule(ruleIdx, { regex_combine: value as boolean })} />
                         <span className={styles.inlineHint}>{trigger.regex_combine ? '按匹配请求合并计算限流' : '按匹配请求单独计算限流'}</span>
                     </div>
                 </div>
@@ -632,30 +687,28 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
         const action = isGlobal ? LimitAction.REJECT : trigger.action;
         const isReject = action !== LimitAction.UNIRATE;
         const hasCustomResponse = Boolean(trigger.customResponse?.body);
+        const isTokenLease = trigger.resource === RateLimitResource.Token;
         return (
             <div className={shared.step} data-step="4">
-                <div className={shared.stepTitle}>限流效果<span className={shared.stepHint}>超过阈值后的处理方式</span></div>
+                <div className={shared.stepTitle}>{isTokenLease ? '准入结果' : '限流效果'}<span className={shared.stepHint}>{isTokenLease ? '仅在模型请求开始前判断配额' : '超过阈值后的处理方式'}</span></div>
                 <div className={shared.stepContent}>
                     {editable && !isGlobal && (
                         <div className={styles.resourceSwitch}>
-                            <RadioGroup theme="button" variant="primary-filled" value={trigger.action} onChange={(value) => updateRule(ruleIdx, { action: value as LimitAction })}>
+                            <RadioGroup aria-label={`第 ${ruleIdx + 1} 条限流子规则限流效果`} theme="button" variant="primary-filled" value={trigger.action} onChange={(value) => updateRule(ruleIdx, { action: value as LimitAction })}>
                                 <Radio.Button value={LimitAction.REJECT}>{LimitActionMap[LimitAction.REJECT]}</Radio.Button>
                                 <Radio.Button value={LimitAction.UNIRATE}>排队等待</Radio.Button>
                             </RadioGroup>
                         </div>
                     )}
-                    <div className={`${shared.verdict} ${isReject ? shared.verdictDeny : shared.verdictAllow}`}>
-                        <div className={shared.verdictIcon}>{isReject ? <CloseIcon /> : <RollbackIcon />}</div>
-                        <div>
-                            <div className={shared.verdictHead}>{isReject ? '快速失败' : '排队等待'}</div>
-                            <div className={shared.verdictDesc}>{isGlobal ? '集群限流只支持快速失败' : (isReject ? '超过阈值的请求立即拒绝' : '超额请求进入队列等待放行')}</div>
-                        </div>
+                    <div className={styles.strategyNote}>
+                        <strong>{isTokenLease ? '请求前校验' : (isReject ? '超额请求处理' : '排队策略')}</strong>
+                        <span>{isTokenLease ? '预留不足时不发起模型调用；预留成功后允许流式响应完整结束。' : (isGlobal ? '集群配额不足时立即拒绝当前请求。' : (isReject ? '请求超过当前窗口阈值时立即拒绝。' : '超额请求进入队列，等待配额释放后继续。'))}</span>
                     </div>
                     {isGlobal && (
                         <div className={styles.failoverRow}>
                             <span className={styles.metricLabel}>失败处理策略</span>
                             {editable ? (
-                                <RadioGroup theme="button" variant="primary-filled" value={trigger.failover} onChange={(value) => updateRule(ruleIdx, { failover: value as LimitFailover })}>
+                                <RadioGroup aria-label={`第 ${ruleIdx + 1} 条限流子规则失败处理策略`} theme="button" variant="primary-filled" value={trigger.failover} onChange={(value) => updateRule(ruleIdx, { failover: value as LimitFailover })}>
                                     <Radio.Button value={LimitFailover.FAILOVER_LOCAL}>{LimitFailoverMap[LimitFailover.FAILOVER_LOCAL]}</Radio.Button>
                                     <Radio.Button value={LimitFailover.FAILOVER_PASS}>{LimitFailoverMap[LimitFailover.FAILOVER_PASS]}</Radio.Button>
                                 </RadioGroup>
@@ -664,22 +717,23 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                             )}
                         </div>
                     )}
-                    <div className={styles.responseField}>
+                    {!isTokenLease && <div className={styles.responseField}>
                         <div className={styles.responseHeader}>
                             <span className={styles.metricLabel}>自定义响应</span>
                             {editable && (
                                 <Switch
+                                    aria-label={`第 ${ruleIdx + 1} 条限流子规则自定义响应`}
                                     value={hasCustomResponse}
                                     onChange={(value) => updateRule(ruleIdx, { customResponse: value ? { body: trigger.customResponse?.body || '{"code":429,"msg":"rate limited"}' } : undefined })}
                                 />
                             )}
                         </div>
                         {editable && hasCustomResponse ? (
-                            <Textarea autosize={{ minRows: 4 }} value={trigger.customResponse?.body} onChange={(value) => updateRule(ruleIdx, { customResponse: { ...trigger.customResponse, body: value as string } })} />
+                            <Textarea aria-label={`第 ${ruleIdx + 1} 条限流子规则自定义响应内容`} autosize={{ minRows: 4 }} value={trigger.customResponse?.body} onChange={(value) => updateRule(ruleIdx, { customResponse: { ...trigger.customResponse, body: value as string } })} />
                         ) : (
                             <div className={`${shared.fieldValue} ${hasCustomResponse ? shared.mono : ''}`}>{trigger.customResponse?.body || '无自定义响应 — 返回默认 429'}</div>
                         )}
-                    </div>
+                    </div>}
                 </div>
             </div>
         );
@@ -774,6 +828,9 @@ const RateLimitEditor: React.FC<IRateLimitEditorProps> = ({ limitType, op, refre
                                     {editable && <Button className={shared.addRuleButton} variant="dashed" icon={<AddIcon />} onClick={addRule}>添加规则</Button>}
                                 </div>
                             </section>
+                            {op === 'view' && rateLimit.callee.namespace && rateLimit.callee.service && (
+                                <QuotaLeaseRuntime namespace={rateLimit.callee.namespace} service={rateLimit.callee.service} />
+                            )}
                         </div>
                     </div>
                     {renderPublishForm}

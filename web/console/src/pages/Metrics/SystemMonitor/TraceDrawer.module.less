@@ -1,0 +1,545 @@
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: calc(100vh - 74px);
+  min-height: 520px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.workspaceNav {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+
+  span {
+    overflow: hidden;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.contextBar,
+.traceSummaryGrid {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(100px, 0.4fr) minmax(320px, 1.5fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-surface);
+
+  > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  span {
+    color: var(--app-muted);
+    font-size: 11px;
+  }
+
+  strong {
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.liveTag,
+.okTag,
+.errorTag {
+  border-radius: 999px;
+}
+
+.liveTag,
+.okTag {
+  border-color: var(--app-status-success-border);
+  color: var(--app-status-success);
+  background: var(--app-status-success-subtle);
+}
+
+.errorTag {
+  border-color: var(--app-status-error-border);
+  color: var(--app-danger);
+  background: var(--app-status-error-subtle);
+}
+
+.traceListPanel,
+.waterfallPanel {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-surface);
+
+  > header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--app-border-subtle);
+    background: var(--app-surface);
+
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h3 {
+      color: var(--app-text);
+      font-size: 14px;
+    }
+
+    p,
+    span,
+    code {
+      color: var(--app-muted);
+      font-size: 12px;
+    }
+  }
+}
+
+.traceList {
+  display: flex;
+  flex-direction: column;
+}
+
+.traceCard {
+  display: grid;
+  grid-template-columns: 12px minmax(220px, 1.4fr) minmax(180px, 0.8fr) 100px 72px 86px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--app-border-subtle);
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--app-brand-subtle);
+  }
+}
+
+.traceCardStatus {
+  display: flex;
+  justify-content: center;
+}
+
+.statusOk,
+.statusError {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.statusOk { background: var(--app-status-success); }
+.statusError { background: var(--app-danger); }
+
+.traceCardMain,
+.traceCardMetric {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+
+  span,
+  code {
+    color: var(--app-muted);
+    font-size: 11px;
+  }
+
+  strong {
+    overflow: hidden;
+    color: var(--app-text);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.traceCardMain code { margin-top: 2px; }
+
+.traceCardAction {
+  color: var(--app-brand);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.queryError {
+  margin: 14px;
+  padding: 12px;
+  border: 1px solid var(--app-status-error-border);
+  border-radius: 4px;
+  color: var(--app-danger);
+  background: var(--app-status-error-subtle);
+  font-size: 12px;
+}
+
+.detailToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.traceIdentity {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+
+  code {
+    overflow: hidden;
+    color: var(--app-text-secondary);
+    font-size: 12px;
+    text-overflow: ellipsis;
+  }
+}
+
+.traceSummaryGrid {
+  grid-template-columns: minmax(260px, 1.5fr) repeat(3, minmax(120px, 0.5fr));
+}
+
+.waterfall {
+  min-width: 0;
+  padding-bottom: 18px;
+}
+
+.waterfallToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.spanLegend,
+.treeActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.spanLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--app-muted);
+  font-size: 10px;
+}
+
+.spanLegend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.treeActions button {
+  padding: 3px 0;
+  border: 0;
+  color: var(--app-text-secondary);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover { color: var(--app-brand); }
+}
+
+.waterfallViewport {
+  min-width: 920px;
+}
+
+.overviewRow,
+.spanGridHeader,
+.spanRow {
+  display: grid;
+  grid-template-columns: 340px minmax(380px, 1fr) 72px;
+  gap: 12px;
+  align-items: center;
+  padding: 0 14px;
+}
+
+.overviewRow {
+  min-height: 42px;
+  border-bottom: 1px solid var(--app-border-subtle);
+  background: color-mix(in srgb, var(--app-surface) 94%, var(--app-brand) 6%);
+}
+
+.overviewLabel,
+.overviewDuration {
+  color: var(--app-text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.overviewDuration { text-align: right; }
+
+.overviewTrack {
+  position: relative;
+  overflow: hidden;
+  height: 24px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 4px;
+  background: var(--app-surface);
+
+  i {
+    position: absolute;
+    top: 5px;
+    min-width: 2px;
+    height: 12px;
+    border-radius: 2px;
+    opacity: 0.78;
+  }
+}
+
+.spanGridHeader {
+  position: sticky;
+  top: 57px;
+  z-index: 1;
+  min-height: 34px;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-muted);
+  background: var(--app-surface);
+  font-size: 10px;
+
+  > span:last-child { text-align: right; }
+}
+
+.waterfallAxis {
+  display: flex;
+  justify-content: space-between;
+}
+
+.spanTree {
+  background: var(--app-surface);
+}
+
+.spanRow {
+  position: relative;
+  min-height: 42px;
+  border-bottom: 1px solid var(--app-border-subtle);
+  cursor: pointer;
+  outline: none;
+
+  &:hover { background: var(--app-brand-subtle); }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--app-brand);
+  }
+}
+
+.spanRowSelected {
+  background: color-mix(in srgb, var(--app-brand) 9%, var(--app-surface));
+
+  &::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: var(--app-brand);
+    content: '';
+  }
+}
+
+.spanMeta {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong { color: var(--app-text); font-size: 12px; }
+  small { color: var(--app-muted); font-size: 10px; }
+}
+
+.spanMetaText {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.branchGuides {
+  position: absolute;
+  inset: -13px auto -13px 0;
+  pointer-events: none;
+
+  i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--app-border);
+  }
+}
+
+.spanToggle {
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  color: var(--app-text-secondary);
+  background: var(--app-surface);
+  cursor: pointer;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 120ms ease;
+  }
+
+  &:hover { color: var(--app-brand); background: var(--app-brand-subtle); }
+}
+
+.spanToggleOpen svg { transform: rotate(90deg); }
+
+.spanLeaf {
+  z-index: 1;
+  width: 6px;
+  height: 6px;
+  margin: 0 6px;
+  flex: 0 0 6px;
+  border: 1px solid var(--app-muted);
+  border-radius: 50%;
+  background: var(--app-surface);
+}
+
+.spanTrack {
+  position: relative;
+  height: 18px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--app-border-subtle) 1px, transparent 1px) 0 0 / 25% 100%;
+}
+
+.spanBar {
+  position: absolute;
+  top: 3px;
+  min-width: 2px;
+  height: 12px;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+}
+
+.legendServer,
+.spanBarServer { background: #6750a4; }
+
+.legendClient,
+.spanBarClient { background: #087f8c; }
+
+.legendInternal,
+.spanBarInternal { background: var(--app-brand); }
+
+.legendError,
+.spanBarError { background: var(--app-danger); }
+
+.spanDuration {
+  color: var(--app-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  text-align: right;
+}
+
+.spanError {
+  grid-column: 2 / -1;
+  margin: -6px 0 8px;
+  color: var(--app-danger);
+  font-size: 11px;
+}
+
+.spanInspector {
+  margin: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--app-surface) 96%, var(--app-brand) 4%);
+
+  > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--app-border-subtle);
+
+    div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+    span { color: var(--app-muted); font-size: 10px; }
+    strong { overflow: hidden; color: var(--app-text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+    gap: 12px 18px;
+    margin: 0;
+    padding: 12px;
+  }
+
+  dl div { min-width: 0; }
+  dt { margin-bottom: 3px; color: var(--app-muted); font-size: 10px; }
+  dd { overflow: hidden; margin: 0; color: var(--app-text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  code { font-size: 10px; }
+  p { margin: 0; padding: 0 12px 12px; color: var(--app-danger); font-size: 11px; }
+}
+
+@media (max-width: 900px) {
+  .contextBar,
+  .traceSummaryGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .traceCard {
+    grid-template-columns: 12px minmax(180px, 1fr) 100px 72px;
+  }
+
+  .traceCardMetric:first-of-type,
+  .traceCardAction {
+    display: none;
+  }
+
+  .spanRow {
+    grid-template-columns: 280px minmax(300px, 1fr) 64px;
+  }
+
+  .overviewRow,
+  .spanGridHeader {
+    grid-template-columns: 280px minmax(300px, 1fr) 64px;
+  }
+
+  .spanInspector dl { grid-template-columns: 1fr 1fr; }
+}

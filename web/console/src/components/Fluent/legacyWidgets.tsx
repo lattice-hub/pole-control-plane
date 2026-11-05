@@ -252,7 +252,7 @@ export const Transfer: React.FC<any> = ({ data = [], value, defaultValue = [], o
     const items = visible.filter((item: AnyRecord) => selected.includes(item.value) === target);
     return <div className={`fluent-transfer__pane fluent-transfer__pane--${target ? 'target' : 'source'}`} style={{ flex: 1, minWidth: 180, height: 260, overflow: 'auto', border: `1px solid ${palette.border}`, borderRadius: 4 }}><div className="fluent-transfer__title" style={{ padding: '9px 12px', borderBottom: `1px solid ${palette.border}`, fontWeight: 600 }}>{title[target ? 1 : 0]}</div>{items.map((item: AnyRecord) => <Checkbox className="fluent-transfer__item" key={item.value} checked={target} disabled={disabled || loading || item.disabled} label={item.label ?? item.value} onChange={(_event, data) => choose(item, Boolean(data.checked))} style={{ display: 'flex', padding: '7px 12px' }} />)}{!loading && items.length === 0 && <div className="fluent-transfer__empty" style={{ display: 'grid', minHeight: 180, placeItems: 'center', color: palette.muted }}>暂无数据</div>}</div>;
   };
-  return <div {...props} aria-busy={loading || undefined} className={`fluent-transfer ${className || ''}`.trim()} style={{ position: 'relative', width: '100%', ...style }}>{search && <Input className="fluent-transfer__search" value={query} placeholder="搜索" disabled={disabled || loading} onChange={(_event, data) => setQuery(data.value)} style={{ marginBottom: 8 }} />}<div className="fluent-transfer__panes" style={{ display: 'flex', gap: 12 }}>{pane(false)}{pane(true)}</div>{loading && <div className="fluent-loading-overlay" role="status"><Spinner label="正在加载成员列表" /></div>}</div>;
+  return <div {...props} aria-busy={loading || undefined} className={`fluent-transfer ${className || ''}`.trim()} style={{ position: 'relative', width: '100%', ...style }}>{search && <Input aria-label="搜索列表项" className="fluent-transfer__search" value={query} placeholder="搜索" disabled={disabled || loading} onChange={(_event, data) => setQuery(data.value)} style={{ marginBottom: 8 }} />}<div className="fluent-transfer__panes" style={{ display: 'flex', gap: 12 }}>{pane(false)}{pane(true)}</div>{loading && <div className="fluent-loading-overlay" role="status"><Spinner label="正在加载成员列表" /></div>}</div>;
 };
 
 export interface TreeNodeData extends AnyRecord { value: LegacyValue; label?: React.ReactNode; children?: TreeNodeData[] | boolean }
@@ -281,24 +281,83 @@ export interface TreeProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
   [key: string]: any;
 }
 
-export const Tree = React.forwardRef<TreeInstanceFunctions, TreeProps>(({ data = [], actived, defaultActived = [], expandAll, icon, operations, filter, onClick, onActive, activable, className, style }, ref) => {
-  const [expanded, setExpanded] = React.useState<LegacyValue[]>(expandAll ? data.map((node) => node.value) : []);
+export const Tree = React.forwardRef<TreeInstanceFunctions, TreeProps>(({ data = [], actived, defaultActived = [], expandAll, icon, operations, filter, onClick, onActive, activable, disabled = false, className, style }, ref) => {
+  const [expanded, setExpanded] = React.useState<LegacyValue[]>([]);
   const [active, setActive] = React.useState<LegacyValue[]>(defaultActived);
-  const flattenValues = React.useCallback((nodes: TreeNodeData[]): LegacyValue[] => nodes.flatMap((node) => [node.value, ...(Array.isArray(node.children) ? flattenValues(node.children) : [])]), []);
-  React.useImperativeHandle(ref, () => ({ expandAll: () => setExpanded(flattenValues(data)), collapseAll: () => setExpanded([]) }), [data, flattenValues]);
-  React.useEffect(() => { if (expandAll) setExpanded(flattenValues(data)); }, [data, expandAll, flattenValues]);
+  const [focused, setFocused] = React.useState<LegacyValue | null>(null);
+  const [focusWithin, setFocusWithin] = React.useState(false);
+  const itemRefs = React.useRef(new Map<LegacyValue, HTMLDivElement>());
+  const flattenValues = React.useCallback((nodes: TreeNodeData[]): LegacyValue[] => nodes.flatMap((node) => [...(node.disabled ? [] : [node.value]), ...(Array.isArray(node.children) ? flattenValues(node.children) : [])]), []);
+  React.useImperativeHandle(ref, () => ({ expandAll: () => { if (!disabled) setExpanded(flattenValues(data)); }, collapseAll: () => setExpanded([]) }), [data, disabled, flattenValues]);
+  React.useEffect(() => { if (expandAll && !disabled) setExpanded(flattenValues(data)); }, [data, disabled, expandAll, flattenValues]);
   const selected = actived ?? active;
   const matchesFilter = (node: TreeNodeData): boolean => {
     const model: TreeNodeModel = { value: node.value, label: node.label, data: node, expanded: expanded.includes(node.value), loading: false, getChildren: () => false };
     return !filter || filter(model) || (Array.isArray(node.children) && node.children.some(matchesFilter));
   };
+  const visible: { node: TreeNodeData; parent: LegacyValue | null }[] = [];
+  const collectVisible = (nodes: TreeNodeData[], parent: LegacyValue | null) => {
+    nodes.forEach((node) => {
+      if (!matchesFilter(node)) return;
+      visible.push({ node, parent });
+      if (expanded.includes(node.value) && Array.isArray(node.children)) collectVisible(node.children, node.value);
+    });
+  };
+  collectVisible(data, null);
+  const enabled = visible.filter(({ node }) => !disabled && !node.disabled);
+  const tabStop = enabled.some(({ node }) => node.value === focused)
+    ? focused : enabled.find(({ node }) => selected.includes(node.value))?.node.value ?? enabled[0]?.node.value;
+  const focusItem = (value: LegacyValue | undefined | null) => {
+    if (value == null) return;
+    setFocused(value);
+    itemRefs.current.get(value)?.focus();
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, node: TreeNodeData) => {
+    // Controls inside operations own their keys; only the treeitem itself navigates the tree.
+    if (event.target !== event.currentTarget || disabled || node.disabled) return;
+    const index = enabled.findIndex((entry) => entry.node.value === node.value);
+    const children = Array.isArray(node.children) ? node.children : [];
+    const open = expanded.includes(node.value);
+    let target: LegacyValue | undefined | null;
+    switch (event.key) {
+      case 'ArrowDown': target = enabled[index + 1]?.node.value; break;
+      case 'ArrowUp': target = enabled[index - 1]?.node.value; break;
+      case 'Home': target = enabled[0]?.node.value; break;
+      case 'End': target = enabled[enabled.length - 1]?.node.value; break;
+      case 'ArrowRight':
+        if (children.length && !open) setExpanded((current) => [...current, node.value]);
+        else if (open) target = enabled.find((entry) => entry.parent === node.value)?.node.value;
+        break;
+      case 'ArrowLeft':
+        if (children.length && open) setExpanded((current) => current.filter((value) => value !== node.value));
+        else {
+          let parent = visible.find((entry) => entry.node.value === node.value)?.parent;
+          while (parent != null && !enabled.some((entry) => entry.node.value === parent)) {
+            parent = visible.find((entry) => entry.node.value === parent)?.parent;
+          }
+          target = parent;
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        event.currentTarget.querySelector<HTMLDivElement>(':scope > .fluent-tree__item')?.click();
+        break;
+      default: return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    focusItem(target);
+  };
   const renderNodes = (nodes: TreeNodeData[], depth = 0): React.ReactNode => nodes.map((node) => {
     const children = Array.isArray(node.children) ? node.children : [];
     const open = expanded.includes(node.value);
+    const nodeDisabled = disabled || Boolean(node.disabled);
     const model: TreeNodeModel = { value: node.value, label: node.label, data: node, expanded: open, loading: false, getChildren: () => children.length ? children.map((child) => ({ value: child.value, label: child.label, data: child, expanded: false, loading: false, getChildren: () => false })) : false };
-    const matches = matchesFilter(node);
-    if (!matches) return null;
-    return <div className="fluent-tree__node" key={node.value}><div className={`fluent-tree__item ${selected.includes(node.value) ? 'is-active' : ''} ${node.disabled ? 'is-disabled' : ''}`.trim()} role="treeitem" aria-selected={selected.includes(node.value)} onClick={(event) => { if (activable && !node.disabled) { const next = [node.value]; if (actived === undefined) setActive(next); onActive?.(next, { node: model, e: event }); } onClick?.({ node: model, e: event }); }} style={{ display: 'flex', alignItems: 'center', minHeight: 32, paddingLeft: depth * 20, borderRadius: 4, cursor: node.disabled ? 'default' : 'pointer', background: selected.includes(node.value) ? 'color-mix(in srgb, var(--app-brand, #0f6cbd) 12%, transparent)' : undefined, color: node.disabled ? palette.muted : palette.text }}><Button className="fluent-tree__expand" appearance="subtle" size="small" aria-label={open ? '收起' : '展开'} disabled={!children.length} icon={children.length ? open ? <ChevronDown16Regular /> : <ChevronRight16Regular /> : undefined} onClick={(event) => { event.stopPropagation(); setExpanded((current) => open ? current.filter((item) => item !== node.value) : [...current, node.value]); }} style={{ minWidth: 24, width: 24, padding: 0 }} /><span className="fluent-tree__icon" style={{ display: 'inline-flex', width: 20 }}>{typeof icon === 'function' ? icon(model) : icon}</span><span className="fluent-tree__label" style={{ flex: 1, minWidth: 0 }}>{node.label ?? node.value}</span><span className="fluent-tree__operations">{typeof operations === 'function' ? operations(model) : operations}</span></div>{open && children.length > 0 && <div className="fluent-tree__children">{renderNodes(children, depth + 1)}</div>}</div>;
+    if (!matchesFilter(node)) return null;
+    return <div className="fluent-tree__node" key={node.value} role="treeitem" aria-selected={selected.includes(node.value)} aria-expanded={children.length ? open : undefined} aria-level={depth + 1} aria-disabled={nodeDisabled || undefined} tabIndex={!nodeDisabled && tabStop === node.value ? 0 : -1} ref={(element) => { if (element) itemRefs.current.set(node.value, element); else itemRefs.current.delete(node.value); }} onFocus={(event) => { if (event.target === event.currentTarget) { setFocused(node.value); setFocusWithin(true); } }} onBlur={(event) => { if (event.target === event.currentTarget) setFocusWithin(false); }} onKeyDown={(event) => handleKeyDown(event, node)}>
+      <div className={`fluent-tree__item ${selected.includes(node.value) ? 'is-active' : ''} ${nodeDisabled ? 'is-disabled' : ''}`.trim()} onClick={(event) => { if (nodeDisabled || (event.target instanceof Element && event.target.closest('.fluent-tree__operations'))) return; focusItem(node.value); if (activable) { const next = [node.value]; if (actived === undefined) setActive(next); onActive?.(next, { node: model, e: event }); } onClick?.({ node: model, e: event }); }} style={{ display: 'flex', alignItems: 'center', minHeight: 32, paddingLeft: depth * 20, borderRadius: 4, cursor: nodeDisabled ? 'default' : 'pointer', background: selected.includes(node.value) ? 'color-mix(in srgb, var(--app-brand, #0f6cbd) 12%, transparent)' : undefined, color: nodeDisabled ? palette.muted : palette.text, outline: focusWithin && focused === node.value ? '2px solid var(--app-brand, #0f6cbd)' : undefined, outlineOffset: -2 }}><Button className="fluent-tree__expand" appearance="subtle" size="small" aria-label={open ? '收起' : '展开'} tabIndex={-1} disabled={nodeDisabled || !children.length} icon={children.length ? open ? <ChevronDown16Regular /> : <ChevronRight16Regular /> : undefined} onClick={(event) => { event.stopPropagation(); focusItem(node.value); setExpanded((current) => open ? current.filter((item) => item !== node.value) : [...current, node.value]); }} style={{ minWidth: 24, width: 24, padding: 0 }} /><span className="fluent-tree__icon" style={{ display: 'inline-flex', width: 20 }}>{typeof icon === 'function' ? icon(model) : icon}</span><span className="fluent-tree__label" style={{ flex: 1, minWidth: 0 }}>{node.label ?? node.value}</span><span className="fluent-tree__operations">{typeof operations === 'function' ? operations(model) : operations}</span></div>
+      {open && children.length > 0 && <div className="fluent-tree__children" role="group">{renderNodes(children, depth + 1)}</div>}
+    </div>;
   });
   return <div role="tree" className={`fluent-tree ${className || ''}`.trim()} style={style}>{renderNodes(data)}</div>;
 });

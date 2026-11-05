@@ -21,7 +21,7 @@ import (
 	authapi "github.com/pole-io/pole-server/apis/access_control/auth"
 	connlimit "github.com/pole-io/pole-server/pkg/common/conn/limit"
 	"github.com/pole-io/pole-server/pkg/common/secure"
-	"github.com/pole-io/pole-server/pkg/config"
+	compatconfig "github.com/pole-io/pole-server/pkg/compatibility/config"
 	"github.com/pole-io/pole-server/pkg/namespace"
 	"github.com/pole-io/pole-server/pkg/service"
 	"github.com/pole-io/pole-server/pkg/service/healthcheck"
@@ -57,10 +57,9 @@ func WithDiscoverSvr(discoverSvr service.DiscoverServer, originSvr service.Disco
 	}
 }
 
-func WithConfigSvr(configSvr config.ConfigCenterServer, originSvr config.ConfigCenterServer) option {
+func WithConfigSvr(configSvr compatconfig.Discoverer) option {
 	return func(svr *NacosV1Server) {
 		svr.configOpt.ConfigSvr = configSvr
-		svr.configOpt.OriginConfigSvr = originSvr
 	}
 }
 

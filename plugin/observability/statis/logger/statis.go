@@ -90,10 +90,6 @@ func (s *StatisWorker) ReportCallMetrics(metric metricstypes.CallMetric) {
 func (s *StatisWorker) ReportDiscoveryMetrics(metric ...metricstypes.DiscoveryMetric) {
 }
 
-// ReportConfigMetrics report config_center metrics
-func (s *StatisWorker) ReportConfigMetrics(metric ...metricstypes.ConfigMetrics) {
-}
-
 // ReportDiscoverCall report discover service times
 func (s *StatisWorker) ReportDiscoverCall(metric metricstypes.ClientDiscoverMetric) {
 	discoverlog.Info(metric.String())

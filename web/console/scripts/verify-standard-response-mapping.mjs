@@ -32,16 +32,6 @@ const checks = [
     message: '鉴权策略列表必须先读标准 data，再兼容 result.authStrategies。',
   },
   {
-    file: 'src/services/config_group.ts',
-    required: ['const groups = res.data ?? res.configFileGroups ?? []', 'totalCount: res.amount ?? res.total ?? groups.length'],
-    message: '配置分组列表必须先读标准 data/amount，再兼容 configFileGroups/total。',
-  },
-  {
-    file: 'src/services/config_files.ts',
-    required: ['const files = res.data ?? res.configFiles ?? []', 'totalCount: res.amount ?? res.total ?? files.length'],
-    message: '配置文件列表必须先读标准 data/amount，再兼容 configFiles/total。',
-  },
-  {
     file: 'src/services/ratelimit.ts',
     required: ['const rateLimits = res.data ?? res.rateLimits ?? []'],
     message: '限流规则列表必须先读标准 data，再兼容 res.rateLimits。',
@@ -54,7 +44,9 @@ const checks = [
   {
     file: 'src/pages/Discovery/Services/Instance/ServiceDetail.tsx',
     required: [
-      'const ServiceDetail: React.FC<IServiceDetailProps> = ({ namespace, serviceName, onTabChange, initialEdit = false })',
+      'const ServiceDetail: React.FC<IServiceDetailProps> = ({',
+      'serviceName,',
+      'initialEdit = false,',
       'dispatch(listOneService({',
       'namespace,',
       'name: serviceName,',

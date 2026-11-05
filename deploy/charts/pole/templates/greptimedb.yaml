@@ -1,0 +1,131 @@
+{{- if .Values.greptimedb.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pole.greptimeName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: greptimedb
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "pole.componentLabels" (dict "root" . "component" "greptimedb") | nindent 4 }}
+  ports:
+    - {name: http, port: 4000, targetPort: http}
+    - {name: grpc, port: 4001, targetPort: grpc}
+    - {name: mysql, port: 4002, targetPort: mysql}
+    - {name: postgres, port: 4003, targetPort: postgres}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "pole.greptimeName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: greptimedb
+spec:
+  serviceName: {{ include "pole.greptimeName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "greptimedb") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pole.componentLabels" (dict "root" . "component" "greptimedb") | nindent 8 }}
+        {{- with .Values.global.podLabels }}{{ toYaml . | nindent 8 }}{{- end }}
+      annotations:
+        {{- with .Values.global.podAnnotations }}{{ toYaml . | nindent 8 }}{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: greptimedb
+          image: {{ include "pole.image" .Values.greptimedb.image | quote }}
+          imagePullPolicy: {{ .Values.greptimedb.image.pullPolicy }}
+          args:
+            - standalone
+            - start
+            - --http-addr=0.0.0.0:4000
+            - --grpc-bind-addr=0.0.0.0:4001
+            - --mysql-addr=0.0.0.0:4002
+            - --postgres-addr=0.0.0.0:4003
+          ports:
+            - {name: http, containerPort: 4000}
+            - {name: grpc, containerPort: 4001}
+            - {name: mysql, containerPort: 4002}
+            - {name: postgres, containerPort: 4003}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            failureThreshold: 60
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources: {{ toYaml .Values.greptimedb.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /greptimedb_data}
+      {{- if .Values.greptimedb.persistence.existingClaim }}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ .Values.greptimedb.persistence.existingClaim | quote }}}
+      {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if not .Values.greptimedb.persistence.existingClaim }}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: {{ toYaml .Values.greptimedb.persistence.accessModes | nindent 10 }}
+        {{- with .Values.greptimedb.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests: {storage: {{ .Values.greptimedb.persistence.size }}}
+  {{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pole.greptimeName" . }}-initialize
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: greptimedb-initialize
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        {{- include "pole.componentLabels" (dict "root" . "component" "greptimedb-initialize") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: initialize
+          image: curlimages/curl:8.12.1
+          command: [sh, -ec]
+          args:
+            - >-
+              until curl -fsS http://{{ include "pole.greptimeName" . }}:4000/health; do sleep 3; done;
+              curl -fsS --data-urlencode 'sql=CREATE DATABASE IF NOT EXISTS {{ .Values.greptimedb.database }}'
+              http://{{ include "pole.greptimeName" . }}:4000/v1/sql
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+{{- end }}

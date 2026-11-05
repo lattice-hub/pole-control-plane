@@ -2,8 +2,8 @@
 title: 访问控制与认证系统
 tags: [auth, security]
 links: [business-rules, adr-console-oidc-identity-source, adr-managed-service-identity-authentication, architecture, index, patterns, adr-pole-self-management-control-loop]
-updated: 2026-07-26
-sources: 6
+updated: 2026-08-20
+sources: 9
 ---
 
 # 访问控制与认证系统
@@ -124,6 +124,21 @@ func (s *Server) CreateService(ctx context.Context, req *apiservice.Service) *ap
 3. 认证拦截器调用 `UserServer.CheckCredential()` 验证 Token
 4. `StrategyServer.CheckConsolePermission()` 评估资源策略
 5. 授权通过后，请求继续流向业务逻辑层
+
+## Console Session 与资源授权边界
+
+Console 使用签名的 HttpOnly `jwt` Cookie 保存用户 ID、Pole Token 与会话角色。该 Cookie 证明浏览器 Session，
+但资源请求是否允许仍由 control-plane 的策略链独立判断，因此 HTTP 401 本身不能作为清理 Session 的充分条件。
+
+- `401001`（`Code_NotAllowedAccess`）表示当前身份没有目标资源或函数权限；Console 必须保留 Cookie 与本地登录态，
+  由菜单、路由或页面呈现无权反馈。
+- `401003`（`Code_TokenDisabled`）与 `401004`（`Code_TokenNotExisted`）表示认证凭据已经不可继续使用；Console Proxy
+  可以下发过期 Cookie，前端可以清理登录态并进入登录页。
+- `/auth/v1/user/session` 直接返回 HTTP 401 时，说明签名 Cookie 缺失、过期或无效，可以单独判定 Console Session 失效。
+- 旧 Console 代理返回的 `407` 暂时作为兼容认证失效码保留，但不能将普通 API 的任意 HTTP 401 或 `401001` 纳入该分类。
+
+`ErrorTokenInvalid` 与 `ErrorTokenNotExist` 都映射为 `401004`；资源策略拒绝继续映射为 `401001`。代理在读取 401
+响应业务码后恢复响应体，只对前两类明确认证错误清除 Cookie，避免授权拒绝破坏仍然有效的浏览器 Session。
 
 ## Console 外部用户来源
 

@@ -64,3 +64,20 @@ func TestEnrichResourceDetailSkipsUnsupportedResourceType(t *testing.T) {
 		})
 	})
 }
+
+func TestNormalizeResourceHandlesStringIDsAndCollapsesWildcard(t *testing.T) {
+	svr := &Server{}
+	resources := &apisecurity.StrategyResources{
+		Namespaces: []*apisecurity.StrategyResourceEntry{
+			{Id: "namespace-a"},
+			{Id: "*", Name: "ignored-after-wildcard"},
+		},
+		Services: []*apisecurity.StrategyResourceEntry{{Id: "service-a"}},
+	}
+
+	require.NotPanics(t, func() {
+		resources = svr.normalizeResource(resources)
+	})
+	require.Equal(t, []*apisecurity.StrategyResourceEntry{{Id: "*"}}, resources.Namespaces)
+	require.Equal(t, "service-a", resources.Services[0].GetId())
+}

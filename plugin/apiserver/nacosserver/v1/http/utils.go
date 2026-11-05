@@ -33,7 +33,6 @@ import (
 	"github.com/pole-io/pole-server/apis/pkg/types"
 	"github.com/pole-io/pole-server/pkg/common/utils"
 	"github.com/pole-io/pole-server/pkg/common/utils/valid"
-	"github.com/pole-io/pole-server/pkg/config"
 	"github.com/pole-io/pole-server/plugin/apiserver/nacosserver/model"
 )
 
@@ -70,7 +69,7 @@ type Handler struct {
 }
 
 func (h *Handler) postParseMessage(requestID string) (context.Context, error) {
-	ctx := context.Background()
+	ctx := h.Request.Request.Context()
 	ctx = context.WithValue(ctx, types.StringContext(types.HeaderRequestId), requestID)
 
 	var operator string
@@ -87,7 +86,7 @@ func (h *Handler) postParseMessage(requestID string) (context.Context, error) {
 func (h *Handler) ParseHeaderContext() context.Context {
 	requestID := h.Request.HeaderParameter(types.HeaderRequestId)
 
-	ctx := context.Background()
+	ctx := h.Request.Request.Context()
 	if requestID == "" {
 		requestID = utils.NewUUID()
 	}
@@ -109,7 +108,7 @@ func (h *Handler) ProcessZip(consumer func(f *zip.File, data []byte)) error {
 
 	req.Request.Body = http.MaxBytesReader(rsp, req.Request.Body, valid.MaxRequestBodySize)
 
-	file, _, err := req.Request.FormFile(config.ConfigFileFormKey)
+	file, _, err := req.Request.FormFile("file")
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: pole-control-plane
     app.kubernetes.io/part-of: pole
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: pole-control-plane
   ports:
@@ -35,6 +35,25 @@ spec:
     - name: xds
       port: 15010
       targetPort: xds
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pole-limiter
+  namespace: pole-system
+  labels:
+    app.kubernetes.io/name: pole-limiter
+    app.kubernetes.io/part-of: pole
+spec:
+  selector:
+    app.kubernetes.io/name: pole-control-plane
+  ports:
+    - name: grpc
+      port: 8101
+      targetPort: limiter-grpc
+    - name: http-maintain
+      port: 8102
+      targetPort: limiter-http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -70,7 +89,7 @@ spec:
         - name: pole-control-plane
           image: pole-control-plane:local
           imagePullPolicy: IfNotPresent
-          args: [start, -c, /work/pole-server.yaml, --mode, all]
+          args: [start, -c, /work/pole-server.yaml, --mode, full]
           env:
             - name: MYSQL_HOST
               value: pole-mysql:3306
@@ -132,6 +151,10 @@ spec:
               containerPort: 8761
             - name: xds
               containerPort: 15010
+            - name: limiter-grpc
+              containerPort: 8101
+            - name: limiter-http
+              containerPort: 8102
           startupProbe:
             tcpSocket:
               port: console

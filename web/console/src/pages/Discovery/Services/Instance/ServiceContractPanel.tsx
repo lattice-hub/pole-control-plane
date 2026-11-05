@@ -407,7 +407,8 @@ const ServiceContractPanel: React.FC<ServiceContractPanelProps> = ({ namespace, 
                     {interfaces.length === 0 ? (
                         <Empty title="暂无接口定义" description="当前契约没有可展示的归一化接口。" />
                     ) : interfaces.map((operation, index) => (
-                        <button
+                        <Button
+                            variant="text"
                             type="button"
                             className={style.interfaceRow}
                             key={operation.id || `${operation.path}-${operation.method}-${index}`}
@@ -433,7 +434,7 @@ const ServiceContractPanel: React.FC<ServiceContractPanelProps> = ({ namespace, 
                                 </span>
                             </span>
                             <span className={style.detailAction}>查看详情</span>
-                        </button>
+                        </Button>
                     ))}
                 </div>
             ) : (

@@ -1,6 +1,7 @@
 import React, {  } from 'react';
-import { Drawer, Form, Input, Space, Button, Switch, Tag, Tabs } from 'components/Fluent';
+import { Form, Input, Space, Button, Tag, Tabs } from 'components/Fluent';
 import type { FormProps } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 
 import { useAppDispatch, useAppSelector } from 'modules/store';
 import { openErrNotification, openInfoNotification } from 'utils/notifition';
@@ -45,6 +46,7 @@ interface IUserEditorProps {
 const UserEditor: React.FC<IUserEditorProps> = ({ visible, op, closeDrawer }) => {
     const [form] = Form.useForm();
     const [editable, setEditable] = React.useState(op !== 'view');
+    const [submitting, setSubmitting] = React.useState(false);
     const dispatch = useAppDispatch();
 
     const userState = useAppSelector(selectUser);
@@ -57,23 +59,26 @@ const UserEditor: React.FC<IUserEditorProps> = ({ visible, op, closeDrawer }) =>
     }, [visible, op]);
 
     React.useEffect(() => {
-        if (visible && editUser) {
+        if (visible && op === 'create') {
+            form.reset();
+            form.setFieldsValue({ name: '', password: '', comment: '', token_enable: true, user_labels: [] });
+        } else if (visible && editUser) {
             form.setFieldsValue({
                 ...editUser,
                 user_labels: editUser?.metadata ? Object.entries(editUser.metadata).map(([key, value]) => ({ key, value })) : [],
             });
         }
-    }, [editUser, visible]);
+    }, [editUser, op, visible]);
 
     const onSubmit: FormProps['onSubmit'] = async (e) => {
         if (e.validateResult !== true) {
             return;
         }
 
-        const labels = form.getFieldValue('user_labels') as { key: string, value: string }[]
+        const labels = (form.getFieldValue('user_labels') as { key: string, value: string }[] | undefined) || []
 
         const newData = {
-            id: editUser?.id || '',
+            id: op === 'create' ? '' : editUser?.id || '',
             name: form.getFieldValue('name') as string,
             password: form.getFieldValue('password') as string || '',
             token_enable: form.getFieldValue('token_enable') as boolean,
@@ -86,18 +91,19 @@ const UserEditor: React.FC<IUserEditorProps> = ({ visible, op, closeDrawer }) =>
             }, {}),
         }
 
-        let result;
-        if (op === 'create') {
-            result = await dispatch(saveUsers({ param: { ...newData } }))
-        } else {
-            result = await dispatch(updateUsers({ param: { ...newData } }))
-        }
-
-        if (result.meta.requestStatus !== 'fulfilled') {
-            openErrNotification('请求错误', result?.payload as string);
-        } else {
-            openInfoNotification('请求成功', op === 'create' ? '创建用户成功' : '修改用户信息成功');
-            closeDrawer();
+        setSubmitting(true);
+        try {
+            const result = op === 'create'
+                ? await dispatch(saveUsers({ param: { ...newData } }))
+                : await dispatch(updateUsers({ param: { ...newData } }));
+            if (result.meta.requestStatus !== 'fulfilled') {
+                openErrNotification('请求错误', result?.payload as string);
+            } else {
+                openInfoNotification('请求成功', op === 'create' ? '创建用户成功' : '修改用户信息成功');
+                closeDrawer();
+            }
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -105,11 +111,11 @@ const UserEditor: React.FC<IUserEditorProps> = ({ visible, op, closeDrawer }) =>
     const canEdit = (editUser as (UserDO & { editable?: boolean }) | null)?.editable !== false;
     const resetEditor = () => {
         form.setFieldsValue({
-            name: editUser?.name || '',
+            name: op === 'create' ? '' : editUser?.name || '',
             password: '',
             token_enable: op === 'create' ? true : !!editUser?.token_enable,
-            comment: editUser?.comment || '',
-            user_labels: editUser?.metadata
+            comment: op === 'create' ? '' : editUser?.comment || '',
+            user_labels: op !== 'create' && editUser?.metadata
                 ? Object.entries(editUser.metadata).map(([key, value]) => ({ key, value }))
                 : [],
         });
@@ -190,13 +196,13 @@ const UserEditor: React.FC<IUserEditorProps> = ({ visible, op, closeDrawer }) =>
             onSubmit={onSubmit}
             onReset={resetEditor}
         >
-            <FormItem label={'用户名'} name={'name'} initialData={name}
+            <FormItem label={'用户名'} name={'name'}
                 rules={[
                     { required: true, message: '用户名不能为空' },
                     { max: 64, message: '长度不超过64个字符' },
                 ]}
             >
-                <Input disabled={op !== 'create'} />
+                <Input readonly={op !== 'create'} />
             </FormItem>
             {op === 'create' && (
                 <FormItem label={'密码'} name={'password'}
@@ -214,30 +220,26 @@ const UserEditor: React.FC<IUserEditorProps> = ({ visible, op, closeDrawer }) =>
                 ]}>
                 <Input disabled={!editable} />
             </FormItem>
-            <FormItem label="Token 启用状态" name="token_enable">
-                <Switch disabled={!editable} size="large" label={['启用', '禁用']} />
-            </FormItem>
-            <LabelInput form={form} label='用户标签' name='user_labels' editable={editable} />
-            {editable && (
-                <FormItem style={{ marginTop: 100 }}>
-                    <Space>
-                        <Button type="submit" theme="primary">
-                            提交
-                        </Button>
-                        <Button type="reset" theme="default">
-                            重置
-                        </Button>
-                    </Space>
-                </FormItem>
+            {op === 'create' ? (
+                <p>创建后默认启用 Token，可在详情中禁用。</p>
+            ) : (
+                <div className={style.detailField}>
+                    <span>Token 状态</span>
+                    <p>{editUser?.token_enable ? '启用' : '禁用'}</p>
+                    <p>Token 状态请在详情中管理。</p>
+                </div>
             )}
+            <LabelInput form={form} label='用户标签' name='user_labels' editable={editable} />
         </Form>
     )
 
     return (
         <div>
-            <Drawer
-                size='large'
-                header={op === 'create' ? "创建用户" : editable ? "编辑用户" : "用户详情"}
+            <EditorDrawer
+                bodyClassName={style.editorBody}
+                width="standard"
+                title={op === 'create' ? "创建用户" : editable ? "编辑用户" : "用户详情"}
+                description={op === 'create' ? '创建控制台登录主体，并配置识别标签。' : undefined}
                 footer={op === 'view' && !editable ? (
                     <Space>
                         <Button theme="primary" disabled={!canEdit} onClick={() => setEditable(true)}>
@@ -247,13 +249,19 @@ const UserEditor: React.FC<IUserEditorProps> = ({ visible, op, closeDrawer }) =>
                             关闭
                         </Button>
                     </Space>
+                ) : editable ? (
+                    <EditorDrawerActions
+                        onCancel={closeDrawer}
+                        onSubmit={() => form.submit({ showErrorMessage: true })}
+                        submitText={op === 'create' ? '创建用户' : '保存修改'}
+                        submitting={submitting}
+                    />
                 ) : false}
                 visible={visible}
-                showOverlay={false}
                 onClose={closeDrawer}
             >
                 {editable ? userForm : userView}
-            </Drawer>
+            </EditorDrawer>
         </div>
     );
 }

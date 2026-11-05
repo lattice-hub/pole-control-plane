@@ -35,6 +35,7 @@ import (
 	"github.com/pole-io/pole-server/apis/pkg/types/admin"
 	authtypes "github.com/pole-io/pole-server/apis/pkg/types/auth"
 	api "github.com/pole-io/pole-server/pkg/common/api/v1"
+	"github.com/pole-io/pole-server/pkg/compatibility"
 	"github.com/pole-io/pole-server/pkg/systemconfig"
 	"github.com/pole-io/pole-server/plugin/apiserver/httpserver/docs"
 	httpcommon "github.com/pole-io/pole-server/plugin/apiserver/httpserver/utils"
@@ -75,9 +76,43 @@ func (h *HTTPServer) GetAdminAccessServer() *restful.WebService {
 	ws.Route(docs.EnrichEnablePprofApiDocs(ws.POST("/pprof/enable").To(h.EnablePprof)))
 	ws.Route(docs.EnrichGetServerFunctionsApiDocs(ws.GET("/server/functions").To(h.GetServerFunctions)))
 	ws.Route(ws.GET("/system/configuration").To(h.GetSystemConfiguration))
+	ws.Route(ws.POST("/system/configuration/validate").To(h.ValidateSystemConfiguration))
 	ws.Route(ws.GET("/mainuser/exist").To(h.HasMainUser))
 	ws.Route(ws.POST("/mainuser/create").To(h.InitMainUser))
 	return ws
+}
+
+type validateSystemConfigurationRequest struct {
+	Component string         `json:"component"`
+	Domain    string         `json:"domain"`
+	Values    map[string]any `json:"values"`
+}
+
+func (h *HTTPServer) ValidateSystemConfiguration(req *restful.Request, rsp *restful.Response) {
+	ctx := initContext(req)
+	if err := authorizeSystemConfiguration(h.systemConfigUser, h.systemConfigAuth, ctx); err != nil {
+		_ = rsp.WriteErrorString(http.StatusForbidden, "system configuration validation permission is required")
+		return
+	}
+	request := validateSystemConfigurationRequest{}
+	if err := req.ReadEntity(&request); err != nil {
+		_ = rsp.WriteErrorString(http.StatusBadRequest, "invalid system configuration validation request")
+		return
+	}
+	if request.Component != compatibility.Component || request.Domain != compatibility.Domain {
+		_ = rsp.WriteErrorString(http.StatusNotFound, "system configuration domain has no runtime validator")
+		return
+	}
+	if h.environmentPromotionServer == nil {
+		_ = rsp.WriteErrorString(http.StatusServiceUnavailable, "namespace validator is unavailable")
+		return
+	}
+	targets, err := compatibility.ValidateValues(request.Values, h.environmentPromotionServer)
+	if err != nil {
+		_ = rsp.WriteErrorString(http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	_ = rsp.WriteAsJson(targets)
 }
 
 func (h *HTTPServer) GetSystemConfiguration(req *restful.Request, rsp *restful.Response) {
@@ -411,7 +446,7 @@ func (h *HTTPServer) GetServerFunctions(req *restful.Request, rsp *restful.Respo
 
 func initContext(req *restful.Request) context.Context {
 	authHeaders := []string{types.HeaderAuthorizationKey, "X-Polaris-Token"}
-	ctx := context.Background()
+	ctx := req.Request.Context()
 	for _, header := range authHeaders {
 		if v := req.HeaderParameter(header); v != "" {
 			ctx = context.WithValue(ctx, types.ContextAuthTokenKey, v)

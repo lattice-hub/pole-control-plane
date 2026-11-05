@@ -39,8 +39,20 @@ const violations = walk(sourceRoot)
 assert.deepEqual(violations, [], `暗色主题正文、表面和边框不能使用浅色硬编码：${violations.join(', ')}`);
 
 const fluentTheme = read(fluentThemePath);
+const globalThemeState = read(path.join(sourceRoot, 'modules', 'global', 'index.ts'));
+const header = read(path.join(sourceRoot, 'layouts', 'components', 'Header', 'HeaderIcon.tsx'));
+const headerStyle = read(path.join(sourceRoot, 'layouts', 'components', 'Header', 'HeaderIcon.module.less'));
 for (const token of ['--app-text-tertiary', '--app-muted', '--app-danger', '--app-brand-subtle', '--app-status-warning-subtle', '--app-status-error-subtle', '--app-status-success-subtle']) {
   assert.equal((fluentTheme.match(new RegExp(`${token}:`, 'g')) || []).length, 2, `${token} 必须同时定义亮色和暗色值`);
 }
+
+assert.doesNotMatch(globalThemeState, /Color\.getColorGradations/,
+  '主题切换不得调用 tvision-color 1.4 已移除的 getColorGradations');
+assert.match(globalThemeState, /Color\.getPaletteByGradation/,
+  '自定义主题色必须使用当前 tvision-color 调色板 API');
+assert.match(header, /className=\{Style\.languageButton\} aria-label='语言' icon=\{<AlphaIcon \/>\}/,
+  '窄屏语言入口必须保留图标与可访问名称');
+assert.match(headerStyle, /@media \(max-width: 720px\)[\s\S]*\.languageText,[\s\S]*\.chevronIcon[\s\S]*display: none/,
+  '窄屏 Header 必须收敛语言、账号文字与下拉箭头');
 
 console.log('暗色主题 token 静态约束验证通过');

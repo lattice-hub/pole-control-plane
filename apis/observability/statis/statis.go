@@ -34,8 +34,6 @@ type Statis interface {
 	ReportCallMetrics(metric metrics.CallMetric)
 	// ReportDiscoveryMetrics report discovery metrics
 	ReportDiscoveryMetrics(metric ...metrics.DiscoveryMetric)
-	// ReportConfigMetrics report config_center metrics
-	ReportConfigMetrics(metric ...metrics.ConfigMetrics)
 	// ReportDiscoverCall report discover service times
 	ReportDiscoverCall(metric metrics.ClientDiscoverMetric)
 }
@@ -95,13 +93,6 @@ func (c *compositeStatis) ReportCallMetrics(metric metrics.CallMetric) {
 func (c *compositeStatis) ReportDiscoveryMetrics(metric ...metrics.DiscoveryMetric) {
 	for i := range c.chain {
 		c.chain[i].ReportDiscoveryMetrics(metric...)
-	}
-}
-
-// ReportConfigMetrics report config_center metrics
-func (c *compositeStatis) ReportConfigMetrics(metric ...metrics.ConfigMetrics) {
-	for i := range c.chain {
-		c.chain[i].ReportConfigMetrics(metric...)
 	}
 }
 

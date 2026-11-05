@@ -8,19 +8,8 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const fluent = read('src/components/Fluent/index.tsx');
 const labelInput = read('src/components/LabelInput/index.tsx');
 const trafficSecurityEditor = read('src/pages/Governance/Security/TrafficGovernanceEditor.tsx');
+const mockHeaderEditor = read('src/pages/Governance/Security/MockHeaderEditor.tsx');
 const laneGroupEditor = read('src/pages/Governance/Router/LaneGroupEdtor.tsx');
-const schemaEditor = read('src/pages/Configuration/Template/SchemaEditor.tsx');
-
-assert.doesNotMatch(
-  schemaEditor,
-  /key=\{`\$\{item\.name\}-\$\{index\}`\}/,
-  'SchemaEditor 行 key 不能包含正在编辑的参数名，否则连续输入首字符后会重挂载并丢焦点',
-);
-assert.match(
-  schemaEditor,
-  /key=\{`schema-row-\$\{index\}`\}/,
-  'SchemaEditor 参数行必须使用编辑期间稳定的 key，保证参数名和说明可以连续输入',
-);
 
 assert.doesNotMatch(
   labelInput,
@@ -65,12 +54,12 @@ assert.match(
 );
 
 assert.doesNotMatch(
-  trafficSecurityEditor,
+  trafficSecurityEditor + mockHeaderEditor,
   /key=\{`\$\{row\.key\}-\$\{index\}`\}|key=\{`\$\{current\.protocol\}-\$\{current\.method\}-\$\{index\}`\}/,
   '治理鉴权/镜像编辑器的 Header 和接口输入行 key 不能包含正在编辑的字段值',
 );
 assert.match(
-  trafficSecurityEditor,
+  mockHeaderEditor + trafficSecurityEditor,
   /key=\{`mock-header-\$\{index\}`\}[\s\S]*key=\{`protected-interface-\$\{index\}`\}[\s\S]*key=\{`mirror-interface-\$\{index\}`\}/,
   '治理鉴权/镜像编辑器的重复输入行必须使用稳定 key，避免连续输入时重挂载',
 );

@@ -13,16 +13,11 @@ package apolloserver
 // │   └── 集群（Cluster2）
 // └── 环境（Environment2）
 
-// Pole 配置模型层级
-// 命名空间（Namespace）
-// ├── 分组（Group1）
-// │   ├── 配置文件（File1.env=dev）  # 开发环境配置
-// │   ├── 配置文件（File1.env=prod） # 生产环境配置
-// │   └── 配置文件（File2）          # 通用配置（不区分环境）
-// └── 分组（Group2）
-//     └── ...
+// Pole 配置身份为 ConfigKey(environment, group, name)。
+// 每个身份包含完整定义草稿、不可变发布历史与一个正式版及多个灰度版。
+// Apollo 读取选中的 RenderSnapshot，并在发布显式允许 Apollo 转换时渲染。
 
 // Apollo 配置模型到 Pole 配置模型的映射关系
-// 1. Apollo 的 Cluster or DataCenter 映射到 Pole 的 Namespace
-// 2. Apollo 的 AppId 映射到 Pole 的 Group
-// 3. Apollo 的 Namespace 映射到 Pole 的 ConfigFile
+// 1. Cluster → DataCenter → default 依次定位 environment，仅在明确 ABSENT 时回退。
+// 2. AppId 映射到 group。
+// 3. Namespace 映射到 name，必要时仅在 ABSENT 后尝试不带 .properties 后缀的 name。

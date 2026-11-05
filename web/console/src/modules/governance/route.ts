@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { createCustomRoutes, CreateCustomRoutesRequest, CustomRoute, CustomRouteView, deleteCustomRoute, describeCustomRoutes, DescribeCustomRoutesRequest, describeCustomRouteVersions, DescribeCustomRouteVersionsRequest, describeOneCustomRoute, modifyCustomRoutes, ModifyCustomRoutesRequest, publishCustomRoute, RoutingConfig } from 'services/router';
 import { RuleRelease } from 'services/types';
-import { VersionClient } from 'services/config_release';
+import { VersionClient } from 'services/version_client';
 
 
 // State 和 Action 类型定义

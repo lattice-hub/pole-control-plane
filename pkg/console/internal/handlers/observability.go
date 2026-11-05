@@ -33,6 +33,46 @@ func DescribeObservabilityPlatformOverview(config *bootstrap.Config) gin.Handler
 	}
 }
 
+func DescribeObservabilityPlatformTraces(config *bootstrap.Config) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		provider := observabilityquery.NewProvider(config.ObservabilityQuery)
+		traces, err := provider.PlatformTraces(ctx.Request.Context(), observabilityquery.TraceQuery{
+			StartTime:     ctx.Query("start_time"),
+			EndTime:       ctx.Query("end_time"),
+			Service:       ctx.Query("service"),
+			API:           ctx.Query("api"),
+			Limit:         ctx.Query("limit"),
+			ErrorOnly:     ctx.Query("error_only"),
+			MinDurationMS: ctx.Query("min_duration_ms"),
+		})
+		if err != nil {
+			response := model.NewResponse(int32(api.ExecuteException))
+			response.Data = err.Error()
+			ctx.JSON(http.StatusInternalServerError, response)
+			return
+		}
+		response := model.NewResponse(int32(api.ExecuteSuccess))
+		response.Data = traces
+		ctx.JSON(http.StatusOK, response)
+	}
+}
+
+func DescribeObservabilityTrace(config *bootstrap.Config) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		provider := observabilityquery.NewProvider(config.ObservabilityQuery)
+		trace, err := provider.TraceDetail(ctx.Request.Context(), ctx.Param("trace_id"))
+		if err != nil {
+			response := model.NewResponse(int32(api.ExecuteException))
+			response.Data = err.Error()
+			ctx.JSON(http.StatusInternalServerError, response)
+			return
+		}
+		response := model.NewResponse(int32(api.ExecuteSuccess))
+		response.Data = trace
+		ctx.JSON(http.StatusOK, response)
+	}
+}
+
 func DescribeObservabilityEvents(config *bootstrap.Config) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		provider := observabilityquery.NewProvider(config.ObservabilityQuery)

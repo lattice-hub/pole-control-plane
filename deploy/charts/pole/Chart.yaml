@@ -1,0 +1,12 @@
+apiVersion: v2
+name: pole
+description: Pole production baseline with in-cluster MySQL, GreptimeDB and OpenTelemetry Collector
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.28.0-0"
+annotations:
+  artifacthub.io/license: BSD-3-Clause
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial generic Kubernetes production baseline.

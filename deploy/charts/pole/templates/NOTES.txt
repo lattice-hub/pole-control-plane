@@ -1,0 +1,17 @@
+Pole release {{ .Release.Name }} was rendered for namespace {{ .Release.Namespace }}.
+
+1. Wait for workloads:
+   kubectl -n {{ .Release.Namespace }} rollout status statefulset/{{ include "pole.mysqlName" . }} --timeout=10m
+   kubectl -n {{ .Release.Namespace }} rollout status statefulset/{{ include "pole.greptimeName" . }} --timeout=10m
+   kubectl -n {{ .Release.Namespace }} rollout status statefulset/{{ include "pole.controlPlaneName" . }} --timeout=10m
+{{- if eq .Values.deploymentMode "split" }}
+   kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "pole.limiterName" . }} --timeout=10m
+   kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "pole.consoleName" . }} --timeout=10m
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+2. Console host: https://{{ .Values.ingress.host }}/
+{{- else }}
+2. Console port-forward:
+   kubectl -n {{ .Release.Namespace }} port-forward service/{{ include "pole.consoleName" . }} 8080:{{ .Values.console.service.port }}
+{{- end }}

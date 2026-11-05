@@ -262,6 +262,9 @@ export interface FormItemProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   children?: React.ReactNode | ((form: InternalFormInstance) => React.ReactNode);
 }
 
+// Shared adapters declare whether their primary slot is a labelable input or a group.
+export const formControlKind = Symbol('fluentFormControlKind');
+
 export const FormItem: React.FC<FormItemProps> = ({ name, label, rules = [], initialData, help, shouldUpdate, children, className, style, ...rest }) => {
   const context = React.useContext(FormContext);
   const prefix = React.useContext(ListPrefixContext);
@@ -281,37 +284,56 @@ export const FormItem: React.FC<FormItemProps> = ({ name, label, rules = [], ini
     previous.current = values;
   }, [values, shouldUpdate]);
 
+  const fieldId = React.useId();
+  const labelId = `${fieldId}-label`;
+  const helpId = `${fieldId}-help`;
   const value = fullName ? getAt(values, fullName) : undefined;
+  const error = fullName ? context.form.getFieldError(fullName) : undefined;
+  const child = React.isValidElement(children) ? children as React.ReactElement<any> : undefined;
+  const kind = child && (typeof child.type === 'string'
+    ? (['input', 'select', 'textarea'].includes(child.type) ? 'input' : undefined)
+    : (child.type as any)[formControlKind]);
+  const controlId = child?.props.id || `${fieldId}-control`;
+  const joinIds = (...ids: Array<string | undefined | false>) => ids.filter(Boolean).join(' ') || undefined;
+  const fieldAria = {
+    'aria-labelledby': joinIds(child?.props['aria-labelledby'], label !== undefined && labelId),
+    'aria-describedby': joinIds(child?.props['aria-describedby'], Boolean(error || help) && helpId),
+    'aria-invalid': error ? true : child?.props['aria-invalid'],
+    'aria-required': rules.some(rule => rule.required) || child?.props['aria-required'] || undefined,
+  };
   const renderChild = () => {
     if (typeof children === 'function') return children(context.form);
-    if (!fullName || !React.isValidElement(children)) return children;
-    const child = children as React.ReactElement<any>;
+    if (!child) return children;
     return React.cloneElement(child, {
-      value,
+      ...(kind ? { ...fieldAria, id: controlId } : {}),
+      ...(fullName ? { value } : {}),
       onChange: (nextValue: unknown, changeContext?: unknown) => {
         child.props.onChange?.(nextValue, changeContext);
-        context.form.setFieldValue(fullName, nextValue);
-        void context.form.validateField(fullName, rules);
+        if (fullName) {
+          context.form.setFieldValue(fullName, nextValue);
+          void context.form.validateField(fullName, rules);
+        }
       },
     });
   };
 
   const width = typeof context.labelWidth === 'number' ? `${context.labelWidth}px` : context.labelWidth;
-  const error = fullName ? context.form.getFieldError(fullName) : undefined;
   return (
     <div {...rest} className={`fluent-form-item${className ? ` ${className}` : ''}`} style={{ display: context.layout === 'vertical' ? 'block' : 'flex', alignItems: context.layout === 'vertical' ? undefined : 'flex-start', gap: context.layout === 'vertical' ? undefined : 12, marginBottom: 16, ...style }}>
       {label !== undefined && (
         <label
+          id={labelId}
+          htmlFor={kind === 'input' ? controlId : undefined}
           className="fluent-form-item__label"
           style={{ display: 'block', width: context.layout === 'vertical' ? undefined : width, textAlign: context.labelAlign === 'right' ? 'right' : 'left', marginBottom: context.layout === 'vertical' ? 6 : undefined }}
         >
-          {rules.some(rule => rule.required) && <span aria-hidden="true" style={{ color: '#b10e1c', marginRight: 4 }}>*</span>}
+          {rules.some(rule => rule.required) && <span aria-hidden="true" style={{ color: 'var(--app-danger)', marginRight: 4 }}>*</span>}
           {label}{context.colon && label ? '：' : null}
         </label>
       )}
-      <div className="fluent-form-item__control" style={{ flex: 1, minWidth: 0 }}>
+      <div className="fluent-form-item__control" role={!kind && label !== undefined ? 'group' : undefined} {...(!kind ? fieldAria : {})} style={{ flex: 1, minWidth: 0 }}>
         {renderChild()}
-        {(error || help) && <div className="fluent-form-item__help" style={{ color: error ? '#b10e1c' : undefined, fontSize: 12, marginTop: 4 }}>{error || help}</div>}
+        {(error || help) && <div id={helpId} className="fluent-form-item__help" role={error ? 'alert' : undefined} style={{ color: error ? 'var(--app-danger)' : undefined, fontSize: 12, marginTop: 4 }}>{error || help}</div>}
       </div>
     </div>
   );

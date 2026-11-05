@@ -1,0 +1,44 @@
+# 当前独立 Helm 本地环境：orbstack / pole-ui-review。
+# 需要先安装 Envoy Gateway；应用入口限定为 Console，不暴露数据服务。
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: lattice-hub-orbstack
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: lattice-hub
+  namespace: pole-ui-review
+spec:
+  gatewayClassName: lattice-hub-orbstack
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: lattice-hub.localhost
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: lattice-hub-console
+  namespace: pole-ui-review
+spec:
+  parentRefs:
+    - name: lattice-hub
+      sectionName: http
+  hostnames:
+    - lattice-hub.localhost
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: pole-console
+          port: 8080

@@ -1,0 +1,41 @@
+{{- if .Values.controlPlane.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "pole.controlPlaneName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.controlPlane.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "control-plane") | nindent 6 }}
+---
+{{- end }}
+{{- if and (eq .Values.deploymentMode "split") .Values.console.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "pole.consoleName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.console.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "console") | nindent 6 }}
+---
+{{- end }}
+{{- if and (eq .Values.deploymentMode "split") .Values.limiter.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "pole.limiterName" . }}
+  labels:
+    {{- include "pole.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.limiter.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "pole.componentLabels" (dict "root" . "component" "limiter") | nindent 6 }}
+{{- end }}

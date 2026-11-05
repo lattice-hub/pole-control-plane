@@ -2,7 +2,7 @@
 title: ADR：OTel 可观测性平台与 Kubernetes 部署方案
 tags: [adr, observability, otel, kubernetes]
 links: [architecture, common-infra, configuration, api-servers, adr-pole-rust-client-observability, adr-local-pebble-protobuf-value-cache]
-updated: 2026-07-31
+updated: 2026-08-05
 sources: 47
 ---
 
@@ -551,6 +551,7 @@ Console 联动原则：
 | GET | `/observability/v1/governance/overview` | 治理概览：规则类型、命中、拒绝、异常趋势 | metrics |
 | GET | `/observability/v1/governance/events` | 治理 event 列表，支持 `rule_id`、`decision_id`、`trace_id` 定位 | logs events |
 | GET | `/observability/v1/platform/overview` | control-plane 健康概览：API、Store、Cache、插件、队列、exporter | metrics |
+| GET | `/observability/v1/platform/traces` | control-plane 接口 trace 列表，支持接口、错误和延迟过滤 | traces |
 | GET | `/observability/v1/platform/events` | control-plane 内部事件列表 | logs events |
 | GET | `/observability/v1/audit/operations` | 操作审计列表，替代旧操作历史查询入口的 OTel 后端版本 | audit logs |
 | GET | `/observability/v1/correlate` | 以 `trace_id`、`decision_id`、`rule_id` 或时间窗做跨信号关联 | metrics + logs + traces |
@@ -743,6 +744,7 @@ SDK 和 sidecar 都可以上报业务侧数据，但职责不能重叠到互相�
 - control-plane：已有 OTLP metric exporter、基础 Resource attributes 和 `statis` 新 `pole.*` 指标名；logs/event exporter、trace instrumentation 和更完整的启动/插件/队列指标仍需继续补齐。
 - Console 模块：已新增 `/observability/v1/platform/overview` router/handler/provider 和 `bootstrap.console.observabilityQuery` 配置；平台概览已接入 GreptimeDB 查询 `pole_control_plane_request_*` 与 `process_runtime_go_*` 指标表，服务监控接口、事件/审计接口和权限过滤仍需继续实现，不能复用旧 `/metrics/v1` 扩大职责。
 - Console 系统监控页：请求/接口指标、CPU/MEM 资源指标、Go runtime 指标已经拆成独立看板。当前本地 GreptimeDB 有 Go runtime 表，因此 `pole-control-plane` Go 看板展示真实 goroutine、heap、GC 指标；本地尚无 kubeletstats 资源表，因此组件资源看板在真实模式下显示空态。
+- control-plane Trace：HTTP 与 gRPC 服务端入口使用全局 OTel TracerProvider 创建 server span；Console 反向代理使用 CLIENT span 传播 W3C TraceContext；HTTP handler、限流、鉴权、业务服务、缓存和存储使用 INTERNAL span 表达稳定边界。鉴权按动作在单次请求内去重，避免资源列表逐项校验刷出重复 Span；请求入口授权使用 `auth.console.authorize.<Method>`，列表响应为回填 `editable/deleteable` 进行的操作能力探测使用 `auth.console.capability.<Method>`，后者不代表执行了对应写操作。静态元数据接口不伪造不存在的业务、缓存或存储调用。Collector 通过 `greptime_trace_v1` 写入带 7 天 TTL 的 `pole_traces`；Console 已提供 `/platform/traces` 与 `/traces/:trace_id`，系统监控从聚合接口行按接口和时间窗下钻 Trace 列表及 Span 瀑布。详情接口同时返回兼容毫秒时间戳和用于瀑布定位的微秒时间戳；Console 按父子关系深度优先排列 Span，并提供连接线、折叠、全局时间概览、同行时间轴和选中 Span 检查器。聚合 metrics 不携带 `trace_id`，不能伪装成单次调用。
 - pole-client-rust：已有观测语义模型、Resource attributes、低基数 metric 过滤和 no-op recorder；还需要真实 OTel recorder/exporter、服务发现 endpoint 刷新、配置中心 remote config 拉取和热更新。
 - pole-sidecar：当前没有可用 OTel 上报模块；需要先在代理请求生命周期和治理执行链路定义统一打点位置。
 

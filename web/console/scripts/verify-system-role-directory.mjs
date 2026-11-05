@@ -18,7 +18,7 @@ assert.match(table, /default_role === true/);
 assert.match(table, /disabled: isBuiltInRole/);
 assert.match(table, /isBuiltInRole\(role\) \?/);
 
-assert.match(editor, /header=\{op === ['"]create['"] \? ['"]创建角色['"] : editable \? \(builtIn \? ['"]管理内置角色成员['"]/);
+assert.match(editor, /title=\{op === ['"]create['"] \? ['"]创建角色['"] : editable \? \(builtIn \? ['"]管理内置角色成员['"]/);
 assert.match(editor, /users:\s*users\.map/);
 assert.match(editor, /user_groups:\s*groups\.map/);
 assert.match(editor, /name:\s*form\.getFieldValue/);

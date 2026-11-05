@@ -28,6 +28,7 @@ import (
 
 	restful "github.com/emicklei/go-restful/v3"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -49,9 +50,9 @@ import (
 	"github.com/pole-io/pole-server/pkg/common/conn/keepalive"
 	connlimit "github.com/pole-io/pole-server/pkg/common/conn/limit"
 	commonlog "github.com/pole-io/pole-server/pkg/common/log"
+	commonotel "github.com/pole-io/pole-server/pkg/common/otel"
 	"github.com/pole-io/pole-server/pkg/common/secure"
 	"github.com/pole-io/pole-server/pkg/common/utils"
-	"github.com/pole-io/pole-server/pkg/config"
 	"github.com/pole-io/pole-server/pkg/goverrule"
 	"github.com/pole-io/pole-server/pkg/namespace"
 	"github.com/pole-io/pole-server/pkg/service"
@@ -104,7 +105,6 @@ type HTTPServer struct {
 	environmentPromotionServer *namespace.Server
 	namingServer               service.DiscoverServer
 	ruleServer                 goverrule.GoverRuleServer
-	configServer               config.ConfigCenterServer
 	healthCheckServer          *healthcheck.Server
 	rateLimit                  ratelimit.Ratelimit
 	statis                     statis.Statis
@@ -286,7 +286,7 @@ func (h *HTTPServer) Run(errCh chan error) {
 	h.statis = statis.GetStatis()
 
 	h.discoverSvr = discovery.NewServer(h.namingServer, h.ruleServer, h.healthCheckServer)
-	h.configSvr, err = confighttp.NewServer(h.maintainServer, h.namespaceServer)
+	h.configSvr, err = confighttp.NewServer()
 	if err != nil {
 		errCh <- err
 		return
@@ -337,7 +337,19 @@ func (h *HTTPServer) Run(errCh chan error) {
 		return
 	}
 
-	server := http.Server{Addr: address, Handler: wsContainer, WriteTimeout: 1 * time.Minute}
+	server := http.Server{
+		Addr: address,
+		Handler: otelhttp.NewHandler(wsContainer, "pole-control-plane-http",
+			otelhttp.WithSpanNameFormatter(func(_ string, request *http.Request) string {
+				path := strings.TrimSuffix(request.URL.Path, "/")
+				if path == "" {
+					path = "/"
+				}
+				return request.Method + ":" + path
+			}),
+		),
+		WriteTimeout: 1 * time.Minute,
+	}
 	var ln net.Listener
 	ln, err = net.Listen("tcp", address)
 	if err != nil {
@@ -474,7 +486,6 @@ func (h *HTTPServer) createRestfulContainer() (*restful.Container, error) {
 		case "console":
 			if apiConfig.Enable {
 				wsContainer.Add(h.discoverSvr.GetConsoleAccessServer(apiConfig.Include))
-				wsContainer.Add(h.configSvr.GetConsoleAccessServer(apiConfig.Include))
 				wsContainer.Add(h.GetCoreV1ConsoleAccessServer(apiConfig.Include))
 				wsContainer.Add(h.authSvr.GetAuthServer())
 				if h.skillSvr != nil {
@@ -486,12 +497,16 @@ func (h *HTTPServer) createRestfulContainer() (*restful.Container, error) {
 				ws := new(restful.WebService)
 				ws.Path("/v1").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
 				h.discoverSvr.GetClientAccessServer(ws, apiConfig.Include)
-				h.configSvr.GetClientAccessServer(ws, apiConfig.Include)
 				wsContainer.Add(ws)
 			}
 		default:
 			log.Warnf("api %s does not exist in httpserver", name)
 		}
+	}
+
+	if h.configSvr != nil {
+		consoleAPI := h.openAPI["console"]
+		wsContainer.Add(h.configSvr.GetUnifiedAccessServer(consoleAPI.Enable, consoleAPI.Include))
 	}
 
 	h.enablePprofAccess(wsContainer)
@@ -556,8 +571,17 @@ func (h *HTTPServer) enablePluginDebugAccess(wsContainer *restful.Container) {
 
 // process 在接收和回复时统一处理请求
 func (h *HTTPServer) process(req *restful.Request, rsp *restful.Response, chain *restful.FilterChain) {
+	path := strings.TrimSuffix(req.Request.URL.Path, "/")
+	if path == "" {
+		path = "/"
+	}
+	requestCtx := commonotel.WithRequestSpanState(req.Request.Context())
+	ctx, end := commonotel.StartSpan(requestCtx, "handler "+req.Request.Method+":"+path, "handler")
+	req.Request = req.Request.WithContext(ctx)
+	var processErr error
 	func() {
 		if err := h.preprocess(req, rsp); err != nil {
+			processErr = err
 			return
 		}
 
@@ -565,6 +589,7 @@ func (h *HTTPServer) process(req *restful.Request, rsp *restful.Response, chain 
 	}()
 
 	h.postProcess(req, rsp)
+	end(processErr)
 }
 
 // preprocess 请求预处理
@@ -664,6 +689,9 @@ func (h *HTTPServer) enterAuth(req *restful.Request, rsp *restful.Response) erro
 	if h.whitelist == nil {
 		return nil
 	}
+	_, end := commonotel.StartSpan(req.Request.Context(), "middleware.network_acl", "middleware")
+	var retErr error
+	defer func() { end(retErr) }()
 
 	rid := req.HeaderParameter(types.HeaderRequestId)
 
@@ -677,7 +705,8 @@ func (h *HTTPServer) enterAuth(req *restful.Request, rsp *restful.Response) erro
 			zap.String("client", address),
 			utils.ZapRequestID(rid))
 		httpcommon.HTTPResponse(req, rsp, api.NotAllowedAccess)
-		return errors.New("http access is not allowed")
+		retErr = errors.New("http access is not allowed")
+		return retErr
 	}
 	return nil
 }
@@ -688,6 +717,9 @@ func (h *HTTPServer) enterRateLimit(req *restful.Request, rsp *restful.Response)
 	if h.rateLimit == nil {
 		return nil
 	}
+	_, end := commonotel.StartSpan(req.Request.Context(), "middleware.rate_limit", "middleware")
+	var retErr error
+	defer func() { end(retErr) }()
 
 	rid := req.HeaderParameter(types.HeaderRequestId)
 	// IP级限流
@@ -701,7 +733,8 @@ func (h *HTTPServer) enterRateLimit(req *restful.Request, rsp *restful.Response)
 		log.Error("ip ratelimit is not allow", zap.String("client", address),
 			utils.ZapRequestID(rid))
 		httpcommon.HTTPResponse(req, rsp, api.IPRateLimit)
-		return errors.New("ip ratelimit is not allow")
+		retErr = errors.New("ip ratelimit is not allow")
+		return retErr
 	}
 
 	// 接口级限流
@@ -711,7 +744,8 @@ func (h *HTTPServer) enterRateLimit(req *restful.Request, rsp *restful.Response)
 		log.Error("api ratelimit is not allow", zap.String("client", address),
 			utils.ZapRequestID(rid), zap.String("api", apiName))
 		httpcommon.HTTPResponse(req, rsp, api.APIRateLimit)
-		return errors.New("api ratelimit is not allow")
+		retErr = errors.New("api ratelimit is not allow")
+		return retErr
 	}
 
 	return nil

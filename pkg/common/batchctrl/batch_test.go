@@ -300,3 +300,20 @@ func TestNewBatchControllerGracefulStopFlushesAcceptedPartialBatch(t *testing.T)
 	}
 	assert.Equal(t, total, int(atomic.LoadInt32(&totalTasks)))
 }
+
+func TestBatchControllerRejectsSubmitAfterParentContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	ctrl := NewBatchController(ctx, CtrlConfig{
+		Label:         "cancelled-parent",
+		QueueSize:     1,
+		MaxBatchCount: 1,
+		WaitTime:      time.Millisecond,
+		Concurrency:   1,
+		Handler:       func([]Future) {},
+	})
+
+	cancel()
+	assert.Eventually(t, ctrl.isStop, time.Second, time.Millisecond)
+	_, err := ctrl.Submit("late-task").Done()
+	assert.ErrorIs(t, err, ErrorBatchControllerStopped)
+}

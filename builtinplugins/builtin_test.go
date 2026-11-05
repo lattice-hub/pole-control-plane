@@ -33,7 +33,7 @@ func TestNewRegistryContainsOfficialPlugins(t *testing.T) {
 	registry, err := NewRegistry()
 	require.NoError(t, err)
 
-	assert.Len(t, registry.Descriptors(pluginapi.KindAPIServer), 6)
+	assert.Len(t, registry.Descriptors(pluginapi.KindAPIServer), 7)
 	assert.Len(t, registry.Descriptors(pluginapi.KindStore), 1)
 	assert.Len(t, registry.Descriptors(pluginapi.KindAuthUser), 1)
 	assert.Len(t, registry.Descriptors(pluginapi.KindAuthStrategy), 1)

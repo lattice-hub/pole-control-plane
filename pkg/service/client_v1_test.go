@@ -365,14 +365,12 @@ func (m *testServiceDiscoveryCacheManager) TrafficMock() cacheapi.TrafficGoverna
 func (m *testServiceDiscoveryCacheManager) ServiceContract() cacheapi.ServiceContractCache {
 	return m.contract
 }
-func (m *testServiceDiscoveryCacheManager) LaneRule() cacheapi.LaneCache           { return nil }
-func (m *testServiceDiscoveryCacheManager) User() cacheapi.UserCache               { return nil }
-func (m *testServiceDiscoveryCacheManager) AuthStrategy() cacheapi.StrategyCache   { return nil }
-func (m *testServiceDiscoveryCacheManager) Namespace() cacheapi.NamespaceCache     { return nil }
-func (m *testServiceDiscoveryCacheManager) Client() cacheapi.ClientCache           { return nil }
-func (m *testServiceDiscoveryCacheManager) ConfigFile() cacheapi.ConfigFileCache   { return nil }
-func (m *testServiceDiscoveryCacheManager) ConfigGroup() cacheapi.ConfigGroupCache { return nil }
-func (m *testServiceDiscoveryCacheManager) Gray() cacheapi.GrayCache               { return nil }
-func (m *testServiceDiscoveryCacheManager) Role() cacheapi.RoleCache               { return nil }
-func (m *testServiceDiscoveryCacheManager) MCPServer() cacheapi.MCPServerCache     { return nil }
-func (m *testServiceDiscoveryCacheManager) A2AAgent() cacheapi.A2AAgentCache       { return nil }
+func (m *testServiceDiscoveryCacheManager) LaneRule() cacheapi.LaneCache         { return nil }
+func (m *testServiceDiscoveryCacheManager) User() cacheapi.UserCache             { return nil }
+func (m *testServiceDiscoveryCacheManager) AuthStrategy() cacheapi.StrategyCache { return nil }
+func (m *testServiceDiscoveryCacheManager) Namespace() cacheapi.NamespaceCache   { return nil }
+func (m *testServiceDiscoveryCacheManager) Client() cacheapi.ClientCache         { return nil }
+func (m *testServiceDiscoveryCacheManager) Gray() cacheapi.GrayCache             { return nil }
+func (m *testServiceDiscoveryCacheManager) Role() cacheapi.RoleCache             { return nil }
+func (m *testServiceDiscoveryCacheManager) MCPServer() cacheapi.MCPServerCache   { return nil }
+func (m *testServiceDiscoveryCacheManager) A2AAgent() cacheapi.A2AAgentCache     { return nil }

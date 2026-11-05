@@ -21,6 +21,7 @@ import (
 	"github.com/pole-io/pole-server/pkg/common/log"
 	"github.com/pole-io/pole-server/pkg/common/otel/metrics"
 	"github.com/pole-io/pole-server/pkg/common/utils"
+	"github.com/pole-io/pole-server/pkg/compatibility"
 	"github.com/pole-io/pole-server/pkg/console"
 	"github.com/pole-io/pole-server/pkg/limiter"
 	"github.com/pole-io/pole-server/pkg/selfmanager"
@@ -34,6 +35,23 @@ type Options struct {
 	ConfigPath     string
 	ModeOverride   string
 	PluginRegistry *pluginapi.Registry
+}
+
+func compatibilityTargetsFromAPIEntries(entries []apiserver.Config) (string, string) {
+	nacosTarget, eurekaTarget := "dev", "dev"
+	for _, entry := range entries {
+		switch entry.Name {
+		case "service-nacos":
+			if value, ok := entry.Option["defaultNamespace"].(string); ok && strings.TrimSpace(value) != "" {
+				nacosTarget = strings.TrimSpace(value)
+			}
+		case "service-eureka":
+			if value, ok := entry.Option["namespace"].(string); ok && strings.TrimSpace(value) != "" {
+				eurekaTarget = strings.TrimSpace(value)
+			}
+		}
+	}
+	return nacosTarget, eurekaTarget
 }
 
 // Run 加载配置、解析 Profile，并把选中的运行模块交给 Supervisor。
@@ -96,7 +114,10 @@ func Run(ctx context.Context, options Options) (runErr error) {
 	if err := log.ConfigureFile(cfg.Bootstrap.Logger); err != nil {
 		return fmt.Errorf("configure logger: %w", err)
 	}
-	serverSettings, err := bootconfig.NewSystemSettingsProvider(cfg)
+	nacosTarget, eurekaTarget := compatibilityTargetsFromAPIEntries(controlPlaneEntries)
+	compatibilityResolver := compatibility.NewNamespaceResolver(nacosTarget, eurekaTarget)
+	ctx = compatibility.WithResolver(ctx, compatibilityResolver)
+	serverSettings, err := bootconfig.NewSystemSettingsProvider(cfg, compatibilityResolver)
 	if err != nil {
 		return fmt.Errorf("initialize system settings registry: %w", err)
 	}
@@ -226,6 +247,15 @@ func startControlPlane(parent context.Context, cfg *bootconfig.Config, apiEntrie
 	if err := StartComponents(ctx, cfg); err != nil {
 		rollback()
 		return nil, fmt.Errorf("start components: %w", err)
+	}
+	if resolver, ok := compatibility.ResolverFromContext(ctx); ok {
+		if runtimeStore, supported := store.(storeapi.SystemConfigRuntimeStore); supported {
+			runtime := compatibility.NewRuntime(resolver, runtimeStore, store)
+			if reconcileErr := runtime.Reconcile(); reconcileErr != nil {
+				log.Warnf("compatibility system configuration uses last-known-good: %v", reconcileErr)
+			}
+			go runtime.Run(ctx, time.Second)
+		}
 	}
 	errCh := make(chan error, len(apiEntries)+1)
 	servers, err = StartServers(ctx, apiEntries, errCh)

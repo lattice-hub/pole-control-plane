@@ -352,11 +352,23 @@
   margin: 0;
 }
 
-.namespaceForm {
-  height: 100%;
+.namespaceEditorBody:global(.fui-DrawerBody) {
+  padding: 20px 28px 24px;
+}
 
-  :global(.fluent-form-item) {
-    margin-bottom: 0;
+.namespaceDrawerActions {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.namespaceForm {
+  height: auto;
+
+  :global(.fui-Input),
+  :global(.fui-Combobox) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   :global(.fluent-form-item__label) {
@@ -388,7 +400,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-bottom: 14px;
+  margin: 0 0 14px;
   color: var(--app-text);
   font-size: 14px;
   font-weight: 600;
@@ -399,7 +411,7 @@
     width: 3px;
     height: 14px;
     border-radius: 999px;
-    background: #0052d9;
+    background: var(--app-primary);
     content: "";
   }
 
@@ -428,23 +440,19 @@
   align-items: center;
   justify-content: space-between;
   margin-top: 6px;
-  margin-left: 104px;
   color: var(--app-text-secondary);
   font-size: 12px;
   line-height: 18px;
 }
 
-.nameCountError,
-.inlineError {
-  color: #d54941;
+.nameCountError {
+  color: var(--app-danger);
 }
 
-.inlineError {
-  min-height: 18px;
-  margin-top: 2px;
-  margin-left: 104px;
-  font-size: 12px;
-  line-height: 18px;
+@media (max-width: 640px) {
+  .namespaceEditorBody:global(.fui-DrawerBody) {
+    padding: 18px;
+  }
 }
 
 .namespaceFormFooter {

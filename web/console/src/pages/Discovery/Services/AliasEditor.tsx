@@ -1,6 +1,7 @@
 import React from 'react';
-import { Drawer, Form, Input, Select, Space, Button, TableRowData } from 'components/Fluent';
+import { Form, Input, Select, TableRowData } from 'components/Fluent';
 import type { FormProps } from 'components/Fluent';
+import EditorDrawer, { EditorDrawerActions } from 'components/EditorDrawer';
 import { useAppDispatch, useAppSelector } from 'modules/store';
 import { NamespaceView } from 'services/namespace';
 import { ServiceView } from 'services/service';
@@ -149,30 +150,19 @@ const ServiceAliasEditor: React.FC<IServiceEditorProps> = ({ visible, op, closeD
                 )}
             </FormItem>
             <FormItem label="别名所在命名空间" name="alias_namespace" rules={[{ required: true, message: '命名空间不能为空' }]}>
-                <Select
+                {op === 'edit' ? <Input readonly /> : <Select
                     filterable={true}
-                    disabled={op === 'edit'}
                     options={namespaceDatas.map((item: NamespaceView) => ({
                         label: item.name,
                         value: item.name,
                     }))}
-                />
+                />}
             </FormItem>
             <FormItem label="别名" name="alias" rules={[{ required: true, message: '别名不能为空' }]}>
-                <Input id="inAlias" placeholder="请输入" />
+                <Input id="inAlias" placeholder="请输入" readonly={op === 'edit'} />
             </FormItem>
             <FormItem label="备注" name="comment">
                 <Input id="inRemark" placeholder="请输入" />
-            </FormItem>
-            <FormItem className={style.aliasDrawerFooter}>
-                <Space>
-                    <Button type="submit" theme="primary">
-                        提交
-                    </Button>
-                    <Button theme="default" onClick={resetForm}>
-                        重置
-                    </Button>
-                </Space>
             </FormItem>
         </Form>
     );
@@ -180,20 +170,24 @@ const ServiceAliasEditor: React.FC<IServiceEditorProps> = ({ visible, op, closeD
     return (
         <>
             <div>
-                <Drawer
-                    size='min(560px, 92vw)'
-                    header={op === 'edit' ? "编辑服务别名" : "创建服务别名"}
-                    footer={false}
+                <EditorDrawer
+                    width="compact"
+                    title={op === 'edit' ? "编辑服务别名" : "创建服务别名"}
+                    description="为目标服务提供另一个可发现的名称。"
+                    footer={(
+                        <EditorDrawerActions
+                            onCancel={closeDrawer}
+                            onSubmit={() => form.submit({ showErrorMessage: true })}
+                            submitText={op === 'edit' ? '保存修改' : '创建别名'}
+                        />
+                    )}
                     visible={visible}
-                    showOverlay
-                    closeOnOverlayClick
-                    closeOnEscKeydown
-                    destroyOnClose
                     className={style.aliasDrawer}
+                    bodyClassName={style.serviceOperationBody}
                     onClose={closeDrawer}
                 >
                     {aliasForm}
-                </Drawer>
+                </EditorDrawer>
             </div>
         </>
     )
